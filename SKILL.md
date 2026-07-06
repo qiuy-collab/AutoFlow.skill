@@ -9,15 +9,44 @@ Use this skill when the user wants a lab report generated from a requirement doc
 
 The executable workflow expects a `.docx` template. For DOCX editing and filling, prefer `vendor/minimax-docx` first. Use `python-docx` only for lightweight inspection, manifest extraction, or a documented fallback. If the user only has `.doc`, convert it before running `init_run.py`.
 
-## Environment setup (agent-automated)
+## Environment setup (agent-automated check + supply)
 
-The agent MUST install all dependencies automatically before running any script. Do not ask the user to install anything manually.
+The agent MUST install all dependencies automatically. Use the unified setup script — never run individual `pip install` commands manually.
+
+### One-command setup
+
+```bash
+python scripts/env_setup.py                  # check + auto-install everything
+python scripts/env_setup.py --check-only     # only check, no install
+python scripts/env_setup.py --route ai_simulated   # deps for specific route
+python scripts/env_setup.py --route diagram_assets
+python scripts/env_setup.py --route browser_capture
+python scripts/env_setup.py --route video
+```
+
+**What it checks and auto-installs**:
+
+```
+Phase 0 ── python (must exist; cannot auto-install)
+Phase 1 ── pip packages
+  ├── requests, python-docx, Pillow        (required — auto-install)
+  ├── playwright + chromium browser         (browser_capture — auto-install)
+  └── av, opencv-python, numpy, mss        (video — auto-install)
+Phase 2 ── DSL renderers
+  ├── mmdc (Mermaid CLI)                    (diagram_assets — auto-install via npm)
+  ├── d2                                    (diagram_assets — hint only)
+  └── plantuml                              (diagram_assets — hint only)
+Phase 3 ── vendor skills (check-only; missing → fail)
+Phase 4 ── .env (missing → copy .env.example; empty → prompt user)
+Phase 5 ── upstream API probe (optional, check BASEURL/APIKEY)
+```
+
+**If auto-install fails**: report the specific failure + exact manual fix command. Only ask for human intervention when auto-install cannot resolve it.
 
 ### Vendor skills (shipped with repo)
 
-The `vendor/` directory contains skills shipped with this repo. No installation needed — they are included when the user clones/forks the repo.
+The `vendor/` directory contains skills shipped with this repo. No installation needed.
 
-Check at startup:
 - `vendor/minimax-docx/SKILL.md` — for DOCX structural editing
 - `vendor/baseline-ui/SKILL.md` — for frontend baseline constraints
 - `vendor/frontend-design/SKILL.md` — for frontend implementation quality
@@ -25,37 +54,12 @@ Check at startup:
 
 If any vendor skill is missing, report the error and stop — do not silently skip.
 
-### Required dependencies (install silently)
-
-```bash
-pip install requests python-docx Pillow
-```
-
-### Optional dependencies (install when route requires)
-
-| Route | Install command |
-|-------|----------------|
-| `browser_capture` | `pip install playwright && playwright install chromium` |
-| `video_analysis` / `screen_recording` | `pip install av opencv-python numpy mss` |
-| `ai_simulated` | No extra pip install, but requires `.env` with `BASEURL` and `APIKEY` |
-
-### Auto-setup procedure
-
-1. Check if `python` is available. If not, report to user and stop.
-2. Check vendor skills exist in `vendor/` directory. If any missing, report error and stop.
-3. Run `pip install requests python-docx Pillow` silently.
-4. If `ai_simulated` route is planned, check `.env` exists and has `BASEURL`+`APIKEY`. If missing, copy `.env.example` to `.env` and ask the user to fill in the API key.
-5. If `browser_capture` route is planned, run `pip install playwright && playwright install chromium`.
-6. If video route is planned, run `pip install av opencv-python numpy mss`.
-7. After installs, run `powershell -ExecutionPolicy Bypass -File scripts/env_check.ps1` to verify.
-8. If env_check still reports FAIL after auto-install, report the specific failure to the user with the exact fix command. Only ask the user for manual intervention when auto-install cannot resolve it.
-
 **Rule**: Environment issues are the agent's responsibility to fix. Only ask the user for semantic decisions (route choice, content review, delivery sign-off), not for `pip install`.
 
 ## Quick start
 
 ```
-1. Auto-install dependencies (see "Environment setup" above)
+1. python scripts/env_setup.py --route all
 2. python scripts/init_run.py --requirements <req> --template <tpl.docx> --output-dir <dir> --output-docx-name <result.docx>
 3. Fill requirement_analysis.json → update requirement_checklist.json
 4. 🔴 STOP — show analysis to user for confirmation
@@ -248,7 +252,7 @@ Rule: never mention the tool, agent, AI, or generation process. Write as if you 
 
 ```mermaid
 flowchart TD
-    A["Receive requirements + template"] --> B["Auto-install deps + env_check"]
+    A["Receive requirements + template"] --> B["env_setup.py (check + supply)"]
     B --> C["init_run.py"]
     C --> D["Fill requirement_analysis.json"]
     D --> E{"🔴 STOP — user confirms analysis"}
@@ -487,7 +491,7 @@ When implementing frontend code as a pre-task:
 
 ## Execution steps
 
-1. **Auto-install dependencies** (see "Environment setup" above). Run `env_check.ps1` to verify.
+1. **Auto-install dependencies**: `python scripts/env_setup.py --route all`. This checks and auto-installs everything: pip packages, DSL renderers, playwright browsers. If anything fails, it reports the exact fix command. Do NOT run individual pip install commands — use this unified script.
 2. **Initialize run directory**:
    ```
    python scripts/init_run.py --requirements <req> --template <tpl.docx> --output-dir <dir> --output-docx-name <result.docx>
