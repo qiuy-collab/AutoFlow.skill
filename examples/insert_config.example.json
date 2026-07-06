@@ -1,25 +1,25 @@
 {
   "target_docx": ".\\output\\实验报告.docx",
   "images": {
-    "img_01": ".\\output\\generated_images\\img_01.png",
-    "img_02": ".\\output\\generated_images\\img_02.png",
-    "img_03": ".\\output\\generated_images\\img_03.png",
-    "img_04": ".\\output\\generated_images\\img_04.png"
+    "img_001": ".\\output\\generated_images\\img_001.png",
+    "img_002": ".\\output\\generated_images\\img_002.png",
+    "img_003": ".\\output\\generated_images\\img_003.png",
+    "img_004": ".\\output\\generated_images\\img_004.png"
   },
   "placements": {
-    "img_01": {
+    "img_001": {
       "heading": "3.2 脆弱性扫描过程",
       "caption": "图3-1 端口扫描命令与输出"
     },
-    "img_02": {
+    "img_002": {
       "heading": "3.2 脆弱性扫描过程",
       "caption": "图3-2 漏洞识别脚本扫描结果"
     },
-    "img_03": {
+    "img_003": {
       "heading": "4.2 加固技术详解",
       "caption": "图4-1 密钥生成与文件加密过程"
     },
-    "img_04": {
+    "img_004": {
       "heading": "4.3 加固前后的对比截图或数据",
       "caption": "图4-2 加固后的系统状态截图"
     }

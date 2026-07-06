@@ -30,6 +30,11 @@ from typing import Optional, List, Dict
 
 import requests
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def skill_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -57,22 +62,65 @@ def load_env_file() -> dict:
 # ── Layer 0: Structure validation (local, no API) ──────────────────────────
 
 REQUIRED_TOP_KEYS = [
-    "total_count", "resolution", "output_dir", "upstream_count", "upstream_index",
+    "task_name", "total_count", "resolution", "output_dir",
     "max_workers", "max_retries", "retry_delay", "timeout",
-    "concurrency_source", "concurrency_report", "upstream_mode",
+    "global_constraints", "scene_anchor",
     "image_policy", "global_prompt", "images"
 ]
 
-REQUIRED_IMAGE_KEYS = ["name", "mode", "prompt"]
+REQUIRED_IMAGE_KEYS = ["name", "asset_type", "mode", "resolution", "consistency_group", "prompt"]
 
 REQUIRED_IMAGE_POLICY_KEYS = [
-    "default_mode", "auto_append_negative", "fail_on_prompt_risk",
+    "schema_version", "default_asset_type", "default_mode",
+    "fail_on_prompt_risk", "allow_negative_forbidden_terms",
     "probe_retries", "probe_timeout", "batch_timeout", "skip_existing_files",
-    "forbidden_terms", "ui_density", "crop_browser_chrome", "forbid_localhost_or_dev_url",
-    "quality_constraints"
+    "screenshot_forbidden_terms", "diagram_forbidden_terms",
+    "ui_density", "crop_browser_chrome",
+    "quality_constraints",
+    "required_image_fields", "required_global_fields"
 ]
 
 REQUIRED_QUALITY_KEYS = ["consistency", "pixel_sharpness", "no_blur_or_mosaic", "time_consistency"]
+ALLOWED_ASSET_TYPES = {"screenshot", "diagram", "ui_mockup", "photo", "illustration"}
+ASSET_MODE_MAP = {
+    "screenshot": {"screenshot_strict"},
+    "diagram": {"diagram_strict", "generic"},
+    "ui_mockup": {"generic"},
+    "photo": {"generic"},
+    "illustration": {"generic"},
+}
+SCREENSHOT_RESOLUTIONS = {"2560x1440", "2048x1152", "1920x1080"}
+DIAGRAM_RESOLUTIONS = {"1600x1000", "1920x1080", "2048x1152"}
+SQUARE_RESOLUTIONS = {"1024x1024"}
+
+
+def parse_resolution(value: str) -> tuple[int, int] | None:
+    parts = str(value).lower().split("x", 1)
+    if len(parts) != 2:
+        return None
+    try:
+        width = int(parts[0].strip())
+        height = int(parts[1].strip())
+    except ValueError:
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def is_16_9_pair(width: int, height: int) -> bool:
+    return abs((width / height) - (16 / 9)) < 0.03
+
+
+def normalize_layer_check(check: dict) -> dict:
+    normalized = dict(check)
+    if "result" not in normalized and "status" in normalized:
+        normalized["result"] = normalized.get("status")
+    if "issue" not in normalized and "message" in normalized:
+        normalized["issue"] = normalized.get("message")
+    if "affected_field" not in normalized and "target" in normalized:
+        normalized["affected_field"] = normalized.get("target")
+    return normalized
 
 
 def validate_structure(config: dict, config_dir: Path) -> dict:
@@ -199,15 +247,88 @@ def validate_structure(config: dict, config_dir: Path) -> dict:
                     })
 
             # mode values
-            if "mode" in img and img["mode"] not in ("screenshot_strict", "generic"):
+            if "mode" in img and img["mode"] not in ("screenshot_strict", "diagram_strict", "generic"):
                 checks.append({
                     "rule": f"Layer 0 — invalid mode: {prefix}",
                     "result": "fail",
-                    "issue": f"mode must be 'screenshot_strict' or 'generic', got '{img['mode']}'",
-                    "fix_suggestion": "Set mode to 'screenshot_strict' (for UI/terminal) or 'generic' (for other)",
+                    "issue": f"mode must be 'screenshot_strict', 'diagram_strict', or 'generic', got '{img['mode']}'",
+                    "fix_suggestion": "Set mode to 'screenshot_strict' (screenshots), 'diagram_strict' (diagrams), or 'generic' (other)",
                     "affected_field": f"{prefix}.mode"
                 })
                 all_pass = False
+
+            if "asset_type" in img and img["asset_type"] not in ALLOWED_ASSET_TYPES:
+                checks.append({
+                    "rule": f"Layer 0 �� invalid asset_type: {prefix}",
+                    "result": "fail",
+                    "issue": f"asset_type must be one of {sorted(ALLOWED_ASSET_TYPES)}, got '{img['asset_type']}'",
+                    "fix_suggestion": "Set asset_type to screenshot, diagram, ui_mockup, photo, or illustration",
+                    "affected_field": f"{prefix}.asset_type"
+                })
+                all_pass = False
+
+            if "asset_type" in img and "mode" in img and img["asset_type"] in ASSET_MODE_MAP:
+                allowed_modes = ASSET_MODE_MAP[img["asset_type"]]
+                if img["mode"] not in allowed_modes:
+                    checks.append({
+                        "rule": f"Layer 0 �� asset_type/mode mismatch: {prefix}",
+                        "result": "fail",
+                        "issue": f"asset_type '{img['asset_type']}' is not compatible with mode '{img['mode']}'",
+                        "fix_suggestion": f"Use one of {sorted(allowed_modes)} for asset_type '{img['asset_type']}'",
+                        "affected_field": f"{prefix}.mode"
+                    })
+                    all_pass = False
+
+            if "resolution" in img:
+                parsed = parse_resolution(img["resolution"])
+                if not parsed:
+                    checks.append({
+                        "rule": f"Layer 0 �� invalid image resolution format: {prefix}",
+                        "result": "fail",
+                        "issue": f"resolution must use WIDTHxHEIGHT format, got '{img['resolution']}'",
+                        "fix_suggestion": "Use a value such as 2560x1440, 2048x1152, 1600x1000, or 1024x1024",
+                        "affected_field": f"{prefix}.resolution"
+                    })
+                    all_pass = False
+                else:
+                    width, height = parsed
+                    asset_type = img.get("asset_type")
+                    resolution = img["resolution"]
+                    if asset_type == "screenshot":
+                        if not is_16_9_pair(width, height):
+                            checks.append({
+                                "rule": f"Layer 0 �� screenshot ratio mismatch: {prefix}",
+                                "result": "fail",
+                                "issue": f"screenshot asset_type must use an approximately 16:9 resolution, got '{resolution}'",
+                                "fix_suggestion": "Use 2560x1440, 2048x1152, or 1920x1080 for screenshots",
+                                "affected_field": f"{prefix}.resolution"
+                            })
+                            all_pass = False
+                        elif resolution not in SCREENSHOT_RESOLUTIONS:
+                            checks.append({
+                                "rule": f"Layer 0 �� screenshot resolution warning: {prefix}",
+                                "result": "warn",
+                                "issue": f"Screenshot resolution '{resolution}' is valid 16:9 but not in the recommended set",
+                                "fix_suggestion": "Prefer 2560x1440, 2048x1152, or 1920x1080 for screenshots",
+                                "affected_field": f"{prefix}.resolution"
+                            })
+                    elif asset_type == "diagram":
+                        if resolution not in DIAGRAM_RESOLUTIONS:
+                            checks.append({
+                                "rule": f"Layer 0 �� diagram resolution warning: {prefix}",
+                                "result": "warn",
+                                "issue": f"Diagram resolution '{resolution}' is outside the recommended set for diagram assets",
+                                "fix_suggestion": "Prefer 1600x1000, 1920x1080, or 2048x1152 for diagrams",
+                                "affected_field": f"{prefix}.resolution"
+                            })
+                    elif asset_type in {"ui_mockup", "photo", "illustration"} and resolution not in SCREENSHOT_RESOLUTIONS | DIAGRAM_RESOLUTIONS | SQUARE_RESOLUTIONS:
+                        checks.append({
+                            "rule": f"Layer 0 �� uncommon resolution warning: {prefix}",
+                            "result": "warn",
+                            "issue": f"Resolution '{resolution}' is uncommon for asset_type '{asset_type}'",
+                            "fix_suggestion": "Use a standard widescreen or square resolution unless the task explicitly needs another ratio",
+                            "affected_field": f"{prefix}.resolution"
+                        })
 
             # name format
             if "name" in img:
@@ -216,8 +337,8 @@ def validate_structure(config: dict, config_dir: Path) -> dict:
                     checks.append({
                         "rule": f"Layer 0 — invalid name format: {prefix}",
                         "result": "fail",
-                        "issue": f"name must follow 'img_NN' format (e.g. img_01), got '{img['name']}'",
-                        "fix_suggestion": "Rename to img_01, img_02, ... with continuous numbers",
+                        "issue": f"name must follow 'img_NNN' format (e.g. img_001), got '{img['name']}'",
+                        "fix_suggestion": "Rename to img_001, img_002, ... with continuous numbers",
                         "affected_field": f"{prefix}.name"
                     })
                     all_pass = False
@@ -242,40 +363,47 @@ def validate_structure(config: dict, config_dir: Path) -> dict:
 def _find_unmarked_structural_checks(config: dict) -> List[Dict]:
     """Generate pass entries for structural items not yet covered by explicit checks."""
     results = []
-    # naming continuity check
     if "images" in config and isinstance(config["images"], list):
         names = [img.get("name", "") for img in config["images"]]
-        expected = [f"img_{i+1:02d}" for i in range(len(names))]
+        expected = [f"img_{i+1:03d}" for i in range(len(names))]
         if names != expected:
             results.append({
-                "rule": "Layer 0 — naming continuity",
+                "rule": "Layer 0 - naming continuity",
                 "result": "fail",
                 "issue": f"Image names are not continuous: got {names}, expected {expected}",
-                "fix_suggestion": "Rename images to img_01, img_02, ... in order",
+                "fix_suggestion": "Rename images to img_001, img_002, ... in order",
                 "affected_field": "images[].name"
             })
         else:
             results.append({
-                "rule": "Layer 0 — naming continuity",
+                "rule": "Layer 0 - naming continuity",
                 "result": "pass",
                 "issue": "",
                 "fix_suggestion": "",
                 "affected_field": ""
             })
 
-    # resolution check
     res = config.get("resolution", "")
-    if res not in ("2560x1440", "2048x1152", "1024x1024"):
+    parsed_top = parse_resolution(res)
+    if not parsed_top:
         results.append({
-            "rule": "Layer 0 — resolution validity",
+            "rule": "Layer 0 - resolution validity",
+            "result": "fail",
+            "issue": f"Invalid resolution format: '{res}'. Expected WIDTHxHEIGHT",
+            "fix_suggestion": "Set resolution to '2048x1152', '2560x1440', '1600x1000', or '1024x1024'",
+            "affected_field": "resolution"
+        })
+    elif res not in SCREENSHOT_RESOLUTIONS | DIAGRAM_RESOLUTIONS | SQUARE_RESOLUTIONS:
+        results.append({
+            "rule": "Layer 0 - resolution validity",
             "result": "warn",
-            "issue": f"Unusual resolution: '{res}'. Expected 2048x1152 or 2560x1440 for screenshots.",
-            "fix_suggestion": "Set resolution to '2048x1152' (standard 16:9 wide screen)",
+            "issue": f"Unusual resolution: '{res}'. Expected a recommended screenshot, diagram, or square preset.",
+            "fix_suggestion": "Prefer 2048x1152 or 2560x1440 for screenshots, 1600x1000 for diagrams, or 1024x1024 for square assets",
             "affected_field": "resolution"
         })
     else:
         results.append({
-            "rule": "Layer 0 — resolution validity",
+            "rule": "Layer 0 - resolution validity",
             "result": "pass",
             "issue": "",
             "fix_suggestion": "",
@@ -285,134 +413,108 @@ def _find_unmarked_structural_checks(config: dict) -> List[Dict]:
     return results
 
 
-# ── Layer 1+2: Requirement & Consistency (needs API) ────────────────────────
-
 def build_validation_prompt(config_json: str, requirements_text: str = "") -> str:
-    """Build a comprehensive validation prompt for the Agnes AI validator."""
-    req_section = ""
+    """Build a validation prompt for the Agnes AI validator."""
+    req_section = """
+## Requirement / WORK_PLAN excerpt
+
+No WORK_PLAN was provided. Skip requirement-only checks when evidence is insufficient.
+"""
     if requirements_text:
         req_section = f"""
-## 需求文档 / WORK_PLAN
+## Requirement / WORK_PLAN excerpt
 
-以下是本次任务的需求文档内容，用于需求符合性检查：
+Use the following requirement context when judging route choice, image intent, and scoring alignment.
 
 ```
 {requirements_text[:4000]}
 ```
 """
 
-    return f"""你是一个 JSON 提示词校验专家。请对以下 prompt_config.json 执行双重审核。
+    return f"""You are validating an auto-lab prompt_config.json before image generation.
 
-## 第一重审核：需求符合性 (Layer 1)
-{req_section if req_section else "（未提供需求文档，跳过此层）"}
+{req_section}
 
-### 规则 R1: 图片与评分项映射
-- 如果提供了需求文档/WORK_PLAN，逐张检查 images[] 中的每张图片是否对应了评分标准中的至少一个得分点
-- 检查是否有评分项遗漏了对应图片（某个得分点没有任何图片覆盖）
-- 检查每张图片的 prompt 描述是否与需求中的功能描述一致
+Evaluate the config in two layers.
 
-### 规则 R2: 生成方式合理性
-- 如果某张图片有 reference_image 字段（img2img 模式），检查其 prompt 是否描述了"期望的修改"（如增强亮度、统一风格）而非从零描述整个场景
-- 如果某张图片没有 reference_image（txt2img 模式），检查 prompt 是否完整描述了目标场景
-- 混合使用 txt2img 和 img2img 时，检查图片间的视觉一致性是否可维持
+Layer 1: requirement alignment
+- R1: each image should map to a plausible scoring or evidence need from the requirement or WORK_PLAN.
+- R2: txt2img vs img2img usage should be appropriate. If reference_image is present, the prompt should describe the desired change rather than restating the whole scene.
 
-## 第二重审核：内部一致性 (Layer 2)
+Layer 2: internal consistency
+- C1: global_constraints must be structurally compatible with each image prompt.
+- C2: forbidden-term strategy must match each image asset_type.
+- C3: asset_type and mode must be compatible.
+- C4: prompts inside the same consistency_group must keep one coherent environment anchored by scene_anchor.
+- C5: resolution, aspect ratio, and asset_type must be compatible.
+- C6: image_policy schema v2.0 fields must be complete and internally consistent.
 
-### 规则 C1: global_prompt 与 images[].prompt 语义一致性
-- global_prompt 定义了统一的视觉环境（桌面环境、终端主题、窗口风格等）
-- 每个 image.prompt 的描述必须与 global_prompt 完全兼容，不能自相矛盾
-- 例如：global_prompt 说"深色终端主题"，某个 image 不能说"白色背景"
-
-### 规则 C2: 禁止词检查
-- 检查 global_prompt 和每个 image.prompt 是否包含以下禁止词：
-  流程图、架构图、讲解板、说明面板、悬浮标注、箭头标注、海报、AI生成、示意图、
-  poster、callout、annotation、flowchart、diagram
-- 注意：如果在"不要"、"不能有"、"无"、"without"、"avoid"的否定上下文中出现，视为通过
-
-### 规则 C3: mode 字段正确性
-- 截图类 prompt 的 mode 必须是 "screenshot_strict"
-- 非截图类 prompt 的 mode 可以是 "generic"
-
-### 规则 C4: 图片间视觉一致性
-- 如果多张图片声称在"同一环境"中，检查它们的 prompt 是否真的描述了相同环境
-- 特别关注：使用 img2img 增强的图片是否保持了与原 txt2img 图片一致的环境风格
-
-### 规则 C5: 分辨率合理性
-- "2560x1440" 或 "2048x1152" 适合截图（16:9 宽屏）
-- "1024x1024" 适合非截图类
-
-### 规则 C6: image_policy 配置完整性
-- forbidden_terms 列表是否完整
-- default_mode 是否为 "screenshot_strict"（当所有图片都是截图时）
-- fail_on_prompt_risk 是否为 true
-
-### 规则 C7: total_count 与 images 数组长度匹配
-- total_count 必须等于 images 数组的长度
-
-### 规则 C8: 图片命名规范
-- image.name 必须以 "img_" 开头，编号连续（img_01, img_02...）
-
-## 输出格式要求
-
-你必须严格输出以下 JSON 格式（不要输出 Markdown 代码块，只输出纯 JSON）：
-
+Return ONLY valid JSON using this schema:
 {{
+  "stage": "pre_generation_static_check",
   "overall_result": "pass|fail|warn",
-  "summary": "一句话总结校验结果",
+  "risk_level": "low|medium|high",
+  "summary": "one-sentence summary",
   "layers": [
     {{
       "name": "requirement",
-      "enabled": true/false,
+      "enabled": true,
       "checks": [
         {{
-          "rule": "R1: 评分项映射 / R2: 生成方式合理性",
-          "result": "pass|fail|warn|skipped",
-          "issue": "具体问题描述",
-          "fix_suggestion": "修改建议",
-          "affected_field": "字段路径"
+          "rule": "R1|R2",
+          "status": "pass|fail|warn|skipped",
+          "severity": "none|low|medium|high",
+          "target": "json.path",
+          "message": "what is wrong or why it passed",
+          "fix_suggestion": "specific fix"
         }}
       ]
     }},
     {{
       "name": "consistency",
+      "enabled": true,
       "checks": [
         {{
-          "rule": "C1-C8 中的具体规则名",
-          "result": "pass|fail|warn",
-          "issue": "具体问题描述",
-          "fix_suggestion": "修改建议",
-          "affected_field": "字段路径"
+          "rule": "C1|C2|C3|C4|C5|C6",
+          "status": "pass|fail|warn|risk",
+          "severity": "none|low|medium|high",
+          "target": "json.path",
+          "message": "what is wrong or why it passed",
+          "fix_suggestion": "specific fix"
         }}
       ]
     }}
   ],
+  "failed_rules": ["C2"],
+  "risk_rules": ["C5"],
+  "can_generate_images": true,
   "required_changes": [
     {{
-      "path": "JSON 字段路径",
-      "current": "当前值（截取前100字符）",
-      "suggested": "建议修改为",
-      "reason": "修改原因"
+      "path": "json.path",
+      "current": "current value summary",
+      "suggested": "suggested value",
+      "reason": "why it should change"
     }}
   ]
 }}
 
-## 待校验的 prompt_config.json
+Validate this prompt_config.json:
 
 ```json
 {config_json}
 ```
+"""
 
-请严格按照上述规则和输出格式进行校验。只输出纯 JSON，不要输出任何解释文字。"""
 
+VALIDATOR_SYSTEM_PROMPT = """You are a strict JSON prompt-config validator.
 
-VALIDATOR_SYSTEM_PROMPT = """你是一个专业的 JSON 配置校验引擎。你的唯一职责是对输入的 JSON 配置执行规则校验，并输出结构化的校验结果。
-
-严格要求：
-1. 只输出纯 JSON，不要包含 Markdown 代码块标记（不要 ```json）
-2. 输出必须是可以直接 parse 的有效 JSON
-3. 逐条规则检查，不要跳过
-4. 对于每一条规则，明确给出 pass/fail/warn
-5. required_changes 数组中的每一条必须是具体可执行的修改"""
+Rules:
+1. Return JSON only. No markdown fences.
+2. The JSON must be directly parseable.
+3. Do not include explanatory prose outside the JSON object.
+4. Every check must have a concrete status and fix suggestion when applicable.
+5. Prefer precise field-level findings over vague feedback.
+"""
 
 
 def call_validator_api(prompt: str, base_url: str, api_key: str, model: str, timeout: int = 120) -> Optional[dict]:
@@ -573,35 +675,48 @@ def validate_config(
             f"Check AGNES_BASEURL/AGNES_APIKEY/AGNES_MODEL in .env"
         )
 
-    # Merge Layer 0 results into the final output
-    result["layers"] = result.get("layers", [])
+    normalized_layers = []
+    for layer in result.get("layers", []):
+        normalized_checks = [normalize_layer_check(check) for check in layer.get("checks", [])]
+        normalized_layer = dict(layer)
+        normalized_layer["checks"] = normalized_checks
+        normalized_layers.append(normalized_layer)
+
+    result["layers"] = normalized_layers
     result["layers"].insert(0, {
         "name": "structural",
         "checks": struct_checks
     })
 
-    # Combine verdict
     layer_fails = len(struct_fails) > 0
+    layer_warns = len(struct_warns) > 0
     for layer in result.get("layers", []):
         if layer["name"] == "structural":
             continue
         for c in layer.get("checks", []):
-            if c.get("result") == "fail":
+            status = c.get("result")
+            if status == "fail":
                 layer_fails = True
+            elif status in {"warn", "risk"}:
+                layer_warns = True
 
     result["mode"] = "full"
-    result["overall_result"] = "fail" if layer_fails else result.get("overall_result", "pass")
+    if layer_fails:
+        result["overall_result"] = "fail"
+    elif layer_warns and result.get("overall_result") != "pass":
+        result["overall_result"] = "warn"
+    else:
+        result["overall_result"] = result.get("overall_result", "pass")
 
     print(f"\nValidation completed in {elapsed:.1f}s")
     print(f"Overall result: {result.get('overall_result', 'unknown')}")
     print(f"Summary: {result.get('summary', 'N/A')}")
 
-    # Print all checks from all layers
     total_pass = total_fail = total_warn = 0
     for layer in result.get("layers", []):
         for check in layer.get("checks", []):
             status = check.get("result", "?")
-            icon = {"pass": "[PASS]", "fail": "[FAIL]", "warn": "[WARN]", "skipped": "[SKIP]"}.get(status, "[????]")
+            icon = {"pass": "[PASS]", "fail": "[FAIL]", "warn": "[WARN]", "risk": "[RISK]", "skipped": "[SKIP]"}.get(status, "[????]")
             rule = check.get("rule", "Unknown")
             issue = check.get("issue", "")
             if status == "pass":
@@ -609,7 +724,7 @@ def validate_config(
             elif status == "fail":
                 total_fail += 1
                 print(f"  {icon} [{layer['name']}] {rule}: {issue}")
-            elif status == "warn":
+            elif status in {"warn", "risk"}:
                 total_warn += 1
                 print(f"  {icon} [{layer['name']}] {rule}: {issue}")
 

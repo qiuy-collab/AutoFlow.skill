@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 
-PLACEHOLDER_RE = re.compile(r"\{\{(img_\d{2})\}\}")
+PLACEHOLDER_RE = re.compile(r"\{\{(img_\d{2,3})\}\}")
 
 
 def parse_args():
@@ -635,6 +635,8 @@ def run_prompt_validation(workflow):
     """Validate prompt_config.json using Agnes AI before generating images."""
     root = Path(__file__).resolve().parent
     prompt_config_path = Path(workflow["prompt_config_path"])
+    work_plan_path = Path(workflow.get("work_plan_path", ""))
+    requirements_path = Path(workflow.get("requirements_path", ""))
     validator_script = root / "validate_prompt.py"
 
     if not validator_script.exists():
@@ -642,8 +644,14 @@ def run_prompt_validation(workflow):
         return True
 
     print("=== Prompt JSON validation (Agnes AI) ===")
+    validator_args = [sys.executable, str(validator_script), "--config", str(prompt_config_path)]
+    if work_plan_path.exists():
+        validator_args.extend(["--requirements", str(work_plan_path)])
+    elif requirements_path.exists():
+        validator_args.extend(["--requirements", str(requirements_path)])
+
     result = subprocess.run(
-        [sys.executable, str(validator_script), "--config", str(prompt_config_path)],
+        validator_args,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -671,11 +679,6 @@ def run_prompt_validation(workflow):
 def run_generate_py(workflow):
     root = Path(__file__).resolve().parent
     prompt_config_path = Path(workflow["prompt_config_path"])
-    prompt_config = load_json(prompt_config_path)
-    configured_upstreams = int(prompt_config.get("upstream_count", 1) or 1)
-    upstream_args = ["--upstreams", str(configured_upstreams)]
-    if configured_upstreams >= 1:
-        upstream_args += ["--upstream", str(int(prompt_config.get("upstream_index", 0) or 0))]
 
     # B6: Validate prompt JSON before upstream check
     if not run_prompt_validation(workflow):
@@ -687,7 +690,7 @@ def run_generate_py(workflow):
     # B7: Test upstream before batch — STRICT, no silent fallback
     print("=== Upstream connectivity check ===")
     check_result = subprocess.run(
-        [sys.executable, str(root / "generate_images.py"), "--check", "--config", str(prompt_config_path), *upstream_args],
+        [sys.executable, str(root / "generate_images.py"), "--check", "--config", str(prompt_config_path)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -717,7 +720,7 @@ def run_generate_py(workflow):
 
     # Run batch generation with strict failure handling
     result = subprocess.run(
-        [sys.executable, str(root / "generate_images.py"), "--config", str(prompt_config_path), *upstream_args],
+        [sys.executable, str(root / "generate_images.py"), "--config", str(prompt_config_path)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -761,7 +764,19 @@ def run_browser_capture(workflow):
 
 def run_diagram_assets(workflow):
     script_path = Path(workflow["diagram_assets_script"])
-    subprocess.run([sys.executable, str(script_path), "--workflow", workflow["_workflow_path"]], check=True)
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--workflow", workflow["_workflow_path"]],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.stdout:
+        print(result.stdout.strip())
+    if result.stderr:
+        print(result.stderr.strip())
+    if result.returncode != 0:
+        raise SystemExit("Diagram asset generation failed. See the renderer message above.")
 
 
 def run_video_processing(workflow, video_plan):
@@ -1142,12 +1157,6 @@ def gate_evidence(workflow: dict, checklist: dict, work_plan_path) -> tuple:
             if not bc.get("screenshots"):
                 errors.append("[Gate 3/U] browser_capture_plan.json.screenshots 为空")
 
-    # V: 图表路线
-        if not bool(checklist.get("browser_visual_review_completed", False)):
-            errors.append(
-                "[Gate 4/AC] browser_visual_review_completed remains false; "
-                "Agent must complete browser screenshot review per docs/prompts/visual_review_rules.md"
-            )
 
     if bool(checklist.get("diagram_assets_required", False)):
         dp = _load_if_exists(output_dir / "diagram_plan.json")

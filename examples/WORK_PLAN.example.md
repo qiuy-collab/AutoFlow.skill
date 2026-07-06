@@ -24,14 +24,14 @@
 | 评分项 | 分值 | 证据类型 | 对应图片 | 生成方式 | 状态 |
 |--------|------|---------|---------|---------|------|
 | ER 图设计 | 15 | 专业 ER 图 | fig_01 | diagram_assets | ⬜ |
-| SQL 建表与插入 | 15 | 终端截图 | img_01 | ai_simulated(txt2img) | ⬜ |
-| 复杂查询 | 15 | 终端截图 | img_02 | ai_simulated(txt2img) | ⬜ |
-| 前端首页 | 10 | 浏览器截图 | img_03 | ai_simulated(img2img) | ⬜ |
-| 前端功能页 | 10 | 浏览器截图 | img_04 | ai_simulated(img2img) | ⬜ |
-| 前端查询结果 | 10 | 浏览器截图 | img_05 | ai_simulated(img2img) | ⬜ |
+| SQL 建表与插入 | 15 | 终端截图 | img_001 | ai_simulated(txt2img) | ⬜ |
+| 复杂查询 | 15 | 终端截图 | img_002 | ai_simulated(txt2img) | ⬜ |
+| 前端首页 | 10 | 浏览器截图 | img_003 | ai_simulated(img2img) | ⬜ |
+| 前端功能页 | 10 | 浏览器截图 | img_004 | ai_simulated(img2img) | ⬜ |
+| 前端查询结果 | 10 | 浏览器截图 | img_005 | ai_simulated(img2img) | ⬜ |
 | 报告结构完整性 | 25 | — | — | — | ⬜ |
 
-> ⚠️ img_03–img_05 使用 img2img 模式：先从本地运行的前端截图，再用 AI 统一风格增强。
+> ⚠️ img_003–img_005 使用 img2img 模式：先从本地运行的前端截图，再用 AI 统一风格增强。
 
 ---
 

@@ -157,6 +157,27 @@ if (-not $BrowserFound) {
     Warn "no local Chrome/Edge executable found; browser screenshot route may not work"
 }
 
+$DiagramTools = @(
+    @{ Name = "mmdc"; Description = "Mermaid CLI"; Hint = "npm install -g @mermaid-js/mermaid-cli" },
+    @{ Name = "d2"; Description = "D2"; Hint = "winget install Terrastruct.D2" },
+    @{ Name = "plantuml"; Description = "PlantUML"; Hint = "install Java first, then PlantUML" }
+)
+
+foreach ($tool in $DiagramTools) {
+    $cmd = Get-Command $tool.Name -ErrorAction SilentlyContinue
+    if ($cmd) {
+        Ok "$($tool.Description) available: $($cmd.Source)"
+    } else {
+        Warn "$($tool.Description) not found; diagram_assets route needs it ($($tool.Hint))"
+    }
+}
+
+if (Get-Command java -ErrorAction SilentlyContinue) {
+    Ok "java available: $((Get-Command java).Source)"
+} else {
+    Warn "java not found; PlantUML route may not work even if plantuml is installed"
+}
+
 $envKeys = Read-EnvKeys $EnvFile
 if (Test-Path $EnvFile) {
     if ($envKeys.ContainsKey("BASEURL") -and $envKeys.ContainsKey("APIKEY")) {

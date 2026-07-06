@@ -20,7 +20,7 @@ from docx import Document
 from docx.shared import Inches, Pt
 
 
-PLACEHOLDER_RE = re.compile(r"\{\{(img_\d{2})\}\}")
+PLACEHOLDER_RE = re.compile(r"\{\{(img_\d{2,3})\}\}")
 
 
 def load_insert_config(config_path: str) -> dict:
@@ -28,7 +28,7 @@ def load_insert_config(config_path: str) -> dict:
 
 
 def find_placeholders(doc: Document) -> list[str]:
-    """Find all {{img_XX}} placeholders in document paragraphs."""
+    """Find all {{img_NN}} or {{img_NNN}} placeholders in document paragraphs."""
     found = []
     for para in doc.paragraphs:
         matches = PLACEHOLDER_RE.findall(para.text)
@@ -123,7 +123,7 @@ def write_fill_script(
     Generic fill + insert script.
 
     1. Loads the template
-    2. Replaces {{img_XX}} placeholders with image references
+    2. Replaces {{img_NNN}} placeholders with image references
     3. Inserts images at placeholder positions
     4. Removes template instruction text
     5. Saves the output

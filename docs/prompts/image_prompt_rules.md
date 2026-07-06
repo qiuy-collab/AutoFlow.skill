@@ -39,7 +39,7 @@ Before writing prompts:
 - Require pixel-level sharpness, crisp readable text, and clean UI edges.
 - Explicitly forbid blur, haze, mosaic blocks, blocky compression, smeared glyphs, and muddy textures.
 - If time or date appears on screen, keep it realistic and temporally consistent across the same screenshot session.
-- Do not expose `localhost`, `127.0.0.1`, browser address bars, tabs, or dev URLs unless the user explicitly needs them.
+- Use the application's real URL. If the app genuinely runs on localhost, localhost is the real URL — do not fabricate a fake production domain. Only avoid exposing obviously temporary dev-server ephemeral ports (e.g., `:3000`, `:5173`) unless they are part of the actual running application.
 - Do not expose AI origin through visible text such as `AI生成`, `示意图`, or similar.
 - Do not use poster / callout / diagram language for screenshot prompts.
 

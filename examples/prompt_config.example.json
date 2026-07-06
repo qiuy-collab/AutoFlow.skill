@@ -1,57 +1,96 @@
 {
+  "task_name": "security_lab_example",
   "total_count": 4,
   "resolution": "2048x1152",
   "output_dir": ".\\output\\generated_images",
-  "upstream_count": 1,
-  "upstream_index": 0,
-  "max_workers": 16,
+  "max_workers": 4,
   "max_retries": 3,
   "retry_delay": 2,
   "timeout": 180,
+  "global_prompt": "统一生成一组真实的 Ubuntu 终端实验截图。所有图片保持同一台 Ubuntu 桌面环境、同一终端主题、同一窗口风格和同一屏幕观看角度。终端窗口使用深色主题，等宽字体清晰可读，画面风格接近真实实验报告中截取的屏幕截图，不出现海报式排版、讲解式拼图、悬浮说明框、箭头注释或任何会暴露图像是AI生成的标记。允许出现的文字只应来自真实终端、系统标题栏和程序本身，而不是额外添加的解释文字。",
+  "global_constraints": {
+    "asset_type": "screenshot",
+    "environment": "Ubuntu Desktop",
+    "ui_language": "English",
+    "theme": "dark",
+    "style": "realistic desktop screenshot",
+    "forbidden_style": ["poster", "diagram", "annotation", "callout"]
+  },
+  "scene_anchor": {
+    "id": "01",
+    "hostname": "ubuntu-lab",
+    "username": "student",
+    "ip_prefix": "192.168.56",
+    "path_prefix": "/home/student/lab",
+    "terminal": "bash"
+  },
   "image_policy": {
+    "schema_version": "2.0",
+    "default_asset_type": "screenshot",
     "default_mode": "screenshot_strict",
-    "auto_append_negative": true,
     "fail_on_prompt_risk": true,
-    "forbidden_terms": [
-      "流程图",
-      "架构图",
-      "讲解板",
-      "说明面板",
-      "悬浮标注",
-      "箭头标注",
-      "海报",
-      "AI生成",
-      "示意图",
-      "poster",
-      "callout",
-      "annotation",
-      "flowchart",
-      "diagram"
+    "allow_negative_forbidden_terms": true,
+    "probe_retries": 3,
+    "probe_timeout": 180,
+    "batch_timeout": 180,
+    "skip_existing_files": true,
+    "screenshot_forbidden_terms": [
+      "流程图", "架构图", "讲解板", "说明面板",
+      "悬浮标注", "箭头标注", "海报", "AI生成", "示意图",
+      "poster", "callout", "annotation", "flowchart", "diagram"
+    ],
+    "diagram_forbidden_terms": [
+      "海报", "讲解板", "说明面板",
+      "悬浮标注", "箭头标注", "AI生成",
+      "poster", "callout", "annotation"
     ],
     "ui_density": "low_information_density",
     "crop_browser_chrome": true,
-    "forbid_localhost_or_dev_url": true
+    "forbid_localhost_or_dev_url": false,
+    "quality_constraints": {
+      "consistency": true,
+      "pixel_sharpness": true,
+      "no_blur_or_mosaic": true,
+      "time_consistency": true
+    },
+    "required_image_fields": [
+      "name", "asset_type", "mode", "resolution", "consistency_group", "prompt"
+    ],
+    "required_global_fields": [
+      "global_prompt", "global_constraints", "scene_anchor", "image_policy", "images"
+    ]
   },
-  "global_prompt": "统一生成一组真实的 Ubuntu 终端实验截图。所有图片保持同一台 Ubuntu 桌面环境、同一终端主题、同一窗口风格和同一屏幕观看角度。终端窗口使用深色主题，等宽字体清晰可读，画面风格接近真实实验报告中截取的屏幕截图，不出现海报式排版、讲解式拼图、悬浮说明框、箭头注释或任何会暴露图像是AI生成的标记。允许出现的文字只应来自真实终端、系统标题栏和程序本身，而不是额外添加的解释文字。",
   "images": [
     {
-      "name": "img_01",
+      "name": "img_001",
+      "asset_type": "screenshot",
       "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "security_lab",
       "prompt": "本图遵循 global_prompt 描述的统一 Ubuntu 终端环境，展示使用 nmap -sS -sV 192.168.56.101 扫描测试主机的真实命令行截图。终端中清晰显示命令输入、开放端口、服务版本和新的命令提示符，像学生在实验结束后直接截取的屏幕画面，不包含任何额外讲解文字。"
     },
     {
-      "name": "img_02",
+      "name": "img_002",
+      "asset_type": "screenshot",
       "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "security_lab",
       "prompt": "终端环境与上一张完全一致，展示继续执行 nmap -sV --script vuln 192.168.56.101 后的漏洞识别截图。输出中自然出现若干脚本检测结果和服务风险提示，窗口布局、配色、字体和桌面背景保持一致，不添加任何说明面板或演示型标注。"
     },
     {
-      "name": "img_03",
+      "name": "img_003",
+      "asset_type": "screenshot",
       "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "security_lab",
       "prompt": "终端环境与前两张保持完全一致，展示 gpg --full-generate-key 和 gpg -e -r \"student\" secret.zip 的真实操作截图。画面中自然出现密钥算法选择、位数设置、用户身份信息输入和加密完成回显，整体像一次完整的信息安全课程加密实验截图。"
     },
     {
-      "name": "img_04",
+      "name": "img_004",
+      "asset_type": "screenshot",
       "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "security_lab",
       "prompt": "桌面环境与前面图片保持一致，但这张图同时展示左侧系统防火墙配置窗口和右侧终端回显窗口，表现加固后的系统状态。窗口摆放像真实实验中的双窗口截屏，界面文字自然，既能体现配置动作，又不会出现教学海报式元素。"
     }
   ]

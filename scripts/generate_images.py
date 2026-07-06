@@ -49,39 +49,18 @@ def load_env_file() -> dict:
 env_vars = load_env_file()
 
 
-def parse_upstreams() -> Tuple[List[str], List[str], int]:
-    baseurls_csv = env_vars.get("BASEURLS", "").strip()
-    apikeys_csv = env_vars.get("APIKEYS", "").strip()
-    if baseurls_csv and apikeys_csv:
-        baseurls = [u.strip() for u in baseurls_csv.split(",") if u.strip()]
-        apikeys = [k.strip() for k in apikeys_csv.split(",") if k.strip()]
-        count = min(len(baseurls), len(apikeys))
-        if count > 0:
-            return baseurls[:count], apikeys[:count], count
-
-    idx = 1
-    numbered_baseurls = []
-    numbered_apikeys = []
-    while True:
-        bu = env_vars.get(f"BASEURL{idx}", "").strip()
-        ak = env_vars.get(f"APIKEY{idx}", "").strip()
-        if not bu or not ak:
-            break
-        numbered_baseurls.append(bu)
-        numbered_apikeys.append(ak)
-        idx += 1
-    if numbered_baseurls:
-        return numbered_baseurls, numbered_apikeys, len(numbered_baseurls)
-
+def parse_upstream() -> Tuple[Optional[str], Optional[str]]:
+    env_vars = load_env_file()
     single_url = env_vars.get("BASEURL", "").strip()
     single_key = env_vars.get("APIKEY", "").strip()
     if single_url and single_key:
-        return [single_url], [single_key], 1
-
-    return [], [], 0
+        return single_url, single_key
+    return None, None
 
 
 DEFAULT_POLICY = {
+    "schema_version": "2.0",
+    "default_asset_type": "screenshot",
     "default_mode": "generic",
     "auto_append_negative": True,
     "fail_on_prompt_risk": True,
@@ -89,22 +68,33 @@ DEFAULT_POLICY = {
     "probe_timeout": 180,
     "batch_timeout": 180,
     "skip_existing_files": True,
-    "forbidden_terms": [
-        "娴佺▼鍥?",
-        "鏋舵瀯鍥?",
-        "绠ご鏍囨敞",
-        "璁茶В鏉?",
-        "璇存槑闈㈡澘",
-        "鎮诞鏍囨敞",
+    "screenshot_forbidden_terms": [
+        "流程图",
+        "架构图",
+        "箭头标注",
+        "讲解板",
+        "说明面板",
+        "悬浮标注",
         "poster",
         "callout",
         "annotation",
         "flowchart",
         "diagram",
     ],
+    "diagram_forbidden_terms": [
+        "海报",
+        "讲解板",
+        "说明面板",
+        "悬浮标注",
+        "箭头标注",
+        "AI生成",
+        "poster",
+        "callout",
+        "annotation",
+    ],
     "ui_density": "low_information_density",
     "crop_browser_chrome": True,
-    "forbid_localhost_or_dev_url": True,
+    "forbid_localhost_or_dev_url": False,
     "quality_constraints": {
         "consistency": True,
         "pixel_sharpness": True,
@@ -125,8 +115,8 @@ SCREENSHOT_NEGATIVE_PROMPT = (
     "Do not add explanatory text panels, poster layouts, arrows, flowcharts, split-screen teaching boards, "
     "captions outside the program window, or decorative annotations. "
     "Text may appear only where a real operating system, terminal, IDE, or application would naturally render it. "
-    "Show only the necessary information, keep a believable background, avoid high information density, avoid tiny unreadable text, "
-    "avoid localhost, 127.0.0.1, dev server URLs, browser address bars, tabs, and malformed UI details."
+    "Show only the necessary information, keep a believable background, avoid high information density, avoid tiny unreadable text. "
+    "Use the application's real URL — localhost is acceptable as real URL, but avoid ephemeral dev-server ports."
 )
 
 SCREENSHOT_QUALITY_PROMPT = (
@@ -134,6 +124,14 @@ SCREENSHOT_QUALITY_PROMPT = (
     "No blur, no smeared text, no mosaic, no blocky compression artifacts, and no warped UI edges. "
     "Keep the same visual environment, lighting, UI style, and rendering fidelity across the full image set. "
     "If clocks, timestamps, or time indicators appear, keep them realistic and temporally consistent with the same session."
+)
+
+FIXED_CLARITY_PROMPT_PATH = Path(r"C:\Users\ASUS\Desktop\补图提示词--不清晰.md")
+FIXED_CLARITY_PROMPT_FALLBACK = (
+    "Repair this screenshot's clarity only. Keep the original content, layout, size, colors, window positions, "
+    "text, numbers, symbols, paths, commands, and code fully unchanged. Remove blur, compression noise, smeared "
+    "glyphs, jagged edges, and unreadable UI text. Do not add, delete, infer, rewrite, or auto-correct any content. "
+    "Preserve the original image structure exactly and output one clearer version of the same screenshot."
 )
 
 
@@ -150,12 +148,97 @@ def normalize_resolution(value: str) -> str:
     return RESOLUTION_ALIASES.get(str(value).strip(), str(value).strip())
 
 
+def load_fixed_clarity_prompt() -> str:
+    if FIXED_CLARITY_PROMPT_PATH.exists():
+        prompt = FIXED_CLARITY_PROMPT_PATH.read_text(encoding="utf-8", errors="ignore").strip()
+        if prompt:
+            return prompt
+    return FIXED_CLARITY_PROMPT_FALLBACK
+
+
+def resolve_reference_image(config_path: Path, raw_reference_image: str, image_name: str) -> str:
+    ref_path = Path(raw_reference_image).expanduser()
+    if not ref_path.is_absolute():
+        ref_path = (config_path.parent / ref_path).resolve()
+    else:
+        ref_path = ref_path.resolve()
+    if not ref_path.exists():
+        raise SystemExit(
+            f"{image_name}: reference_image '{raw_reference_image}' does not exist "
+            f"(resolved to {ref_path}). img2img fixup must stop instead of falling back to txt2img."
+        )
+    return str(ref_path)
+
+
+def prepare_image_task(
+    config_path_obj: Path,
+    config: dict,
+    image_config: dict,
+    index: int,
+    total_count: int,
+    output_dir: Path,
+    base_resolution: str,
+    max_retries: int,
+    retry_delay: int,
+    base_url: str,
+    api_key: str,
+    timeout: int,
+    force_existing: bool,
+) -> tuple[dict, list[str], bool]:
+    policy = normalize_policy(config)
+    name = image_config.get("name", f"image_{index}")
+    prompt = str(image_config.get("prompt", "") or "").strip()
+    mode = image_config.get("mode", policy.get("default_mode", "generic"))
+    per_image_resolution = normalize_resolution(image_config.get("resolution", base_resolution))
+    fixup_type = str(image_config.get("fixup_type", "") or "").strip().lower()
+    raw_reference_image = image_config.get("reference_image")
+
+    if fixup_type and fixup_type not in {"clarity", "content"}:
+        raise SystemExit(f"{name}: unsupported fixup_type '{fixup_type}'. Use 'clarity' or 'content'.")
+
+    lint_errors = lint_prompt(policy, name, prompt, mode)
+    ref_image = None
+    full_prompt = build_full_prompt(config.get("global_prompt", ""), prompt, policy, mode)
+
+    if raw_reference_image:
+        ref_image = resolve_reference_image(config_path_obj, raw_reference_image, name)
+
+    if fixup_type:
+        if not ref_image:
+            raise SystemExit(f"{name}: fixup_type '{fixup_type}' requires reference_image.")
+        if fixup_type == "clarity":
+            full_prompt = load_fixed_clarity_prompt()
+        elif not prompt:
+            raise SystemExit(f"{name}: content fixup requires a non-empty prompt describing the single targeted correction.")
+    elif raw_reference_image and not ref_image:
+        raise SystemExit(f"{name}: reference_image is required for img2img mode.")
+
+    task = {
+        "index": index,
+        "total": total_count,
+        "name": name,
+        "prompt": full_prompt,
+        "output_dir": str(output_dir),
+        "resolution": per_image_resolution,
+        "max_retries": max_retries,
+        "retry_delay": retry_delay,
+        "base_url": base_url,
+        "api_key": api_key,
+        "skip_existing": bool(policy.get("skip_existing_files", True)) and not force_existing,
+        "timeout": timeout,
+        "ref_image": ref_image,
+        "method": "img2img" if ref_image else "txt2img",
+        "fixup_type": fixup_type or None,
+    }
+    return task, lint_errors, bool(ref_image)
+
+
 def lint_prompt(policy: dict, image_name: str, prompt: str, mode: str) -> List[str]:
     if mode != "screenshot_strict":
         return []
     lower_prompt = prompt.lower()
     hits = []
-    for term in policy.get("forbidden_terms", []):
+    for term in policy.get("screenshot_forbidden_terms", []):
         lower_term = term.lower()
         if lower_term not in lower_prompt:
             continue
@@ -182,8 +265,8 @@ def build_full_prompt(global_prompt: str, image_prompt: str, policy: dict, mode:
             parts.append("Keep the interface information density low. Show only necessary panels and a believable surrounding background.")
         if policy.get("crop_browser_chrome", False):
             parts.append("Do not show browser tabs, browser address bar, or system chrome unless absolutely necessary.")
-        if policy.get("forbid_localhost_or_dev_url", False):
-            parts.append("Do not show localhost, 127.0.0.1, dev server URLs, or temporary local addresses anywhere in the image.")
+        if policy.get("forbid_localhost_or_dev_url", False):  # softened: localhost is acceptable as real app URL
+            parts.append("Use the application's real URL. localhost is acceptable if that is the actual app URL.")
         quality = policy.get("quality_constraints", {})
         quality_fragments = []
         if quality.get("consistency", True):
@@ -222,10 +305,6 @@ def resolve_output_dir(config_path: Path, configured_output_dir: Optional[str]) 
         f"Expected: inside an init_run.py output directory with workflow.json.\n"
         f"Fix: set 'output_dir' in prompt_config.json to the correct project images directory."
     )
-
-
-def shard_tasks_for_upstream(tasks: list, upstream_index: int, upstream_count: int) -> list:
-    return [t for t in tasks if t["index"] % upstream_count == upstream_index]
 
 
 def build_supplement_config(config: dict, image_names: List[str], output_path: Path, reason: str) -> Optional[Path]:
@@ -367,7 +446,7 @@ def _call_img2img_edits(
     ref_image_path: str,
     output_dir: str,
     filename: str,
-    resolution: str,  # kept in signature for compatibility, ignored internally
+    resolution: str,
     base_url: str,
     api_key: str,
     timeout: int,
@@ -397,7 +476,7 @@ def _call_img2img_edits(
                 "prompt": prompt,
                 "model": "gpt-image-2",
                 "n": "1",
-                "size": "1024x1024",
+                "size": resolution,
             }
             headers = {"Authorization": f"Bearer {api_key}"}
             response = requests.post(url, files=files, data=data, headers=headers, timeout=timeout)
@@ -455,7 +534,6 @@ def generate_image_single(
     silent: bool = False,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
-    upstream_index: Optional[int] = None,
     timeout: int = 120,
     ref_image: Optional[str] = None,
 ):
@@ -463,13 +541,7 @@ def generate_image_single(
     resolution = normalize_resolution(resolution)
 
     if not base_url or not api_key:
-        baseurls, apikeys, count = parse_upstreams()
-        if upstream_index is not None and upstream_index < count:
-            base_url = baseurls[upstream_index]
-            api_key = apikeys[upstream_index]
-        elif count > 0:
-            base_url = baseurls[0]
-            api_key = apikeys[0]
+        base_url, api_key = parse_upstream()
 
     if not base_url or not api_key:
         if not silent:
@@ -601,16 +673,25 @@ def generate_image_task(task_info: dict) -> Dict:
     retry_delay = task_info.get("retry_delay", 2)
     base_url = task_info.get("base_url")
     api_key = task_info.get("api_key")
-    upstream_index = task_info.get("upstream_index")
     skip_existing = task_info.get("skip_existing", False)
     timeout = task_info.get("timeout", 120)
     ref_image = task_info.get("ref_image")  # img2img: local path to reference image
+    method = task_info.get("method", "img2img" if ref_image else "txt2img")
+    fixup_type = task_info.get("fixup_type")
     last_error = None
     file_path = Path(output_dir) / f"{name}.png"
 
     if skip_existing and file_path.exists():
         safe_print(f"[{index}/{total}] [SKIP] {name} already exists")
-        return {"success": True, "name": name, "file": str(file_path), "error": None, "skipped": True}
+        return {
+            "success": True,
+            "name": name,
+            "file": str(file_path),
+            "error": None,
+            "skipped": True,
+            "method": method,
+            "fixup_type": fixup_type,
+        }
 
     for attempt in range(max_retries):
         try:
@@ -621,16 +702,23 @@ def generate_image_task(task_info: dict) -> Dict:
                 output_dir=output_dir,
                 resolution=resolution,
                 filename=name,
-                silent=False,  # always log errors even in batch mode
+                silent=False,
                 base_url=base_url,
                 api_key=api_key,
-                upstream_index=upstream_index,
                 timeout=timeout,
                 ref_image=ref_image,
             )
             if result:
                 safe_print(f"[{index}/{total}] [OK] {name}")
-                return {"success": True, "name": name, "file": result, "error": None, "skipped": False}
+                return {
+                    "success": True,
+                    "name": name,
+                    "file": result,
+                    "error": None,
+                    "skipped": False,
+                    "method": method,
+                    "fixup_type": fixup_type,
+                }
             safe_print(f"[{index}/{total}] [FAIL] {name}, retrying...")
             last_error = "empty image generation result"
         except Exception as exc:
@@ -641,13 +729,19 @@ def generate_image_task(task_info: dict) -> Dict:
             time.sleep(retry_delay)
 
     safe_print(f"[{index}/{total}] [FAILED] {name} exhausted retries")
-    return {"success": False, "name": name, "file": None, "error": last_error, "skipped": False}
+    return {
+        "success": False,
+        "name": name,
+        "file": None,
+        "error": last_error,
+        "skipped": False,
+        "method": method,
+        "fixup_type": fixup_type,
+    }
 
 
 def generate_from_config(
     config_path: str = "examples/prompt_config.example.json",
-    upstream_index: Optional[int] = None,
-    upstream_count: Optional[int] = None,
     timeout: Optional[int] = None,
     force_existing: bool = False,
 ):
@@ -660,85 +754,55 @@ def generate_from_config(
     global_prompt = config.get("global_prompt", "")
     output_dir = resolve_output_dir(config_path_obj, config.get("output_dir"))
     images = config.get("images", [])
-    max_workers = min(int(config.get("max_workers", 50)), 50, max(total_count, 1))
+    max_workers = min(int(config.get("max_workers", 4)), 8, max(total_count, 1))
     max_retries = config.get("max_retries", 3)
     retry_delay = config.get("retry_delay", 2)
     policy = normalize_policy(config)
     config_timeout = int(config.get("timeout", policy.get("batch_timeout", 180)))
 
-    if upstream_count is None:
-        upstream_count = config.get("upstream_count", 1)
-    if upstream_index is None:
-        upstream_index = config.get("upstream_index", 0)
     if timeout is None:
         timeout = config_timeout
 
-    baseurls, apikeys, env_upstream_count = parse_upstreams()
-    effective_upstream_count = max(upstream_count, env_upstream_count)
+    base_url, api_key = parse_upstream()
 
-    safe_print("=== batch image generation ===")
+    safe_print("=== batch image generation (single upstream) ===")
     safe_print(f"config: {config_path_obj}")
     safe_print(f"count: {total_count}")
     safe_print(f"resolution: {resolution}")
     safe_print(f"workers: {max_workers}")
     safe_print(f"retries: {max_retries}")
     safe_print(f"output_dir: {output_dir}")
-    safe_print(f"upstream_mode: {'multi' if effective_upstream_count > 1 else 'single'}")
-    safe_print(f"upstream_count: {effective_upstream_count}")
-    if effective_upstream_count > 1:
-        safe_print(f"upstream_index: {upstream_index} (responsible for images where index % {effective_upstream_count} == {upstream_index})")
     safe_print(f"timeout: {timeout}s")
     safe_print("-" * 50)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    task_base_url = None
-    task_api_key = None
-    if baseurls and effective_upstream_count > 0:
-        idx = upstream_index % len(baseurls)
-        task_base_url = baseurls[idx]
-        task_api_key = apikeys[idx]
+    if not base_url or not api_key:
+        raise SystemExit("No upstream configured in .env. Set BASEURL and APIKEY.")
 
     tasks = []
     lint_errors = []
     img2img_count = 0
     for i, image_config in enumerate(images[:total_count]):
-        name = image_config.get("name", f"image_{i + 1}")
-        prompt = image_config.get("prompt", "")
-        mode = image_config.get("mode", policy.get("default_mode", "generic"))
-        lint_errors.extend(lint_prompt(policy, name, prompt, mode))
-        full_prompt = build_full_prompt(global_prompt, prompt, policy, mode)
-
-        # --- img2img: detect reference_image in config ---
-        # Resolve relative to config file directory, not CWD
-        ref_image = image_config.get("reference_image")
-        if ref_image:
-            ref_path = (config_path_obj.parent / ref_image).expanduser().resolve()
-            if ref_path.exists():
-                img2img_count += 1
-                ref_image = str(ref_path)
-            else:
-                safe_print(f"[WARN] {name}: reference_image '{ref_image}' not found (resolved: {ref_path}), falling back to txt2img")
-                ref_image = None
-
-        tasks.append(
-            {
-                "index": i + 1,
-                "total": total_count,
-                "name": name,
-                "prompt": full_prompt,
-                "output_dir": str(output_dir),
-                "resolution": resolution,
-                "max_retries": max_retries,
-                "retry_delay": retry_delay,
-                "base_url": task_base_url,
-                "api_key": task_api_key,
-                "upstream_index": upstream_index,
-                "skip_existing": bool(policy.get("skip_existing_files", True)) and not force_existing,
-                "timeout": timeout,
-                "ref_image": ref_image,
-            }
+        task, task_lint_errors, is_img2img = prepare_image_task(
+            config_path_obj=config_path_obj,
+            config=config,
+            image_config=image_config,
+            index=i + 1,
+            total_count=total_count,
+            output_dir=output_dir,
+            base_resolution=resolution,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+            base_url=base_url,
+            api_key=api_key,
+            timeout=timeout,
+            force_existing=force_existing,
         )
+        lint_errors.extend(task_lint_errors)
+        if is_img2img:
+            img2img_count += 1
+        tasks.append(task)
 
     if img2img_count > 0:
         safe_print(f"img2img tasks: {img2img_count}/{len(tasks)}")
@@ -746,12 +810,8 @@ def generate_from_config(
     if lint_errors and policy.get("fail_on_prompt_risk", True):
         raise SystemExit("Prompt lint failed:\n" + "\n".join(lint_errors))
 
-    if effective_upstream_count > 1:
-        tasks = shard_tasks_for_upstream(tasks, upstream_index, effective_upstream_count)
-        safe_print(f"After sharding: {len(tasks)} task(s) assigned to upstream {upstream_index}")
-
     if not tasks:
-        safe_print("No tasks assigned to this upstream instance. Exiting cleanly.")
+        safe_print("No tasks to process. Exiting cleanly.")
         return []
 
     safe_print(f"starting {len(tasks)} task(s)...")
@@ -878,62 +938,43 @@ def probe_upstream_img2img(base_url: str, api_key: str, ref_image_path: str, tim
     return False, "response data missing url/b64_json"
 
 
-def check_upstream(upstream_index: int = 0, upstream_count: int = 1, timeout: int = 150, retries: int = 3, probe_img2img: bool = False, ref_image_path: Optional[str] = None):
-    baseurls, apikeys, count = parse_upstreams()
-    if not baseurls:
+def check_upstream(timeout: int = 150, retries: int = 3, probe_img2img: bool = False, ref_image_path: Optional[str] = None):
+    base_url, api_key = parse_upstream()
+    if not base_url or not api_key:
         safe_print("[FAIL] No upstream configured in .env")
         return False
 
-    indices = range(min(upstream_count, count)) if upstream_count > 1 else [0]
-    any_ok = False
-    probe_results = []
-    for i in indices:
-        if i >= len(baseurls):
-            break
-        probe_label = "img2img" if probe_img2img else "txt2img"
-        safe_print(f"Probing upstream {i} ({probe_label}): {baseurls[i]}")
-        upstream_ok = False
-        last_error = "empty image generation result"
-        for attempt in range(retries):
-            if probe_img2img and ref_image_path:
-                ok, detail = probe_upstream_img2img(baseurls[i], apikeys[i], ref_image_path, timeout)
-            else:
-                ok, detail = probe_upstream_once(baseurls[i], apikeys[i], timeout)
-            if ok:
-                safe_print(f"  [OK] Upstream {i} ({probe_label}) is available (attempt {attempt + 1}/{retries})")
-                any_ok = True
-                upstream_ok = True
-                last_error = detail
-                break
-            last_error = detail
-            safe_print(f"  [WARN] Upstream {i} probe miss (attempt {attempt + 1}/{retries}): {detail}")
-        if not upstream_ok:
-            safe_print(f"  [DEGRADED] Upstream {i} did not pass probe after {retries} attempts: {last_error}")
-        probe_results.append({"upstream": i, "ok": upstream_ok, "last_error": last_error, "mode": probe_label})
-
-    if any_ok and any(not item["ok"] for item in probe_results):
-        safe_print("[DEGRADED] At least one upstream is usable. Continuing is allowed; failed upstreams can be bypassed or repaired later.")
-    if not any_ok:
-        timeout_only = probe_results and all(str(item.get("last_error", "")).startswith("timeout after") for item in probe_results)
-        if timeout_only:
-            safe_print("[DEGRADED-PASS] All probe misses were timeouts only. This is not strong enough evidence to prove image generation is impossible.")
-            safe_print("[DEGRADED-PASS] Allowing the workflow to continue. Use the real generation step as the final judge.")
+    probe_label = "img2img" if probe_img2img else "txt2img"
+    safe_print(f"Probing upstream ({probe_label}): {base_url}")
+    last_error = "empty image generation result"
+    for attempt in range(retries):
+        if probe_img2img and ref_image_path:
+            ok, detail = probe_upstream_img2img(base_url, api_key, ref_image_path, timeout)
+        else:
+            ok, detail = probe_upstream_once(base_url, api_key, timeout)
+        if ok:
+            safe_print(f"  [OK] Upstream ({probe_label}) is available (attempt {attempt + 1}/{retries})")
             return True
-        safe_print("[FAIL] No upstream passed probe. This is a real upstream failure.")
-    return any_ok
+        last_error = detail
+        safe_print(f"  [WARN] Probe miss (attempt {attempt + 1}/{retries}): {detail}")
+
+    timeout_only = str(last_error).startswith("timeout after")
+    if timeout_only:
+        safe_print("[DEGRADED-PASS] All probe misses were timeouts. Allowing workflow to continue.")
+        return True
+    safe_print("[FAIL] Upstream did not pass probe.")
+    return False
 
 
 def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="GPT Image 2 batch generator for auto-lab (txt2img + img2img).",
+        description="GPT Image 2 batch generator for auto-lab (txt2img + img2img). Single upstream only.",
         epilog=(
-            "Multi-upstream mode:\n"
-            "  python generate_images.py --config prompt_config.json --upstreams 3\n"
-            "  python generate_images.py --config prompt_config.json --upstream 0\n"
-            "  python generate_images.py --config prompt_config.json --upstream 1\n"
-            "  python generate_images.py --config prompt_config.json --upstream 2\n"
+            "Examples:\n"
+            "  python generate_images.py --config prompt_config.json\n"
+            "  python generate_images.py --check\n"
             "\n"
             "img2img (single-image test):\n"
             "  python generate_images.py --prompt 'enhance this UI' --ref-image screenshot.png\n"
@@ -946,9 +987,7 @@ def parse_args():
     parser.add_argument("--check", action="store_true", help="Test upstream API connectivity without generating images")
     parser.add_argument("--prompt", "-p", help="Single test prompt (used with --check or standalone test)")
     parser.add_argument("--ref-image", "-r", help="Path to a reference image for img2img mode (single-image test with --prompt)")
-    parser.add_argument("--upstream", "-u", type=int, default=None, help="Specify which upstream to use (0-based index). Use with --upstreams for multi-upstream mode.")
-    parser.add_argument("--upstreams", "-U", type=int, default=None, help="Total number of upstreams for sharding. When > 1, tasks are distributed by index modulo upstreams.")
-    parser.add_argument("--timeout", "-t", type=int, default=None, help="Request timeout in seconds (default: 180 for multi-upstream, 120 for single).")
+    parser.add_argument("--timeout", "-t", type=int, default=None, help="Request timeout in seconds (default: 120).")
     parser.add_argument("--force-existing", action="store_true", help="Regenerate even when the target image file already exists.")
     return parser.parse_args()
 
@@ -966,8 +1005,6 @@ def main():
             config_timeout = config_timeout or int(config_data.get("timeout", policy.get("probe_timeout", 150)))
             config_retries = int(policy.get("probe_retries", 3))
         ok = check_upstream(
-            upstream_index=args.upstream or 0,
-            upstream_count=args.upstreams or 1,
             timeout=config_timeout or 150,
             retries=config_retries or 3,
             probe_img2img=bool(args.ref_image),
@@ -992,28 +1029,7 @@ def main():
             safe_print("[FAILED] image generation failed")
         return
 
-    baseurls, _, env_upstream_count = parse_upstreams()
-    config_upstream_count = 1
-
-    if args.upstreams is not None:
-        config_upstream_count = args.upstreams
-    elif env_upstream_count > 1:
-        config_upstream_count = env_upstream_count
-    elif args.upstream is not None:
-        config_upstream_count = max(env_upstream_count, 1)
-
-    if config_upstream_count > 1 and args.upstream is None:
-        if env_upstream_count == 1:
-            args.upstream = 0
-        else:
-            safe_print(
-                f"Multi-upstream mode detected ({config_upstream_count} upstreams). "
-                f"Specify --upstream N to select which upstream to use.\n"
-                f"Example: python generate_images.py --config prompt_config.json --upstreams {config_upstream_count} --upstream 0"
-            )
-            raise SystemExit(1)
-
-    timeout = args.timeout or (180 if config_upstream_count > 1 else 120)
+    timeout = args.timeout or 120
 
     config_path = args.config
     if not config_path:
@@ -1036,8 +1052,6 @@ def main():
     safe_print(f"Using config file: {config_path}")
     generate_from_config(
         config_path=config_path,
-        upstream_index=args.upstream or 0,
-        upstream_count=config_upstream_count,
         timeout=timeout,
         force_existing=args.force_existing,
     )

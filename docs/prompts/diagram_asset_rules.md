@@ -1,46 +1,189 @@
-# Diagram Asset Rules
+# Diagram Asset Rules (DSL-driven)
 
-This document defines how `auto-lab` should write `diagram_plan.json`.
+This document defines how `auto-lab` should write `diagram_plan.json` and generate diagram assets.
+
+## Architecture
+
+Diagrams are generated via **DSL code → professional renderer → PNG/SVG**, never via PIL hand-drawing.
+
+```
+diagram_plan.json → generate_diagram_assets.py
+  ├─ kind=flowchart      → Mermaid (.mmd) → mmdc → PNG/SVG
+  ├─ kind=er_diagram     → Mermaid (.mmd) → mmdc → PNG/SVG
+  ├─ kind=data_flow_diagram → D2 (.d2) → d2 → PNG/SVG
+  ├─ kind=function_diagram  → D2 (.d2) → d2 → PNG/SVG
+  ├─ kind=architecture_diagram → D2 (.d2) → d2 → PNG/SVG
+  └─ kind=uml_diagram    → PlantUML (.puml) → plantuml → PNG/SVG
+```
+
+## Renderer Mapping
+
+```python
+RENDERER_MAP = {
+    "flowchart": "mermaid",
+    "er_diagram": "mermaid",
+    "data_flow_diagram": "d2",
+    "function_diagram": "d2",
+    "architecture_diagram": "d2",
+    "uml_diagram": "plantuml",
+}
+```
 
 ## Scope boundary
 
 `diagram_plan.json` is only for the `diagram_assets` route.
 
 Use it for:
-- function diagrams
-- flowcharts
-- data flow diagrams
-- ER diagrams
+- function diagrams (功能图)
+- flowcharts (流程图)
+- data flow diagrams (数据流图)
+- ER diagrams (ER图)
+- architecture diagrams (架构图)
+- UML diagrams (类图/用例图/时序图/组件图/部署图)
 
-Do not use it for:
+Do NOT use it for:
 - terminal screenshots
 - command output screenshots
 - local frontend page screenshots
 - third-party product screenshots
+- AI-generated images (these must NOT be used for diagram types)
 
 ## Planning order
 
-Before writing a diagram plan:
 1. Read the requirement document.
 2. Fill `requirement_checklist.json`.
 3. If the assignment depends on a pre-task, complete it first and absorb the outputs.
 4. Decide which figures belong to `diagram_assets`.
-5. For each diagram, define:
-   - `name`
-   - `kind`
-   - title
-   - nodes / entities / stores / relations / edges as needed
+5. For each diagram, define semantic structure (no absolute coordinates):
+   - `name` (used as filename prefix)
+   - `kind` (flowchart / er_diagram / data_flow_diagram / function_diagram / architecture_diagram / uml_diagram)
+   - `title` (diagram caption)
+   - `direction` (TD / LR — for flowcharts)
+   - `nodes[]` (with id, label, shape)
+   - `edges[]` (with from, to, optional label)
+   - `entities[]` / `relations[]` (for ER diagrams)
 
-## Diagram quality rules
+## diagram_plan.json format
 
-- Use a clean academic layout with consistent spacing.
-- Keep labels short and legible.
-- Avoid overlapping labels and crossing lines when possible.
-- Reserve enough horizontal and vertical spacing between modules so text and arrows do not collide after rendering.
-- Prefer explicit edge paths for flowcharts when automatic routing would cause line crossings.
-- Prefer standard course-design symbols for DFD and ER diagrams.
-- Keep naming consistent with the report text and captions.
-- When a diagram risks becoming crowded, split it into multiple simpler diagrams instead of forcing all content into one canvas.
+### Flowchart example
+
+```json
+{
+  "enabled": true,
+  "diagrams": [
+    {
+      "name": "login_flow",
+      "kind": "flowchart",
+      "title": "用户登录流程图",
+      "direction": "TD",
+      "nodes": [
+        {"id": "start", "label": "开始", "shape": "start"},
+        {"id": "input", "label": "输入账号和密码", "shape": "process"},
+        {"id": "check", "label": "验证账号密码", "shape": "decision"},
+        {"id": "success", "label": "进入系统首页", "shape": "process"},
+        {"id": "fail", "label": "提示登录失败", "shape": "process"},
+        {"id": "end", "label": "结束", "shape": "end"}
+      ],
+      "edges": [
+        {"from": "start", "to": "input"},
+        {"from": "input", "to": "check"},
+        {"from": "check", "to": "success", "label": "正确"},
+        {"from": "check", "to": "fail", "label": "错误"},
+        {"from": "fail", "to": "input"},
+        {"from": "success", "to": "end"}
+      ]
+    }
+  ]
+}
+```
+
+Node shapes: `start`/`end` → `([...])`, `process` → `[...]`, `decision` → `{...}`, `data` → `[/.../]`, `subprocess` → `[[...]]`.
+
+### ER diagram example
+
+```json
+{
+  "name": "student_er",
+  "kind": "er_diagram",
+  "title": "学生选课 ER 图",
+  "entities": [
+    {
+      "name": "STUDENT", "label": "学生",
+      "attributes": [
+        {"type": "int", "name": "student_id", "key": "PK"},
+        {"type": "string", "name": "name"},
+        {"type": "string", "name": "class_name"}
+      ]
+    },
+    {
+      "name": "COURSE", "label": "课程",
+      "attributes": [
+        {"type": "int", "name": "course_id", "key": "PK"},
+        {"type": "string", "name": "course_name"}
+      ]
+    }
+  ],
+  "relations": [
+    {"from": "STUDENT", "to": "COURSE", "type": "}o--o{", "label": "选修"}
+  ]
+}
+```
+
+## Output contract
+
+Each diagram generates BOTH source and image files:
+
+```
+output/images/login_flow.mmd
+output/images/login_flow.svg
+output/images/login_flow.png
+
+output/images/system_architecture.d2
+output/images/system_architecture.svg
+output/images/system_architecture.png
+
+output/images/user_case.puml
+output/images/user_case.png
+```
+
+## Run command
+
+```bash
+python generate_diagram_assets.py --workflow workflow.json
+```
+
+## Prerequisites
+
+Check these tools are installed before running. If missing, show friendly install hints:
+
+| Tool | Install command |
+|------|----------------|
+| Mermaid CLI (`mmdc`) | `npm install -g @mermaid-js/mermaid-cli` |
+| D2 (`d2`) | `winget install Terrastruct.D2` or https://d2lang.com/tour/install |
+| PlantUML (`plantuml`) | Requires Java; `winget install OpenJDK.OpenJDK.17` then install PlantUML |
+
+## Quality rules
+
+- White or transparent background
+- Clear, readable Chinese text (no garbled characters)
+- Sufficient spacing between nodes — not cramped
+- Arrow directions clearly distinguishable
+- Module hierarchy visually apparent
+- No label overlaps, no accidental line crossings
+- Prefer SVG output first, PNG as fallback
+- The diagram must look clean when inserted into a Word report or PPT slide
+- Priority: **Accuracy > Maintainability > Aesthetics > Automation**
+
+## Diagram review (before insert)
+
+Before inserting a diagram into the report, check:
+- clean spacing — no elements touching each other
+- no overlapping labels
+- no modules, text blocks, or arrows colliding after final render
+- no accidental line crossings unless intentionally unavoidable
+- readable labels (Chinese characters render correctly)
+- line routing looks deliberate rather than tangled
+- enough empty space around each node
 
 ## Output contract
 
@@ -49,3 +192,4 @@ Before writing a diagram plan:
 - keep names aligned with `copywriting.md` placeholders
 - never include AI screenshot figures or browser-capture figures
 - stay free of comments and helper fields
+- all diagrams share one `enabled` flag at the top level

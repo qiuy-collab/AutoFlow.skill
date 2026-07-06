@@ -26,7 +26,7 @@
   },
   "screenshots": [
     {
-      "name": "img_05",
+      "name": "img_005",
       "heading": "3.2 Frontend Page Demo",
       "url_path": "/login",
       "full_url": "http://127.0.0.1:3000/login",

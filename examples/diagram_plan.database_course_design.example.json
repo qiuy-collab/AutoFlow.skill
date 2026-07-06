@@ -1,260 +1,100 @@
 {
   "enabled": true,
-  "generator": "python_pil",
+  "generator": "dsl_renderers",
   "diagrams": [
     {
-      "name": "img_01",
+      "name": "img_001",
       "kind": "function_diagram",
       "title": "Course Design Function Diagram",
+      "direction": "LR",
       "nodes": [
-        {
-          "id": "root",
-          "label": "Course Design System",
-          "rect": [560, 120, 1040, 240],
-          "primary": true
-        },
-        {
-          "id": "user",
-          "label": "User Management",
-          "rect": [80, 460, 340, 560]
-        },
-        {
-          "id": "data",
-          "label": "Data Management",
-          "rect": [450, 460, 710, 560]
-        },
-        {
-          "id": "query",
-          "label": "Query Module",
-          "rect": [820, 460, 1080, 560]
-        },
-        {
-          "id": "report",
-          "label": "Report Output",
-          "rect": [1190, 460, 1450, 560]
-        }
+        { "id": "system", "label": "Course Design System", "shape": "process" },
+        { "id": "user", "label": "User Management", "shape": "process" },
+        { "id": "data", "label": "Data Management", "shape": "process" },
+        { "id": "query", "label": "Query Module", "shape": "process" },
+        { "id": "report", "label": "Report Output", "shape": "process" }
       ],
       "edges": [
-        {
-          "from": "root",
-          "to": "user",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "route": "straight"
-        },
-        {
-          "from": "root",
-          "to": "data",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "route": "straight"
-        },
-        {
-          "from": "root",
-          "to": "query",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "route": "straight"
-        },
-        {
-          "from": "root",
-          "to": "report",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "route": "straight"
-        }
+        { "from": "system", "to": "user" },
+        { "from": "system", "to": "data" },
+        { "from": "system", "to": "query" },
+        { "from": "system", "to": "report" }
       ]
     },
     {
-      "name": "img_02",
+      "name": "img_002",
       "kind": "flowchart",
       "title": "Main Business Flowchart",
+      "direction": "TD",
       "nodes": [
-        {
-          "id": "start",
-          "label": "Start",
-          "rect": [620, 110, 980, 210]
-        },
-        {
-          "id": "login",
-          "label": "User Login",
-          "rect": [620, 260, 980, 360]
-        },
-        {
-          "id": "check",
-          "label": "Permission Check",
-          "rect": [620, 420, 980, 560],
-          "shape": "diamond"
-        },
-        {
-          "id": "work",
-          "label": "Business Operation",
-          "rect": [620, 640, 980, 740]
-        },
-        {
-          "id": "end",
-          "label": "End",
-          "rect": [620, 800, 980, 900]
-        }
+        { "id": "start", "label": "Start", "shape": "start" },
+        { "id": "login", "label": "User Login", "shape": "process" },
+        { "id": "check", "label": "Permission Check", "shape": "decision" },
+        { "id": "work", "label": "Business Operation", "shape": "process" },
+        { "id": "end", "label": "End", "shape": "end" }
       ],
       "edges": [
-        {
-          "from": "start",
-          "to": "login",
-          "from_anchor": "bottom",
-          "to_anchor": "top"
-        },
-        {
-          "from": "login",
-          "to": "check",
-          "from_anchor": "bottom",
-          "to_anchor": "top"
-        },
-        {
-          "from": "check",
-          "to": "work",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "label": "Yes"
-        },
-        {
-          "path": [[980, 490], [1220, 490], [1220, 310], [980, 310]],
-          "label": "No"
-        },
-        {
-          "from": "work",
-          "to": "end",
-          "from_anchor": "bottom",
-          "to_anchor": "top"
-        }
+        { "from": "start", "to": "login" },
+        { "from": "login", "to": "check" },
+        { "from": "check", "to": "work", "label": "Yes" },
+        { "from": "check", "to": "login", "label": "No" },
+        { "from": "work", "to": "end" }
       ]
     },
     {
-      "name": "img_03",
+      "name": "img_003",
       "kind": "data_flow_diagram",
       "title": "Top-Level Data Flow Diagram",
+      "direction": "LR",
       "entities": [
-        {
-          "id": "external_user",
-          "label": "User",
-          "rect": [90, 340, 340, 440]
-        },
-        {
-          "id": "admin",
-          "label": "Administrator",
-          "rect": [90, 590, 360, 690]
-        }
+        { "id": "user", "label": "User" },
+        { "id": "admin", "label": "Administrator" }
       ],
       "processes": [
-        {
-          "id": "system",
-          "label": "Course Design System",
-          "rect": [560, 330, 1040, 650]
-        }
+        { "id": "system", "label": "Course Design System" }
       ],
       "stores": [
-        {
-          "id": "user_table",
-          "label": "User Table",
-          "rect": [610, 130, 980, 230]
-        },
-        {
-          "id": "business_table",
-          "label": "Business Table",
-          "rect": [610, 770, 980, 870]
-        }
+        { "id": "user_table", "label": "User Table" },
+        { "id": "business_table", "label": "Business Table" }
       ],
       "flows": [
-        {
-          "from": "external_user",
-          "to": "system",
-          "from_anchor": "right",
-          "to_anchor": "left",
-          "label": "Submit request",
-          "route": "straight",
-          "label_point": [470, 450]
-        },
-        {
-          "from": "admin",
-          "to": "system",
-          "from_anchor": "right",
-          "to_anchor": "left",
-          "label": "Manage data",
-          "route": "straight",
-          "label_point": [470, 565]
-        },
-        {
-          "from": "system",
-          "to": "user_table",
-          "from_anchor": "top",
-          "to_anchor": "bottom",
-          "label": "Write / Read",
-          "route": "straight",
-          "label_point": [800, 255]
-        },
-        {
-          "from": "system",
-          "to": "business_table",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "label": "Write / Read",
-          "route": "straight",
-          "label_point": [800, 745]
-        }
+        { "from": "user", "to": "system", "label": "Submit request" },
+        { "from": "admin", "to": "system", "label": "Manage data" },
+        { "from": "system", "to": "user_table", "label": "Write / Read" },
+        { "from": "system", "to": "business_table", "label": "Write / Read" }
       ]
     },
     {
-      "name": "img_04",
+      "name": "img_004",
       "kind": "er_diagram",
       "title": "Core ER Diagram",
       "entities": [
         {
-          "id": "student",
+          "name": "STUDENT",
           "label": "Student",
-          "rect": [120, 170, 380, 270],
-          "attribute_width": 190,
-          "attributes": ["StudentID", "Name", "ClassID"]
+          "attributes": [
+            { "type": "int", "name": "student_id", "key": "PK" },
+            { "type": "string", "name": "name" },
+            { "type": "string", "name": "class_id" }
+          ]
         },
         {
-          "id": "course",
+          "name": "COURSE",
           "label": "Course",
-          "rect": [1220, 170, 1480, 270],
-          "attribute_width": 190,
-          "attributes": ["CourseID", "CourseName", "Credit"]
+          "attributes": [
+            { "type": "int", "name": "course_id", "key": "PK" },
+            { "type": "string", "name": "course_name" },
+            { "type": "int", "name": "credit" }
+          ]
         }
       ],
       "relations": [
-        {
-          "id": "selects",
-          "label": "Selects",
-          "rect": [620, 190, 980, 310]
-        }
-      ],
-      "edges": [
-        {
-          "from": "student",
-          "to": "selects",
-          "from_anchor": "right",
-          "to_anchor": "left",
-          "label": "N",
-          "route": "straight",
-          "label_point": [610, 230],
-          "arrow": false
-        },
-        {
-          "from": "selects",
-          "to": "course",
-          "from_anchor": "right",
-          "to_anchor": "left",
-          "label": "M",
-          "route": "straight",
-          "label_point": [1210, 230],
-          "arrow": false
-        }
+        { "from": "STUDENT", "to": "COURSE", "type": "}o--o{", "label": "Selects" }
       ]
     }
   ],
   "notes": [
-    "Starter template for a typical database course design report."
+    "Starter template for a typical database course design report.",
+    "Use semantic diagram structures and let the renderer handle layout."
   ]
 }

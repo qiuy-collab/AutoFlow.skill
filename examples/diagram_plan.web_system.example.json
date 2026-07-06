@@ -1,72 +1,29 @@
 {
   "enabled": true,
-  "generator": "python_pil",
+  "generator": "dsl_renderers",
   "diagrams": [
     {
-      "name": "img_01",
+      "name": "img_001",
       "kind": "function_diagram",
       "title": "Web System Function Diagram",
+      "direction": "LR",
       "nodes": [
-        {
-          "id": "root",
-          "label": "Web System",
-          "rect": [560, 120, 1040, 240],
-          "primary": true
-        },
-        {
-          "id": "auth",
-          "label": "Authentication",
-          "rect": [80, 460, 340, 560]
-        },
-        {
-          "id": "content",
-          "label": "Content Module",
-          "rect": [450, 460, 710, 560]
-        },
-        {
-          "id": "orders",
-          "label": "Order Module",
-          "rect": [820, 460, 1080, 560]
-        },
-        {
-          "id": "admin",
-          "label": "Admin Module",
-          "rect": [1190, 460, 1450, 560]
-        }
+        { "id": "system", "label": "Web System", "shape": "process" },
+        { "id": "auth", "label": "Authentication", "shape": "process" },
+        { "id": "content", "label": "Content Module", "shape": "process" },
+        { "id": "orders", "label": "Order Module", "shape": "process" },
+        { "id": "admin", "label": "Admin Module", "shape": "process" }
       ],
       "edges": [
-        {
-          "from": "root",
-          "to": "auth",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "route": "straight"
-        },
-        {
-          "from": "root",
-          "to": "content",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "route": "straight"
-        },
-        {
-          "from": "root",
-          "to": "orders",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "route": "straight"
-        },
-        {
-          "from": "root",
-          "to": "admin",
-          "from_anchor": "bottom",
-          "to_anchor": "top",
-          "route": "straight"
-        }
+        { "from": "system", "to": "auth" },
+        { "from": "system", "to": "content" },
+        { "from": "system", "to": "orders" },
+        { "from": "system", "to": "admin" }
       ]
     }
   ],
   "notes": [
-    "Starter template for a common web management system report."
+    "Starter template for a common web management system report.",
+    "Prefer semantic nodes and edges over absolute coordinates."
   ]
 }

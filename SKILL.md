@@ -88,7 +88,7 @@ pip install requests python-docx Pillow
     - **txt2img** (default): generate screenshots from text prompt alone
     - **img2img** (variant): generate by editing/enhancing an existing reference image. Use this when you have a real photo, a rough draft, or a browser-captured image that needs AI enhancement for consistency or quality improvement
   - `browser_capture`: real screenshots from the user's own local frontend/app flow
-  - `diagram_assets`: generated diagrams for course-design figures such as function diagrams, flowcharts, data flow diagrams, and ER diagrams
+  - `diagram_assets`: DSL-driven diagrams (Mermaid / D2 / PlantUML) for course-design figures such as function diagrams, flowcharts, data flow diagrams, ER diagrams, and UML diagrams — generated via professional renderers, never AI image models
 - `auto-lab` also supports video evidence:
   - `video_analysis`: analyze existing operation videos and extract representative frames
   - `screen_recording`: record short local operation clips when screenshots are not enough
@@ -142,7 +142,7 @@ Requirement says "截图" without specifying
 How many figures does the report need? Judge by:
 
 1. **Count scoring items that require visual evidence.** Each item needing a screenshot/diagram = at least 1 figure.
-2. **Count template placeholders.** `{{img_XX}}` in the template = exact figure count.
+2. **Count template placeholders.** `{{img_NNN}}` in the template = exact figure count.
 3. **Map figures to headings.** Each major section (level-1 or level-2 heading) that describes a system, process, or result should have at least 1 figure.
 4. **Minimum for "excellent" tier**: typically 5-8 figures for a course-design report. Fewer than 5 usually means missing evidence.
 5. **Maximum**: do not exceed 12 figures unless the rubric explicitly requires more. Excess figures dilute quality.
@@ -177,27 +177,15 @@ The agent must decide this mapping for each specific assignment — do not apply
 
 ### Quality judgment thresholds
 
-When to keep an image:
-- Text is readable at normal report zoom
-- Background is believable (not blank white or obviously AI-generated)
-- No localhost / 127.0.0.1 / dev URLs visible
-- UI elements look realistic (not twisted or warped)
-- Image is pixel-sharp, not blurry, and has no mosaic/block artifacts
-- The image matches the same environment and time continuity as its neighboring screenshots
-- For browser-captured frontend pages, the screenshot looks like the real site/app itself rather than a lab handout or report-explanation shell
+Quality review is a **human-only** step. The agent does NOT self-evaluate images.
 
-When to regenerate:
-- Text is blurry or too small to read
-- Background is cluttered or unrealistic
-- localhost or dev URLs are visible
-- UI elements are obviously broken
-- The image has blur, haze, smeared text, or mosaic/block artifacts
-- The image breaks cross-image environment consistency or time consistency
-- A browser-captured frontend page includes experiment-stage labels, note panels, or explanation blocks that belong in the report instead of the page
+After image generation, the agent presents all images to the human at 🔴 STOP #2 (see below).
 
-**STRICT RULE**: After 2 regeneration rounds, if quality still fails, DO NOT silently skip or use text instead. Report the specific failure to the user and ask them to:
-1. Revise the prompt in `prompt_config.json` to address the issue, OR
-2. Explicitly approve skipping this image.
+The human reviewer decides whether each image passes. Two img2img fixup types are available:
+- **Clarity fix**: blurry/pixelated → run img2img with fixed clarity prompt
+- **Content fix**: specific error → run img2img with single-point replacement prompt
+
+**STRICT RULE**: The agent must NOT proceed to DOCX insertion without explicit human approval of all images. If the human requests fixups, the agent executes them and returns to STOP #2.
 
 ### User communication at checkpoints
 
@@ -205,9 +193,10 @@ Each 🔴 STOP point has a specific display format:
 
 | Checkpoint | What to show the user | What to wait for |
 |-----------|----------------------|-----------------|
-| After requirement analysis | The filled `requirement_analysis.json` + `requirement_checklist.json` summary: routes chosen, pre-task yes/no, figure count, packaging scope | "确认" or corrections |
-| After validation errors | The specific error messages from `run_workflow.py validate` | User acknowledgment or file fixes |
+| After WORK_PLAN | The `WORK_PLAN.md` summary: routes chosen, pre-task yes/no, figure count, packaging scope | "确认" or corrections |
+| 🔴 STOP #1 — After validation errors | The specific error messages from `run_workflow.py validate` | User acknowledgment or file fixes |
 | After upstream probe failure | The error from `generate_images.py --check` + exact fix instruction (which config to correct) | User fixes upstream config — NO fallback proposal |
+| 🔴 STOP #2 — After image generation | All generated images displayed to human for review; human may request clarity fix, content fix, or full regeneration | Human explicitly approves ALL images (not individually) |
 | After DOCX output inspection | A bullet list of what was checked and what passed/failed | User approval to proceed to packaging |
 | After delivery review | The `delivery_review.json` content | Final sign-off |
 
@@ -221,7 +210,7 @@ Before writing any fill script:
 2. Identify the cover zone (everything before the first level-1 heading) → preserve exactly.
 3. Identify fillable zones (body paragraphs between level-1 headings) → these get replaced.
 4. Identify fixed labels ("课程名称：", "姓名：", "学号：") → keep the label, fill the value.
-5. Identify `{{img_XX}}` placeholders → plan figure placement.
+5. Identify `{{img_NNN}}` placeholders → plan figure placement.
 6. Check for TOC fields → decide whether to update or remove.
 7. Check for format instructions ("字号要求：小四") → mark for removal.
 8. Record findings in `template_manifest.json`.
@@ -273,19 +262,18 @@ flowchart TD
     I -->|Browser| K["Write browser_capture_plan.json"]
     I -->|Diagram| L["Write diagram_plan.json"]
     I -->|Video| M["Write video_plan.json"]
-    J --> N0["Validate prompt_config.json (Agnes AI)"]
+    J --> N0["Validate prompt_config.json (Layer 0-2)"]
     N0 --> N["Probe upstream → generate AI images"]
     K --> O["Run app + capture screenshots"]
-    L --> P["Generate diagram assets"]
+    L --> P["Generate diagram assets (DSL: Mermaid/D2/PlantUML)"]
     M --> Q["Process video"]
-    N --> R["Visual review"]
+    N --> R["🔴 STOP #2 — Human visual review"]
     O --> R
     P --> R
     Q --> R
-    R --> S{"Quality pass?"}
-    S -->|No| T["Revise and regenerate"]
-    T --> N
-    S -->|Yes| U["Write copywriting.md + insert_config.json"]
+    R -->|Approved| U["Write copywriting.md + insert_config.json"]
+    R -->|Fixup needed| T["Agent runs img2img fixup (clarity/content)"]
+    T --> R
     U --> V["Fill DOCX template"]
     V --> W["Clean: remove placeholders, instructions, sample text"]
     W --> X["Normalize to student voice"]
@@ -306,7 +294,7 @@ flowchart TD
 | Upstream image API unreachable | `--check` returns failure | Report error to user with diagnostic info — DO NOT silently fall back | **No silent fallback allowed.** User must fix API config or explicitly approve route switch |
 | Single AI image fails | API timeout / empty response | Auto-retry 3 times (built into script) | Record failed image name; if >50% fail, abort and tell user to fix upstream |
 | **ALL AI images fail** | All retries exhausted | **Raise SystemExit — stop immediately** | **FORBIDDEN: do not fall back to diagram_assets or text-only without explicit user approval** |
-| Visual review fails | localhost in image / density too high / overlaps / blur / mosaic / inconsistent time | Revise prompt, regenerate only the failed images via a supplement config (max 2 rounds) | If still fails after 2 rounds, ask user to review and decide whether to keep or regenerate |
+| Visual review fails | Human reviewer flags image for fixup (clarity / content error) | Agent runs img2img fixup with appropriate prompt → returns to STOP #2 | Human may also request full regeneration via revised prompt_config.json |
 | Prompt validation fails | Prompt contains forbidden terms or is inconsistent | **Report issues to user, do not proceed** | User must fix prompt_config.json before generation
 | Template fill script errors | `task_scripts/*.py` exception | Check if stub was replaced, fix paths | Fall back to `python-docx` simple fill only after `vendor/minimax-docx` cannot complete the operation, and record the reason in `requirement_analysis.json -> template_strategy.notes` |
 | Video processing fails | PyAV/OpenCV both unavailable | Check ffmpeg installation | Skip video evidence, set `video_required=false` in checklist |
@@ -373,13 +361,24 @@ Default browser-capture presentation:
 
 ### Route 3: `diagram_assets`
 
-Use generated diagram assets for:
+Use DSL-generated diagrams (Mermaid / D2 / PlantUML) for:
 - function diagrams
 - flowcharts
 - data flow diagrams
 - ER diagrams
 - database schema diagrams
 - system architecture diagrams (when specifically asked as diagrams, not as screenshots)
+- UML diagrams (class, use-case, sequence, component, deployment)
+
+Diagram generation uses professional DSL renderers — **never AI image models** for diagram types. See `docs/prompts/diagram_asset_rules.md` for the full DSL workflow.
+
+Each diagram outputs both source files (`.mmd`/`.d2`/`.puml`) and image files (`.png`/`.svg`).
+
+```bash
+python generate_diagram_assets.py --workflow workflow.json
+```
+
+Prerequisites: `mmdc` (Mermaid CLI), `d2`, `plantuml`. Missing tools trigger friendly install hints — do not crash silently.
 
 Do not use diagram assets for:
 - terminal screenshots
@@ -408,6 +407,42 @@ Do not use diagram assets for:
 - Probe img2img availability per upstream before relying on it: `python scripts/generate_images.py --probe-img2img`
 - Detection is automatic: if an image entry has `reference_image`, the engine uses the upstream's `images::edits` endpoint; otherwise the standard `images::generations` (txt2img) endpoint is used.
 - Fallback: if an upstream does not support img2img, the image will fail. Do not silently fall back to txt2img — the agent must decide whether to switch to txt2img, use a different upstream, or skip the image.
+
+### img2img fixup mechanism (post-generation correction)
+
+After initial image generation, a **human review step** occurs before images are inserted into the DOCX (see 🔴 STOP #2 below). Two types of fixup are supported via img2img:
+
+#### Fixup Type 1: Clarity fix (不清晰)
+
+When an image is blurry, pixelated, jagged, or text is faint:
+
+- Use a fixed clarity-enhancement prompt (see `C:\Users\ASUS\Desktop\补图提示词--不清晰.md`).
+- The prompt instructs the model to: keep original content/layout/size/format identical, only enhance sharpness and readability.
+- Key rules: no content change, no text rewriting, no element addition/deletion, no UI structure modification.
+- Run via: `python scripts/generate_images.py --config prompt_config.supplement.json` with `reference_image` pointing to the original blurry image.
+
+#### Fixup Type 2: Content fix (内容错误)
+
+When an image has a specific content error that needs correction:
+
+- Use img2img with a **single-point replacement prompt** describing only the specific element to fix.
+- The prompt must explicitly state: "keep the original image structure fully intact; only replace [specific element] with [correct element]."
+- Do NOT describe the full scene from scratch — only describe the targeted fix.
+- The reference image is the original (incorrect) image.
+
+After fixup, images go through human review again before insertion.
+
+### Image generation upstream: single fixed upstream
+
+Only **one** upstream API provider is used. Multi-upstream parallel sharding is **not supported**.
+
+Configure in `.env`:
+```env
+BASEURL=https://your-api-endpoint
+APIKEY=sk-your-key
+```
+
+Concurrency is controlled by `max_workers` in `prompt_config.json` (default: 4, max: 8).
 
 ## Template filling rules
 
@@ -438,8 +473,8 @@ Every image MUST have its own caption immediately after it. The structure for ea
 - Never stack multiple images with a single shared caption.
 - Captions must not be grouped together at the end of a section. They must stay paired with their respective images.
 - The pattern is always: lead-in → image → caption → analysis. One unit per figure.
-- If the template has `{{img_01}}` placeholders, each placeholder should be followed by its caption paragraph before the next placeholder.
-- After filling, verify that every `{{img_XX}}` has a caption within 2 paragraphs below it. If a caption is missing or misaligned, fix it before delivery.
+- If the template has `{{img_001}}` placeholders, each placeholder should be followed by its caption paragraph before the next placeholder.
+- After filling, verify that every `{{img_NNN}}` has a caption within 2 paragraphs below it. If a caption is missing or misaligned, fix it before delivery.
 
 ## Frontend code constraints
 
@@ -467,7 +502,7 @@ When implementing frontend code as a pre-task:
 7. **If pre-task required**, complete it first. For frontend: init git, read vendor skills, build, write README, verify with webapp-testing. Record outputs in `pre_task_plan.json`.
 8. **Analyze template** and customize `task_scripts/fill_template.py`, `insert_images.py`, `verify_template.py`.
 9. **Write config files** as one coordinated set: `copywriting.md`, `prompt_config.json`, `browser_capture_plan.json`, `diagram_plan.json`, `video_plan.json`, `reference_template_cleanup.json`, `submission_package.json`, `insert_config.json`. Read `docs/prompts/prompt_driven_decisions.md` before writing.
-10. **Visual review** per `docs/prompts/visual_review_rules.md`. Set `ai_visual_review_completed` / `browser_visual_review_completed` / `diagram_visual_review_completed` only after passing. Execution commands such as `images`, `video`, `package`, and `run` must stay blocked until `approval_checkpoints.json.work_plan_confirmed = true`.
+10. **🔴 STOP #2 — Human visual review**: Present all generated images to the human for review. The agent must NOT evaluate images itself. The human may: (a) approve all images → proceed; (b) request clarity fix → agent runs img2img with fixed prompt; (c) request content fix → agent runs img2img single-point replacement; (d) request full regeneration → agent revises prompt_config.json and regenerates. After any fixup, return to STOP #2. Only after explicit human approval, set review-completed flags and proceed to DOCX insertion.
 11. **User image review stop**: after `python scripts/run_workflow.py images --workflow <workflow.json>` finishes, show the generated images to the user and wait for approval. Do not run DOCX assembly while `approval_checkpoints.json.image_review_confirmed = false`.
 12. **Validate**: `python scripts/run_workflow.py validate --workflow <workflow.json>`. 🔴 **STOP if errors** — fix before continuing.
 13. **Validate prompts** (if AI images): `python scripts/validate_prompt.py --config <output_dir>/prompt_config.json`. 🔴 **STOP if fails** — fix prompt_config.json.
@@ -478,80 +513,29 @@ When implementing frontend code as a pre-task:
 18. **Fill DOCX**: `python scripts/run_workflow.py run --workflow <workflow.json>`. 🔴 **STOP — inspect output**. Check for: leftover placeholders, broken TOC, agent-voice, template instructions as body text, missing images.
 19. **Delivery review**: list every required deliverable, check each for correctness. Write `delivery_review.json`. 🔴 **STOP — user sign-off**.
 
-## Multi-upstream parallel generation
+## Single upstream generation
 
-When generating many AI images, distribute work across multiple upstream API providers to reduce total time.
+Only **one** upstream API provider is used. Configure in `.env`:
 
-### Configuration
-
-**`.env`** — comma-separated mode (recommended):
 ```env
-BASEURLS:https://api1.example.com,https://api2.example.com
-APIKEYS:sk-key1,sk-key2
+BASEURL=https://your-api-endpoint
+APIKEY=sk-your-key
 ```
 
-Or numbered mode:
-```env
-BASEURL1:https://api1.example.com
-APIKEY1:sk-key1
-BASEURL2:https://api2.example.com
-APIKEY2:sk-key2
-```
-
-**`prompt_config.json`** — key fields:
-```json
-{
-  "upstream_count": 2,
-  "max_workers": 4,
-  "max_retries": 3,
-  "timeout": 180,
-  "images": [
-    {
-      "name": "img_01",
-      "mode": "screenshot_strict",
-      "prompt": "...",
-      "reference_image": "path/to/ref.png"
-    }
-  ]
-}
-```
-- `reference_image` (optional per-image): path to a reference image for img2img mode. When present, the engine uses the upstream's image-editing endpoint. Omit for standard txt2img generation.
-- Reference paths are relative to the output directory unless specified as absolute paths.
-
-### Sharding logic
-
-Each upstream gets `index % upstream_count == upstream_index` of the images:
-
-| Upstream | Images (8 total, 2 upstreams) |
-|----------|------------------------------|
-| 上游0 | img_1, img_3, img_5, img_7 |
-| 上游1 | img_2, img_4, img_6, img_8 |
+Concurrency is controlled by `max_workers` in `prompt_config.json` (default: 4, max: 8).
 
 ### Running
 
 ```bash
-# Terminal 1 (upstream 0 → handles even-indexed images)
-python scripts/generate_images.py --config prompt_config.json --upstreams 2 --upstream 0
-
-# Terminal 2 (upstream 1 → handles odd-indexed images)
-python scripts/generate_images.py --config prompt_config.json --upstreams 2 --upstream 1
-
-# Single-upstream mode (backward compatible, no sharding)
+# Batch generation from config
 python scripts/generate_images.py --config prompt_config.json
 
-# Single-image img2img mode (enhance one reference image)
-python scripts/generate_images.py --config prompt_config.json --ref-image path/to/reference.png --prompt "enhance brightness, keep style"
+# Check upstream availability
+python scripts/generate_images.py --check
 
-# Probe whether upstreams support img2img
-python scripts/generate_images.py --probe-img2img
+# Single-image img2img fixup
+python scripts/generate_images.py --prompt "enhance sharpness" --ref-image path/to/blurry.png
 ```
-
-### Expected performance
-
-- 8 images, 1 upstream: ~120 seconds
-- 8 images, 2 upstreams: ~60 seconds
-- 8 images, 3 upstreams: ~45 seconds
-- Scales near-linearly with upstream count (limited by `max_workers`)
 
 ## Files created by init_run.py
 
@@ -590,7 +574,7 @@ Cross-rules:
 - `video_required=true` → `video_plan.json` must be populated, `video_review_completed` must be `true`
 - `submission_package_required=true` → `submission_package.json` must be populated, output must be both `submit/` folder and `submit.zip`
 - `pre_task_required=true` → `pre_task_plan.json` must be enabled and completed
-- `ai_visual_review_completed`, `browser_visual_review_completed`, and `diagram_visual_review_completed` must only be `true` after agent has visually inspected the images
+- `ai_visual_review_completed`, `browser_visual_review_completed`, and `diagram_visual_review_completed` must only be `true` after the human user has explicitly approved all images at STOP #2
 
 ### approval_checkpoints.json
 
@@ -675,7 +659,7 @@ Before delivery, the agent MUST run through every item below. Each item must pas
 
 | Check | How to verify | Pass condition |
 |-------|--------------|----------------|
-| Every image has a caption | For each `{{img_XX}}` or inserted image, check the paragraph 1-2 lines below | Caption exists within 2 paragraphs of each image |
+| Every image has a caption | For each `{{img_NNN}}` or inserted image, check the paragraph 1-2 lines below | Caption exists within 2 paragraphs of each image |
 | One caption per image | Count images vs captions | Image count = caption count |
 | No stacked captions | Check that captions are not grouped together | Each caption is immediately after its own image |
 | No orphan images | Check that every image has a caption within 2 paragraphs | Zero images without captions |
@@ -691,8 +675,7 @@ Before delivery, the agent MUST run through every item below. Each item must pas
 |-------|--------------|----------------|
 | AI screenshots have real time | Open each AI image, check clock/time displays | Time matches actual generation time |
 | AI code screenshots use project code | Compare code in image with actual project files | Core logic matches, not generic placeholders |
-| No localhost in images | Search images for `localhost`, `127.0.0.1` | Zero occurrences |
-| No dev URLs | Search images for `localhost:`, `127.0.0.1:`, `dev server` | Zero occurrences |
+| URLs are real application URLs | Check that URLs in images match the app's actual access method | localhost is acceptable if that's the real app URL; no fake domains |
 | Diagrams have no overlaps | Visual inspection of each diagram | Labels readable, no overlapping text or arrows |
 | All images render correctly | Scroll through full document | No blank spaces, no broken embeds |
 

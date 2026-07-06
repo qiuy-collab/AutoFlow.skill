@@ -1,92 +1,106 @@
 {
-  "_comment": "=== prompt_config.json TEMPLATE === Read this entire file before filling. Keep all fields. Replace values inside <...> placeholders. Delete _comment fields in the final output.",
+  "_comment": "=== prompt_config.json TEMPLATE v2.0 === Read this entire file before filling. Keep all fields. Replace values inside <...> placeholders. Delete _comment fields in the final output.",
+  "task_name": "<project_task_identifier>",
   "total_count": 0,
   "resolution": "2048x1152",
-  "_resolution_comment": "2560x1440 or 2048x1152 for screenshots; 1024x1024 for non-screenshot. Must match all images.",
+  "_resolution_comment": "2560x1440 or 2048x1152 for screenshots; 1600x1000 for diagrams; 1024x1024 for icons. Must be 16:9 for screenshot asset_type.",
   "output_dir": "./output/generated_images",
   "_output_dir_comment": "Relative to the run directory. Created automatically if missing.",
-  "upstream_count": 1,
-  "_upstream_count_comment": "Number of upstream API providers. Use 1 for single-upstream; 2+ for parallel sharding.",
-  "upstream_index": 0,
-  "_upstream_index_comment": "0-based index when running sharded. Leave at 0 for single-upstream mode.",
-  "max_workers": 16,
-  "_max_workers_comment": "Max concurrent API calls. Do not exceed 16.",
+  "max_workers": 4,
+  "_max_workers_comment": "Max concurrent API calls. Default 4, max 8. Single upstream only.",
   "max_retries": 3,
   "_max_retries_comment": "Retries per image on transient failure.",
   "retry_delay": 2,
   "_retry_delay_comment": "Seconds between retries.",
   "timeout": 180,
   "_timeout_comment": "API timeout in seconds per image generation call.",
-  "concurrency_source": "<'env' for BASEURLS/APIKEYS CSV, 'config' otherwise>",
-  "concurrency_report": "<'combined' / 'manual_split' / 'single'>",
-  "upstream_mode": "<'shared' / 'numbered' / 'single'>",
+  "global_prompt": "<unified environment description for all images: OS, theme, font, layout, style — do NOT describe individual image content here>",
+  "_global_prompt_comment": "The global_prompt defines the SHARED visual environment. Individual image.prompt fields add per-image content on top of this. They must be semantically compatible.",
+  "global_constraints": {
+    "_comment": "Structured environment constraints. Each image.prompt must not violate these.",
+    "asset_type": "screenshot",
+    "environment": "<e.g. Windows Server / Ubuntu Desktop / macOS>",
+    "ui_language": "<English / Chinese>",
+    "theme": "<dark / light>",
+    "style": "realistic desktop screenshot",
+    "forbidden_style": ["poster", "diagram", "annotation", "callout"]
+  },
+  "scene_anchor": {
+    "_comment": "Scene anchor for cross-image consistency. All images in the same consistency_group must share these values.",
+    "id": "<numeric id, e.g. 62>",
+    "hostname": "<hostname, e.g. W62-SERVER1>",
+    "username": "<username, e.g. Administrator>",
+    "ip_prefix": "<ip prefix, e.g. 10.21.62>",
+    "path_prefix": "<path prefix, e.g. D:\\W62-DHCP>",
+    "terminal": "<PowerShell / bash / cmd>"
+  },
   "image_policy": {
     "_comment": "Global policy applied to all images in this batch.",
-
+    "schema_version": "2.0",
+    "default_asset_type": "screenshot",
     "default_mode": "screenshot_strict",
-    "_default_mode_comment": "'screenshot_strict' for terminal/IDE/UI screenshots; 'generic' for non-screenshot images.",
-
-    "auto_append_negative": true,
-    "_auto_append_negative_comment": "If true, negative prompts are auto-generated from forbidden_terms.",
-
     "fail_on_prompt_risk": true,
-    "_fail_on_prompt_risk_comment": "If true, validation failure blocks generation.",
-
+    "allow_negative_forbidden_terms": true,
     "probe_retries": 3,
-    "_probe_retries_comment": "Number of upstream availability probe attempts.",
-
     "probe_timeout": 180,
-    "_probe_timeout_comment": "Timeout per probe attempt (seconds).",
-
     "batch_timeout": 180,
-    "_batch_timeout_comment": "Batch-level timeout (seconds).",
-
     "skip_existing_files": true,
-    "_skip_existing_files_comment": "If true, skip images that already exist in output_dir.",
+    "ui_density": "low_information_density",
+    "crop_browser_chrome": true,
+    "forbid_localhost_or_dev_url": false,
+    "_forbid_localhost_comment": "false = allow localhost as real app URL; only avoid fake production domains",
 
-    "forbidden_terms": [
+    "screenshot_forbidden_terms": [
       "流程图", "架构图", "讲解板", "说明面板",
       "悬浮标注", "箭头标注", "海报", "AI生成", "示意图",
       "poster", "callout", "annotation", "flowchart", "diagram"
     ],
-    "_forbidden_terms_comment": "Terms that must not appear in any prompt. Extend as needed.",
-
-    "ui_density": "low_information_density",
-    "_ui_density_comment": "'low_information_density' for clean UI screenshots.",
-
-    "crop_browser_chrome": true,
-    "_crop_browser_chrome_comment": "If true, prompts instruct the model to avoid browser chrome.",
-
-    "forbid_localhost_or_dev_url": true,
-    "_forbid_localhost_or_dev_url_comment": "If true, validation rejects localhost/dev URLs in prompts.",
+    "diagram_forbidden_terms": [
+      "海报", "讲解板", "说明面板",
+      "悬浮标注", "箭头标注", "AI生成",
+      "poster", "callout", "annotation"
+    ],
 
     "quality_constraints": {
-      "_comment": "Post-generation quality checks. Keep all true unless you have a reason to relax one.",
       "consistency": true,
-      "_consistency_comment": "Cross-image environment, theme, and style consistency.",
       "pixel_sharpness": true,
-      "_pixel_sharpness_comment": "No blur or soft focus.",
       "no_blur_or_mosaic": true,
-      "_no_blur_or_mosaic_comment": "No haze, motion blur, or block/mosaic artifacts.",
       "time_consistency": true
-    }
+    },
+
+    "required_image_fields": [
+      "name", "asset_type", "mode", "resolution", "consistency_group", "prompt"
+    ],
+    "required_global_fields": [
+      "global_prompt", "global_constraints", "scene_anchor", "image_policy", "images"
+    ]
   },
-  "global_prompt": "<unified environment description for all images: OS, theme, font, layout, style — do NOT describe individual image content here>",
-  "_global_prompt_comment": "The global_prompt defines the SHARED visual environment. Individual image.prompt fields add per-image content on top of this. They must be semantically compatible. See examples/prompt_config.example.json for a working reference.",
   "images": [
     {
-      "_comment": "=== Image entry template. Copy this block for each image. Fields with <...> must be replaced. === ",
-      "name": "img_01",
-      "_name_comment": "Must follow img_NN format: img_01, img_02, ... continuous numbers, no gaps.",
+      "_comment": "=== Image entry template v2.0. Copy this block for each image. ===",
+      "name": "img_001",
+      "_name_comment": "Must follow img_NNN format: img_001, img_002, ... continuous numbers, no gaps.",
+
+      "asset_type": "screenshot",
+      "_asset_type_comment": "One of: screenshot, diagram, ui_mockup, photo, illustration.",
 
       "mode": "screenshot_strict",
-      "_mode_comment": "'screenshot_strict' for terminal/IDE/UI shots; 'generic' for non-screenshot.",
+      "_mode_comment": "screenshot_strict (for screenshot), diagram_strict (for diagram), generic (for others).",
 
-      "prompt": "<per-image content description — must be compatible with global_prompt. Describe what THIS specific image shows.>",
+      "resolution": "2560x1440",
+      "_resolution_comment": "Per-image override of top-level resolution. Screenshot must be 16:9.",
+
+      "consistency_group": "<group name, e.g. dhcp_export_w62>",
+      "_consistency_group_comment": "Images sharing the same group name are checked for scene_anchor consistency.",
+
+      "prompt": "<per-image content description — must be compatible with global_prompt and global_constraints>",
+
+      "fixup_type": null,
+      "_fixup_type_comment": "OPTIONAL. null for normal generation. Use 'clarity' for the fixed anti-blur repair prompt, or 'content' for single-point replacement fixup.",
 
       "reference_image": null,
-      "_reference_image_comment": "OPTIONAL. Set to null for txt2img. Set to an absolute file path for img2img (editing/enhancing the reference). When non-null, the prompt should describe the DESIRED CHANGE (e.g., 'increase brightness, keep terminal layout identical'), not the full scene from scratch."
+      "_reference_image_comment": "OPTIONAL. Set to null for txt2img. Set to a file path for img2img fixup. When non-null, prompt should describe the DESIRED CHANGE, not the full scene."
     }
   ],
-  "_images_comment": "Each entry in images[] maps to one generated image. total_count must equal the length of this array. For img2img images, include reference_image; for txt2img, omit it. Mixing both modes in one batch is supported."
+  "_images_comment": "Each entry in images[] maps to one generated image. total_count must equal the length of this array. For img2img fixup images, include reference_image; for txt2img, omit it."
 }

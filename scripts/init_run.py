@@ -198,9 +198,10 @@ def main():
                 "function_diagram",
                 "flowchart",
                 "data_flow_diagram",
-                "er_diagram"
-            ]
-            ,
+                "er_diagram",
+                "architecture_diagram",
+                "uml_diagram"
+            ],
             "video_processing_scope": [
                 "video_analysis",
                 "screen_recording",
@@ -217,10 +218,10 @@ def main():
             "AI screenshots are for terminal, command output, and configuration content.",
             "Browser screenshots are for local frontend pages and self-built app/web practice screenshots.",
             "When browser screenshots are used for frontend pages, default to a site-only presentation unless the requirement explicitly asks for teaching overlays or explanatory panels.",
-            "Do not mark browser_visual_review_completed=true until an agent has visually checked that the page looks like the real site/app rather than a lab handout shell.",
-            "Diagram assets are for function diagrams, flowcharts, data flow diagrams, and ER diagrams.",
-            "If AI images are enabled, do not mark ai_visual_review_completed=true until an agent has visually checked readability, realism, and absence of localhost or distortion.",
-            "If diagram assets are enabled, do not mark diagram_visual_review_completed=true until an agent has checked line routing, spacing, and readability.",
+            "Do not mark browser_visual_review_completed=true until the human user has approved that the page looks like the real site/app rather than a lab handout shell.",
+            "Diagram assets are for function diagrams, flowcharts, data flow diagrams, ER diagrams, architecture diagrams, and UML diagrams.",
+            "If AI images are enabled, do not mark ai_visual_review_completed=true until the human user has approved the images after STOP #2.",
+            "If diagram assets are enabled, do not mark diagram_visual_review_completed=true until the human user has approved the rendered diagrams after STOP #2.",
             "If video evidence is enabled, fill video_plan.json and inspect the produced analysis/recording before marking video_review_completed=true.",
             "If the requirement asks for a submission package, derive the needed files from the prompt/requirement first, then write submission_package.json and produce submit.zip.",
             "For any DOCX editing or fill task, prefer vendor/minimax-docx first. Use python-docx only for lightweight inspection/cleanup or as a documented fallback when minimax-docx cannot complete the operation."
@@ -248,51 +249,93 @@ def main():
     }
 
     prompt_config = {
+        "task_name": output_dir.name,
         "total_count": 0,
-        "resolution": "2560x1440",
+        "resolution": "2048x1152",
         "output_dir": str(images_dir),
-        "max_workers": 1,
+        "max_workers": 4,
         "max_retries": 3,
         "retry_delay": 2,
-        "concurrency_source": "bootstrap_default_until_agent_runs_test_image_concurrency",
-        "concurrency_report": str((output_dir / "image_concurrency_report.json").resolve()),
-        "upstream_mode": "single",
-        "upstream_count": 1,
+        "timeout": 180,
+        "global_prompt": "",
+        "global_constraints": {
+            "asset_type": "screenshot",
+            "environment": "",
+            "ui_language": "English",
+            "theme": "dark",
+            "style": "realistic desktop screenshot",
+            "forbidden_style": ["poster", "diagram", "annotation", "callout"]
+        },
+        "scene_anchor": {
+            "id": "",
+            "hostname": "",
+            "username": "",
+            "ip_prefix": "",
+            "path_prefix": "",
+            "terminal": ""
+        },
         "image_policy": {
+            "schema_version": "2.0",
+            "default_asset_type": "screenshot",
             "default_mode": "screenshot_strict",
-            "auto_append_negative": True,
             "fail_on_prompt_risk": True,
+            "allow_negative_forbidden_terms": True,
             "probe_retries": 3,
             "probe_timeout": 180,
             "batch_timeout": 180,
             "skip_existing_files": True,
-            "forbidden_terms": [
-                "流程图",
-                "架构图",
-                "讲解板",
-                "说明面板",
-                "悬浮标注",
-                "箭头标注",
-                "海报",
-                "AI生成",
-                "示意图",
+            "screenshot_forbidden_terms": [
+                "����ͼ",
+                "�ܹ�ͼ",
+                "�����",
+                "˵�����",
+                "������ע",
+                "��ͷ��ע",
+                "����",
+                "AI����",
+                "ʾ��ͼ",
                 "poster",
                 "callout",
                 "annotation",
                 "flowchart",
                 "diagram"
             ],
+            "diagram_forbidden_terms": [
+                "����",
+                "�����",
+                "˵�����",
+                "������ע",
+                "��ͷ��ע",
+                "AI����",
+                "poster",
+                "callout",
+                "annotation"
+            ],
             "ui_density": "low_information_density",
             "crop_browser_chrome": True,
-            "forbid_localhost_or_dev_url": True,
+            "forbid_localhost_or_dev_url": False,
             "quality_constraints": {
                 "consistency": True,
                 "pixel_sharpness": True,
                 "no_blur_or_mosaic": True,
                 "time_consistency": True
-            }
+            },
+            "required_image_fields": [
+                "name",
+                "asset_type",
+                "mode",
+                "resolution",
+                "consistency_group",
+                "prompt"
+            ],
+            "required_global_fields": [
+                "global_prompt",
+                "global_constraints",
+                "scene_anchor",
+                "image_policy",
+                "images"
+            ]
         },
-        "global_prompt": "",
         "images": []
     }
 
@@ -334,12 +377,13 @@ def main():
 
     diagram_plan = {
         "enabled": False,
-        "generator": "python_pil",
+        "generator": "dsl_renderers",
         "diagrams": [],
         "notes": [
-            "Use only for function diagrams, flowcharts, data flow diagrams, and ER diagrams.",
+            "Use only for function diagrams, flowcharts, data flow diagrams, ER diagrams, architecture diagrams, and UML diagrams.",
             "Do not use this route for terminal screenshots or local frontend page screenshots.",
-            "Diagram content, labels, and structure must be derived from the assignment and project, not from a canned template."
+            "Diagram content, labels, and structure must be derived from the assignment and project, not from a canned template.",
+            "Each diagram should be described semantically and rendered through Mermaid, D2, or PlantUML rather than hand-drawn coordinates."
         ]
     }
 
@@ -449,7 +493,7 @@ def main():
 > `browser_capture` 只负责本地前端页面和自己编写的 app/web 实操截图。
 > `diagram_assets` 只负责功能图、流程图、数据流图、ER 图。
 > 如需视频证据，再决定使用 `video_analysis`、`screen_recording` 或两者结合。
-> 每个 `{{img_XX}}` 占位符都应该放在图前引导句与图后分析段之间。
+> 每个 `{{img_NNN}}` 占位符都应该放在图前引导句与图后分析段之间。
 """
 
     write_script_stub(fill_script_path, "fill")
