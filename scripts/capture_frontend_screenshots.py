@@ -53,6 +53,19 @@ def normalize_target_url(base_url: str, target: str):
     return base_url.rstrip("/") + "/" + value.lstrip("/")
 
 
+def resolve_input_file(plan, value: str) -> str:
+    candidate = Path((value or "").strip()).expanduser()
+    if not candidate.is_absolute():
+        startup_cwd = plan.get("startup_cwd", "").strip()
+        base = Path(startup_cwd) if startup_cwd else Path.cwd()
+        candidate = (base / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+    if not candidate.exists():
+        raise SystemExit(f"Browser capture upload file does not exist: {candidate}")
+    return str(candidate)
+
+
 def wait_for_url(url: str, timeout_seconds: int, process=None, log_path: Path | None = None):
     deadline = time.time() + timeout_seconds
     last_error = None
@@ -127,6 +140,8 @@ def run_action(page, action, plan):
         page.locator(selector).click()
     elif action_type == "fill":
         page.locator(selector).fill(value)
+    elif action_type in {"set_input_files", "upload_file"}:
+        page.locator(selector).set_input_files(resolve_input_file(plan, value))
     elif action_type == "press":
         page.locator(selector).press(value)
     elif action_type == "hover":
@@ -136,7 +151,7 @@ def run_action(page, action, plan):
     elif action_type == "select_option":
         page.locator(selector).select_option(value)
     elif action_type == "wait_for_selector":
-        page.locator(selector).wait_for()
+        page.locator(selector).first.wait_for()
     elif action_type == "wait_for_timeout":
         page.wait_for_timeout(int(value))
     else:

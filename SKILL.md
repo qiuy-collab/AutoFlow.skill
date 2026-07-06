@@ -7,7 +7,7 @@ description: "Portable lab-report workflow for generating copywriting, AI experi
 
 Use this skill when the user wants a lab report generated from a requirement document and a Word template while preserving the template structure.
 
-The executable workflow expects a `.docx` template for `python-docx` processing. If the user only has `.doc`, convert it before running `init_run.py`.
+The executable workflow expects a `.docx` template. For DOCX editing and filling, prefer `vendor/minimax-docx` first. Use `python-docx` only for lightweight inspection, manifest extraction, or a documented fallback. If the user only has `.doc`, convert it before running `init_run.py`.
 
 ## Environment setup (agent-automated)
 
@@ -84,7 +84,9 @@ pip install requests python-docx Pillow
 - The agent must decide the figure plan before writing copy.
 - The report voice must be that of a student submitting coursework, never that of an agent, assistant, or tool explaining what it did.
 - `auto-lab` supports three visual routes:
-  - `ai_simulated`: AI-generated realistic screenshots
+  - `ai_simulated`: AI-generated realistic screenshots — supports two generation modes:
+    - **txt2img** (default): generate screenshots from text prompt alone
+    - **img2img** (variant): generate by editing/enhancing an existing reference image. Use this when you have a real photo, a rough draft, or a browser-captured image that needs AI enhancement for consistency or quality improvement
   - `browser_capture`: real screenshots from the user's own local frontend/app flow
   - `diagram_assets`: generated diagrams for course-design figures such as function diagrams, flowcharts, data flow diagrams, and ER diagrams
 - `auto-lab` also supports video evidence:
@@ -180,12 +182,18 @@ When to keep an image:
 - Background is believable (not blank white or obviously AI-generated)
 - No localhost / 127.0.0.1 / dev URLs visible
 - UI elements look realistic (not twisted or warped)
+- Image is pixel-sharp, not blurry, and has no mosaic/block artifacts
+- The image matches the same environment and time continuity as its neighboring screenshots
+- For browser-captured frontend pages, the screenshot looks like the real site/app itself rather than a lab handout or report-explanation shell
 
 When to regenerate:
 - Text is blurry or too small to read
 - Background is cluttered or unrealistic
 - localhost or dev URLs are visible
 - UI elements are obviously broken
+- The image has blur, haze, smeared text, or mosaic/block artifacts
+- The image breaks cross-image environment consistency or time consistency
+- A browser-captured frontend page includes experiment-stage labels, note panels, or explanation blocks that belong in the report instead of the page
 
 **STRICT RULE**: After 2 regeneration rounds, if quality still fails, DO NOT silently skip or use text instead. Report the specific failure to the user and ask them to:
 1. Revise the prompt in `prompt_config.json` to address the issue, OR
@@ -298,9 +306,9 @@ flowchart TD
 | Upstream image API unreachable | `--check` returns failure | Report error to user with diagnostic info — DO NOT silently fall back | **No silent fallback allowed.** User must fix API config or explicitly approve route switch |
 | Single AI image fails | API timeout / empty response | Auto-retry 3 times (built into script) | Record failed image name; if >50% fail, abort and tell user to fix upstream |
 | **ALL AI images fail** | All retries exhausted | **Raise SystemExit — stop immediately** | **FORBIDDEN: do not fall back to diagram_assets or text-only without explicit user approval** |
-| Visual review fails | localhost in image / density too high / overlaps | Revise prompt, regenerate (max 2 rounds) | If still fails after 2 rounds, ask user to review and decide whether to keep or regenerate |
+| Visual review fails | localhost in image / density too high / overlaps / blur / mosaic / inconsistent time | Revise prompt, regenerate only the failed images via a supplement config (max 2 rounds) | If still fails after 2 rounds, ask user to review and decide whether to keep or regenerate |
 | Prompt validation fails | Prompt contains forbidden terms or is inconsistent | **Report issues to user, do not proceed** | User must fix prompt_config.json before generation
-| Template fill script errors | `task_scripts/*.py` exception | Check if stub was replaced, fix paths | Fall back to `python-docx` simple fill, record reason in `requirement_analysis.json -> template_strategy.notes` |
+| Template fill script errors | `task_scripts/*.py` exception | Check if stub was replaced, fix paths | Fall back to `python-docx` simple fill only after `vendor/minimax-docx` cannot complete the operation, and record the reason in `requirement_analysis.json -> template_strategy.notes` |
 | Video processing fails | PyAV/OpenCV both unavailable | Check ffmpeg installation | Skip video evidence, set `video_required=false` in checklist |
 | Submission packaging fails | Files in `include_paths` don't exist | Check paths, fix `submission_package.json` | Stop, ask user to confirm files |
 | Vendor skill file missing | `vendor/*/SKILL.md` not found | Report the specific missing skill name | Stop — do not silently skip |
@@ -358,6 +366,11 @@ Do not use browser capture for:
 - generic configuration figures that fit the AI route better
 - function diagrams, flowcharts, data flow diagrams, or ER diagrams
 
+Default browser-capture presentation:
+- Use `site_only` unless the requirement explicitly asks for a guided demo shell.
+- In `site_only`, the frontend should show the real website/app content only.
+- Do not surface `lab1` / `lab2` / `exp1` / `exp2`, note blocks, report wording, or teaching overlays in visible UI unless the requirement explicitly asks for them.
+
 ### Route 3: `diagram_assets`
 
 Use generated diagram assets for:
@@ -378,9 +391,23 @@ Do not use diagram assets for:
 
 - AI-generated screenshots with clock/time displays must show the **real current time**. Note the current date/time before generating and include it in the prompt.
 - AI-generated code/IDE screenshots should use the **project's actual source code**. Pick the most representative snippet (main entry point, key class, or core logic) and include it in the prompt for visual fidelity.
+- AI-generated screenshots must explicitly target pixel-level sharpness, crisp text, no blur, and no mosaic/block artifacts.
+- Screenshot sets that describe one continuous operation should keep background treatment, UI style, and visible time cues consistent across images.
 - If AI image generation fails, do NOT fall back to local fake screenshots. Retry, skip, or switch routes.
 - Before batch AI image generation, always validate prompts: `python scripts/validate_prompt.py --config <output_dir>/prompt_config.json`
 - After prompt validation passes, probe upstream: `python scripts/generate_images.py --check`
+- If only some images fail or fail review, create/use `prompt_config.supplement.json` instead of rerunning the full batch and overwriting successful images.
+
+### img2img usage constraints
+
+- img2img requires a reference image path (`reference_image` field in each image entry). The reference must exist on disk at generation time.
+- img2img is selected **per-image** — a single `prompt_config.json` can mix txt2img and img2img images in the same batch.
+- When `reference_image` is present, the generation engine calls the upstream's image-editing endpoint instead of text-to-image.
+- The prompt for img2img should describe the **desired change** (e.g., "increase brightness slightly, keep everything else identical") rather than describing the whole scene from scratch.
+- img2img works best for: enhancing browser-captured images to match AI-generated style, unifying visual consistency across mixed-source images, cleaning up rough screenshots without regenerating from scratch.
+- Probe img2img availability per upstream before relying on it: `python scripts/generate_images.py --probe-img2img`
+- Detection is automatic: if an image entry has `reference_image`, the engine uses the upstream's `images::edits` endpoint; otherwise the standard `images::generations` (txt2img) endpoint is used.
+- Fallback: if an upstream does not support img2img, the image will fail. Do not silently fall back to txt2img — the agent must decide whether to switch to txt2img, use a different upstream, or skip the image.
 
 ## Template filling rules
 
@@ -420,6 +447,7 @@ When implementing frontend code as a pre-task:
 - Do not use placeholder text like "dashboard", "note", "placeholder", "示例", "样例" in visible UI.
 - Do not use generic template copy (e.g., "Welcome to your dashboard", "Note content here").
 - All visible text must be real content derived from the requirement.
+- When the page is being browser-captured for report evidence, default the visible presentation to the real site/app itself, not an experiment explanation layer.
 - Code must be runnable, requirement-aligned, and handoff-ready — not demo-grade.
 
 ## Execution steps
@@ -429,22 +457,26 @@ When implementing frontend code as a pre-task:
    ```
    python scripts/init_run.py --requirements <req> --template <tpl.docx> --output-dir <dir> --output-docx-name <result.docx>
    ```
-3. **Read generated files**: `workflow.json`, `template_manifest.json`, `requirement_checklist.json`, `requirement_analysis.json`, `pre_task_plan.json`, `copywriting.md`, `prompt_config.json`, `browser_capture_plan.json`, `diagram_plan.json`, `video_plan.json`, `reference_template_cleanup.json`, `submission_package.json`, `insert_config.json`, `task_scripts/fill_template.py`, `task_scripts/insert_images.py`, `task_scripts/verify_template.py`.
-4. **Fill `requirement_analysis.json`**, then reflect decisions into `requirement_checklist.json`.
-5. 🔴 **STOP — show analysis to user for confirmation.** Do not continue until approved.
+3. **Read generated files**: `workflow.json`, `approval_checkpoints.json`, `template_manifest.json`, `requirement_checklist.json`, `pre_task_plan.json`, `copywriting.md`, `prompt_config.json`, `browser_capture_plan.json`, `diagram_plan.json`, `video_plan.json`, `reference_template_cleanup.json`, `submission_package.json`, `insert_config.json`, `task_scripts/fill_template.py`, `task_scripts/insert_images.py`, `task_scripts/verify_template.py`.
+4. **Write `WORK_PLAN.md`**: after analyzing all requirements and scoring rubric, write a comprehensive work plan covering: (1) original requirement summary, (2) target & scoring mapping table, (3) scope boundaries (in-scope / out-of-scope), (4) information substitution table (placeholder → real values), (5) task execution checklist. Then reflect decisions into `requirement_checklist.json`.
+5. 🔴 **STOP — show WORK_PLAN.md to user for confirmation.** Do not continue until approved.
 6. **Decide routes**: pre-task required? images required? which routes? video? submission package? Use `docs/prompts/pre_task_detection_rules.md` for pre-task judgment.
+
+   ⚠️ **CONTEXT RULE**: Before executing Step 7 through Step 18, the agent MUST first read `WORK_PLAN.md` to restore context. The WORK_PLAN.md is the single source of truth for requirements, scope, substitutions, and task order. Never rely on memory alone.
+
 7. **If pre-task required**, complete it first. For frontend: init git, read vendor skills, build, write README, verify with webapp-testing. Record outputs in `pre_task_plan.json`.
 8. **Analyze template** and customize `task_scripts/fill_template.py`, `insert_images.py`, `verify_template.py`.
 9. **Write config files** as one coordinated set: `copywriting.md`, `prompt_config.json`, `browser_capture_plan.json`, `diagram_plan.json`, `video_plan.json`, `reference_template_cleanup.json`, `submission_package.json`, `insert_config.json`. Read `docs/prompts/prompt_driven_decisions.md` before writing.
-10. **Visual review** per `docs/prompts/visual_review_rules.md`. Set `ai_visual_review_completed` / `diagram_visual_review_completed` only after passing.
-11. **Validate**: `python scripts/run_workflow.py validate --workflow <workflow.json>`. 🔴 **STOP if errors** — fix before continuing.
-12. **Validate prompts** (if AI images): `python scripts/validate_prompt.py --config <output_dir>/prompt_config.json`. 🔴 **STOP if fails** — fix prompt_config.json.
-13. **Probe upstream** (if AI images): `python scripts/generate_images.py --check`. 🔴 **STOP if fails** — fix upstream config, do NOT fall back.
-14. **Generate images**: `python scripts/run_workflow.py images --workflow <workflow.json>`.
-15. **Process video** (if needed): `python scripts/run_workflow.py video --workflow <workflow.json>`.
-16. **Package submission** (if needed): `python scripts/run_workflow.py package --workflow <workflow.json>`.
-17. **Fill DOCX**: `python scripts/run_workflow.py run --workflow <workflow.json>`. 🔴 **STOP — inspect output**. Check for: leftover placeholders, broken TOC, agent-voice, template instructions as body text, missing images.
-18. **Delivery review**: list every required deliverable, check each for correctness. Write `delivery_review.json`. 🔴 **STOP — user sign-off**.
+10. **Visual review** per `docs/prompts/visual_review_rules.md`. Set `ai_visual_review_completed` / `browser_visual_review_completed` / `diagram_visual_review_completed` only after passing. Execution commands such as `images`, `video`, `package`, and `run` must stay blocked until `approval_checkpoints.json.work_plan_confirmed = true`.
+11. **User image review stop**: after `python scripts/run_workflow.py images --workflow <workflow.json>` finishes, show the generated images to the user and wait for approval. Do not run DOCX assembly while `approval_checkpoints.json.image_review_confirmed = false`.
+12. **Validate**: `python scripts/run_workflow.py validate --workflow <workflow.json>`. 🔴 **STOP if errors** — fix before continuing.
+13. **Validate prompts** (if AI images): `python scripts/validate_prompt.py --config <output_dir>/prompt_config.json`. 🔴 **STOP if fails** — fix prompt_config.json.
+14. **Probe upstream** (if AI images): `python scripts/generate_images.py --check`. 🔴 **STOP if fails** — fix upstream config, do NOT fall back.
+15. **Generate images**: `python scripts/run_workflow.py images --workflow <workflow.json>`.
+16. **Process video** (if needed): `python scripts/run_workflow.py video --workflow <workflow.json>`.
+17. **Package submission** (if needed): `python scripts/run_workflow.py package --workflow <workflow.json>`.
+18. **Fill DOCX**: `python scripts/run_workflow.py run --workflow <workflow.json>`. 🔴 **STOP — inspect output**. Check for: leftover placeholders, broken TOC, agent-voice, template instructions as body text, missing images.
+19. **Delivery review**: list every required deliverable, check each for correctness. Write `delivery_review.json`. 🔴 **STOP — user sign-off**.
 
 ## Multi-upstream parallel generation
 
@@ -473,9 +505,18 @@ APIKEY2:sk-key2
   "max_workers": 4,
   "max_retries": 3,
   "timeout": 180,
-  "images": [...]
+  "images": [
+    {
+      "name": "img_01",
+      "mode": "screenshot_strict",
+      "prompt": "...",
+      "reference_image": "path/to/ref.png"
+    }
+  ]
 }
 ```
+- `reference_image` (optional per-image): path to a reference image for img2img mode. When present, the engine uses the upstream's image-editing endpoint. Omit for standard txt2img generation.
+- Reference paths are relative to the output directory unless specified as absolute paths.
 
 ### Sharding logic
 
@@ -497,6 +538,12 @@ python scripts/generate_images.py --config prompt_config.json --upstreams 2 --up
 
 # Single-upstream mode (backward compatible, no sharding)
 python scripts/generate_images.py --config prompt_config.json
+
+# Single-image img2img mode (enhance one reference image)
+python scripts/generate_images.py --config prompt_config.json --ref-image path/to/reference.png --prompt "enhance brightness, keep style"
+
+# Probe whether upstreams support img2img
+python scripts/generate_images.py --probe-img2img
 ```
 
 ### Expected performance
@@ -509,13 +556,14 @@ python scripts/generate_images.py --config prompt_config.json
 ## Files created by init_run.py
 
 - `workflow.json`
+- `approval_checkpoints.json`
 - `template_manifest.json`
 - `requirement_checklist.json`
-- `requirement_analysis.json`
 - `pre_task_plan.json`
 - `copywriting.md`
 - `prompt_config.json`
 - `prompt_validation_report.json` (after validation)
+- `image_generation_report.json` (after generation — includes per-image method: txt2img / img2img)
 - `browser_capture_plan.json`
 - `diagram_plan.json`
 - `video_plan.json`
@@ -524,11 +572,16 @@ python scripts/generate_images.py --config prompt_config.json
 - `insert_config.json`
 - `task_scripts/*.py`
 
+### Agent-authored files (not created by init_run.py)
+
+- **`WORK_PLAN.md`** — written by the agent at Step 4, before user confirmation. Contains: requirement summary, scoring mapping, scope boundaries, substitution table, task checklist. This replaces the old `requirement_analysis.json` and serves as the agent's context anchor for all downstream steps.
+- **`delivery_review.json`** — written by the agent at Step 18 as the final quality gate.
+
 ## JSON contracts
 
 ### requirement_checklist.json
 
-Complete before report writing. Must record: `has_grading_rubric`, `target_tier`, `run_mode`, `pre_task_required`, `images_required`, `ai_images_required`, `browser_capture_required`, `diagram_assets_required`, `video_required`, `reference_template_cleanup_required`, `submission_package_required`, `ai_visual_review_completed`, `diagram_visual_review_completed`, `minimum_image_count`, `planned_figures`.
+Complete before report writing. Must record: `has_grading_rubric`, `target_tier`, `run_mode`, `pre_task_required`, `images_required`, `ai_images_required`, `browser_capture_required`, `diagram_assets_required`, `video_required`, `reference_template_cleanup_required`, `submission_package_required`, `ai_visual_review_completed`, `browser_visual_review_completed`, `diagram_visual_review_completed`, `minimum_image_count`, `planned_figures`.
 
 Cross-rules:
 - `ai_images_required=true` → `prompt_config.json` must be populated
@@ -537,11 +590,29 @@ Cross-rules:
 - `video_required=true` → `video_plan.json` must be populated, `video_review_completed` must be `true`
 - `submission_package_required=true` → `submission_package.json` must be populated, output must be both `submit/` folder and `submit.zip`
 - `pre_task_required=true` → `pre_task_plan.json` must be enabled and completed
-- `ai_visual_review_completed` and `diagram_visual_review_completed` must only be `true` after agent has visually inspected the images
+- `ai_visual_review_completed`, `browser_visual_review_completed`, and `diagram_visual_review_completed` must only be `true` after agent has visually inspected the images
 
-### requirement_analysis.json
+### approval_checkpoints.json
 
-The agent's decision record. Fill after reading requirement, template, and project artifacts. Source of truth for semantic decisions. Must explain why each route was chosen and why pre-task is or is not required.
+Executable stop-gate record for user confirmations.
+
+- `work_plan_confirmed=false` means `run_workflow.py images|video|package|run` must stop immediately.
+- Set `work_plan_confirmed=true` only after the user explicitly approves `WORK_PLAN.md`.
+- `image_review_confirmed=false` means `run_workflow.py run` must stop before DOCX assembly whenever `images_required=true`.
+- Set `image_review_confirmed=true` only after the user explicitly reviews the generated images and approves them for insertion.
+- `delivery_review_confirmed` is reserved for the final sign-off after `delivery_review.json` is shown to the user.
+
+### WORK_PLAN.md
+
+The agent's decision and planning record. Written at Step 4 before user confirmation. Replaces the old `requirement_analysis.json`. Contains five mandatory sections:
+
+1. **原始需求摘要** — restate the requirement in your own words to confirm understanding
+2. **目标与评分映射表** — each scoring item → evidence type → planned figure → status
+3. **范围边界** — what IS in scope and what is NOT in scope
+4. **信息替换表** — placeholder → real value mapping (e.g., `{{学号}}` → `2023110101`)
+5. **任务执行清单** — ordered checklist of all steps to execute
+
+The agent MUST read WORK_PLAN.md before executing Step 7 through Step 18 to restore context. See `examples/WORK_PLAN.example.md` for the expected format.
 
 ### delivery_review.json
 
@@ -640,7 +711,7 @@ Before delivery, the agent MUST run through every item below. Each item must pas
 | Check | How to verify | Pass condition |
 |-------|--------------|----------------|
 | `delivery_review.json` written | Check output directory | File exists with `overall_pass: true` |
-| `requirement_analysis.json` filled | Check file content | `decision_summary` is non-empty |
+| `WORK_PLAN.md` written | Check file content | Five sections present with non-empty content |
 | `requirement_checklist.json` consistent | Cross-check flags | Enabled flags match actual workflow outputs |
 | `pre_task_plan.json` marked correctly | Check `completed` field | If pre-task was done, `completed: true` with output paths |
 
@@ -665,6 +736,8 @@ Overall: READY / NOT READY
 ## Examples
 
 - `examples/prompt_config.example.json`
+- `examples/prompt_config.TEMPLATE.json` — full template with `_comment` annotations; agent reads this before filling config
+- `examples/WORK_PLAN.example.md` — expected format for the agent-authored work plan
 - `examples/browser_capture_plan.example.json`
 - `examples/diagram_plan.example.json`
 - `examples/diagram_plan.database_course_design.example.json`
@@ -672,8 +745,8 @@ Overall: READY / NOT READY
 - `examples/video_plan.example.json`
 - `examples/reference_template_cleanup.example.json`
 - `examples/submission_package.example.json`
-- `examples/requirement_analysis.example.json`
 - `examples/pre_task_plan.example.json`
+- `examples/approval_checkpoints.example.json`
 - `examples/insert_config.example.json`
 - `docs/prompts/visual_review_rules.md`
 - `docs/prompts/pre_task_detection_rules.md`

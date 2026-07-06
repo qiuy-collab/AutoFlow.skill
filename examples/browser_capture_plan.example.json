@@ -5,6 +5,25 @@
   "startup_cwd": "C:\\Users\\ASUS\\Desktop\\my-project",
   "base_url": "http://127.0.0.1:3000",
   "target_kind": "frontend_or_self_built_app",
+  "presentation_mode": "site_only",
+  "ui_review_rules": {
+    "site_only": true,
+    "allow_experiment_shell": false,
+    "allow_note_panels": false,
+    "allow_report_explanation_text": false,
+    "forbidden_visible_terms": [
+      "lab1",
+      "lab2",
+      "exp1",
+      "exp2",
+      "note",
+      "word",
+      "实验说明",
+      "实验目的",
+      "实验步骤",
+      "报告说明"
+    ]
+  },
   "screenshots": [
     {
       "name": "img_05",
@@ -39,6 +58,7 @@
   "notes": [
     "Only use this file for local frontend pages or self-built app/web screenshots.",
     "Do not use this route for terminal or software configuration figures.",
+    "Default presentation_mode is site_only: the frontend should look like the real site/app, not a lab instruction shell.",
     "Prefer a concrete page URL such as /login or /index.html instead of relying on a bare server root.",
     "Relative goto values are allowed and will be resolved against base_url."
   ]

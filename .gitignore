@@ -1,4 +1,5 @@
 .env
+.env.env.backup
 __pycache__/
 *.pyc
 *.pyo
@@ -10,5 +11,7 @@ task_runs/
 output/
 generated_images/
 conversations/
+.probe_cache/
+test_output/
 vendor/*/**
 !vendor/**/.gitkeep

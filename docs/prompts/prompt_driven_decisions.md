@@ -16,6 +16,7 @@ This file defines which parts of `auto-lab` must be decided by the agent from th
 - Which figures are needed, how many are needed, and where they belong in the report.
 - Whether zero images is acceptable.
 - Which local pages must be browser-captured, and what startup command/base URL are correct for the actual project.
+- Whether browser-captured frontend pages should use `site_only` presentation or a guided/demo shell. Default to `site_only` unless the requirement explicitly asks for explanatory overlays.
 - Which diagrams are required, and what their real labels/entities/flows should be.
 - Whether video evidence is needed, and whether it should be analysis, recording, or both.
 - Whether a filled reference document can be safely converted into a blank template, and what the real preserved/removed zones are.

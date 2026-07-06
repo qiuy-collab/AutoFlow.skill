@@ -32,9 +32,13 @@ Before writing prompts:
 
 - The goal is believable screenshot realism, not explainer collage style.
 - The whole image set should share one coherent environment.
+- The whole image set should stay consistent at the environment, lighting, UI rendering, and camera-treatment level.
 - Keep the background treatment consistent across the set unless the requirement explicitly needs different scenes.
 - Show only necessary information and keep a believable background.
 - Avoid high information density, tiny unreadable text blocks, and overloaded dashboards.
+- Require pixel-level sharpness, crisp readable text, and clean UI edges.
+- Explicitly forbid blur, haze, mosaic blocks, blocky compression, smeared glyphs, and muddy textures.
+- If time or date appears on screen, keep it realistic and temporally consistent across the same screenshot session.
 - Do not expose `localhost`, `127.0.0.1`, browser address bars, tabs, or dev URLs unless the user explicitly needs them.
 - Do not expose AI origin through visible text such as `AI生成`, `示意图`, or similar.
 - Do not use poster / callout / diagram language for screenshot prompts.
@@ -54,3 +58,4 @@ Before writing prompts:
 - Do not assume maximum concurrency is supported upstream.
 - Test 2K/4K 16:9 with `scripts/test_image_concurrency.py` when a batch run will be expensive or time-sensitive.
 - If high concurrency fails, reduce to the highest passing worker count and record whether the failure came from upstream API rejection, timeout/rate limits, or a local script/config issue.
+- If only part of a batch fails or only a subset needs regeneration after visual review, create and use a supplement config instead of rerunning the full batch.

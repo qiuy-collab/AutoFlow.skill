@@ -1,0 +1,15 @@
+{
+  "work_plan_confirmed": false,
+  "work_plan_confirmation_note": "",
+  "image_review_confirmed": false,
+  "image_review_confirmation_note": "",
+  "delivery_review_confirmed": false,
+  "delivery_review_confirmation_note": "",
+  "notes": [
+    "Set work_plan_confirmed=true only after the user explicitly approves WORK_PLAN.md.",
+    "Execution commands such as images/video/package/run must not continue while work_plan_confirmed is false.",
+    "Set image_review_confirmed=true only after the user explicitly reviews the generated images and approves them for DOCX insertion.",
+    "The run command must not insert images into the DOCX while image_review_confirmed is false.",
+    "Set delivery_review_confirmed=true only after the user explicitly signs off on delivery_review.json."
+  ]
+}

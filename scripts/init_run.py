@@ -47,7 +47,7 @@ def parse_args():
         stub += """    parser.add_argument("--template", required=True, help="Path to the template docx")
     parser.add_argument("--copywriting", required=True, help="Path to copywriting.md")
     parser.add_argument("--output", required=True, help="Path to the output docx")
-    parser.add_argument("--requirement-analysis", default=None, help="Path to requirement_analysis.json")
+    parser.add_argument("--work-plan", default=None, help="Path to WORK_PLAN.md")
     parser.add_argument("--pre-task-plan", default=None, help="Path to pre_task_plan.json")
 """
     elif script_role == "insert":
@@ -85,8 +85,8 @@ def main():
     template = Path(args.template).expanduser().resolve()
     if template.suffix.lower() != ".docx":
         raise SystemExit(
-            f"auto-lab currently requires a .docx template for python-docx processing. "
-            f"Please convert this template first: {template}"
+            f"auto-lab currently requires a .docx template. "
+            f"Prefer vendor/minimax-docx for document editing and convert this template first: {template}"
         )
 
     output_dir = Path(args.output_dir).expanduser().resolve()
@@ -100,7 +100,7 @@ def main():
     output_docx = output_dir / args.output_docx_name
     workflow_path = output_dir / "workflow.json"
     checklist_path = output_dir / "requirement_checklist.json"
-    requirement_analysis_path = output_dir / "requirement_analysis.json"
+    work_plan_path = output_dir / "WORK_PLAN.md"
     pre_task_plan_path = output_dir / "pre_task_plan.json"
     copywriting_path = output_dir / "copywriting.md"
     prompt_config_path = output_dir / "prompt_config.json"
@@ -109,6 +109,7 @@ def main():
     video_plan_path = output_dir / "video_plan.json"
     reference_template_cleanup_path = output_dir / "reference_template_cleanup.json"
     submission_package_path = output_dir / "submission_package.json"
+    approval_checkpoints_path = output_dir / "approval_checkpoints.json"
     insert_config_path = output_dir / "insert_config.json"
     template_manifest_path = output_dir / "template_manifest.json"
     delivery_review_path = output_dir / "delivery_review.json"
@@ -128,7 +129,7 @@ def main():
         "output_dir": str(output_dir),
         "output_docx": str(output_docx),
         "requirement_checklist_path": str(checklist_path),
-        "requirement_analysis_path": str(requirement_analysis_path),
+        "work_plan_path": str(work_plan_path),
         "pre_task_plan_path": str(pre_task_plan_path),
         "copywriting_path": str(copywriting_path),
         "prompt_config_path": str(prompt_config_path),
@@ -137,6 +138,7 @@ def main():
         "video_plan_path": str(video_plan_path),
         "reference_template_cleanup_path": str(reference_template_cleanup_path),
         "submission_package_path": str(submission_package_path),
+        "approval_checkpoints_path": str(approval_checkpoints_path),
         "insert_config_path": str(insert_config_path),
         "images_dir": str(images_dir),
         "template_manifest_path": str(template_manifest_path),
@@ -173,6 +175,7 @@ def main():
         "reference_template_cleanup_required": False,
         "submission_package_required": False,
         "ai_visual_review_completed": False,
+        "browser_visual_review_completed": False,
         "diagram_visual_review_completed": False,
         "video_review_completed": False,
         "allow_zero_images": True,
@@ -213,73 +216,20 @@ def main():
             "Pre-task outputs must be recorded in pre_task_plan.json before report writing.",
             "AI screenshots are for terminal, command output, and configuration content.",
             "Browser screenshots are for local frontend pages and self-built app/web practice screenshots.",
+            "When browser screenshots are used for frontend pages, default to a site-only presentation unless the requirement explicitly asks for teaching overlays or explanatory panels.",
+            "Do not mark browser_visual_review_completed=true until an agent has visually checked that the page looks like the real site/app rather than a lab handout shell.",
             "Diagram assets are for function diagrams, flowcharts, data flow diagrams, and ER diagrams.",
             "If AI images are enabled, do not mark ai_visual_review_completed=true until an agent has visually checked readability, realism, and absence of localhost or distortion.",
             "If diagram assets are enabled, do not mark diagram_visual_review_completed=true until an agent has checked line routing, spacing, and readability.",
             "If video evidence is enabled, fill video_plan.json and inspect the produced analysis/recording before marking video_review_completed=true.",
             "If the requirement asks for a submission package, derive the needed files from the prompt/requirement first, then write submission_package.json and produce submit.zip.",
-            "For structural DOCX operations, use vendor/minimax-docx first; python-docx is a fallback only for simple fill/cleanup or when minimax-docx is unavailable."
+            "For any DOCX editing or fill task, prefer vendor/minimax-docx first. Use python-docx only for lightweight inspection/cleanup or as a documented fallback when minimax-docx cannot complete the operation."
         ]
     }
 
-    requirement_analysis = {
-        "status": "needs_agent_analysis",
-        "source_of_truth": [
-            "requirement document",
-            "template structure",
-            "project artifacts"
-        ],
-        "decision_summary": "",
-        "pre_task_judgment": {
-            "required": None,
-            "reason": "",
-            "expected_outputs": []
-        },
-        "route_judgment": {
-            "ai_simulated": {
-                "needed": None,
-                "reason": ""
-            },
-            "browser_capture": {
-                "needed": None,
-                "reason": ""
-            },
-            "diagram_assets": {
-                "needed": None,
-                "reason": ""
-            },
-            "video_analysis": {
-                "needed": None,
-                "reason": ""
-            },
-            "screen_recording": {
-                "needed": None,
-                "reason": ""
-            }
-        },
-        "figure_strategy": {
-            "images_required": None,
-            "minimum_image_count": None,
-            "why": "",
-            "planned_anchors": []
-        },
-        "template_strategy": {
-            "fill_mode": "",
-            "cleanup_mode": "",
-            "why": "",
-            "notes": []
-        },
-        "submission_strategy": {
-            "required": None,
-            "archive_name": "submit.zip",
-            "deliverables": [],
-            "why": ""
-        },
-        "notes": [
-            "This file should hold the agent's actual reasoning outcomes after reading the requirement.",
-            "Scripts may execute and validate later, but they should not replace this analysis."
-        ]
-    }
+    # WORK_PLAN.md is now agent-authored (Step 4). init_run.py does not create it.
+    # The agent writes it after analyzing the requirement, template, and scoring rubric.
+    # See examples/WORK_PLAN.example.md for the expected format.
 
     pre_task_plan = {
         "enabled": False,
@@ -312,6 +262,10 @@ def main():
             "default_mode": "screenshot_strict",
             "auto_append_negative": True,
             "fail_on_prompt_risk": True,
+            "probe_retries": 3,
+            "probe_timeout": 180,
+            "batch_timeout": 180,
+            "skip_existing_files": True,
             "forbidden_terms": [
                 "流程图",
                 "架构图",
@@ -330,7 +284,13 @@ def main():
             ],
             "ui_density": "low_information_density",
             "crop_browser_chrome": True,
-            "forbid_localhost_or_dev_url": True
+            "forbid_localhost_or_dev_url": True,
+            "quality_constraints": {
+                "consistency": True,
+                "pixel_sharpness": True,
+                "no_blur_or_mosaic": True,
+                "time_consistency": True
+            }
         },
         "global_prompt": "",
         "images": []
@@ -343,10 +303,31 @@ def main():
         "startup_cwd": "",
         "base_url": "",
         "target_kind": "frontend_or_self_built_app",
+        "presentation_mode": "site_only",
+        "ui_review_rules": {
+            "site_only": True,
+            "allow_experiment_shell": False,
+            "allow_note_panels": False,
+            "allow_report_explanation_text": False,
+            "forbidden_visible_terms": [
+                "lab1",
+                "lab2",
+                "exp1",
+                "exp2",
+                "note",
+                "word",
+                "实验说明",
+                "实验目的",
+                "实验步骤",
+                "报告说明"
+            ]
+        },
         "screenshots": [],
         "notes": [
             "Use only for local frontend pages or self-built app/web practice screenshots.",
             "Do not use this route for terminal or software configuration figures.",
+            "Default browser screenshot presentation is site_only: the page should look like the real site/app, not like a lab handout shell.",
+            "Unless the requirement explicitly asks for explanation overlays, avoid visible experiment labels, note panels, report wording, or lab stage badges in the captured UI.",
             "The actual pages, startup command, and base URL must come from the real project requirement and local app, not from a generic default."
         ]
     }
@@ -408,7 +389,7 @@ def main():
             "TOC entry zone before the first level-1 heading",
             "level-1 and level-2 heading text"
         ],
-        "minimax_docx_policy": "For structural DOCX operations, read and prefer vendor/minimax-docx. Use python-docx only for this simple cleanup script or as a documented fallback.",
+        "minimax_docx_policy": "For any DOCX editing path, read and prefer vendor/minimax-docx first. Use python-docx only for this simple cleanup script or as a documented fallback.",
         "fallback_reason": ""
     }
 
@@ -441,9 +422,25 @@ def main():
         "placements": {}
     }
 
+    approval_checkpoints = {
+        "work_plan_confirmed": False,
+        "work_plan_confirmation_note": "",
+        "image_review_confirmed": False,
+        "image_review_confirmation_note": "",
+        "delivery_review_confirmed": False,
+        "delivery_review_confirmation_note": "",
+        "notes": [
+            "Set work_plan_confirmed=true only after the user explicitly approves WORK_PLAN.md.",
+            "Execution commands such as images/video/package/run must not continue while work_plan_confirmed is false.",
+            "Set image_review_confirmed=true only after the user explicitly reviews the generated images and approves them for DOCX insertion.",
+            "The run command must not insert images into the DOCX while image_review_confirmed is false.",
+            "Set delivery_review_confirmed=true only after the user explicitly signs off on delivery_review.json."
+        ]
+    }
+
     copywriting = """# Copywriting
 
-> 先完成 `requirement_analysis.json`，再更新 `requirement_checklist.json`。
+> 先完成 `WORK_PLAN.md`，再更新 `requirement_checklist.json`。
 > 初始化默认是 planning_only，不要直接 run。
 > 如果需求本身依赖预任务，例如先做系统、先搭页面、先生成数据库设计或先准备实验产物，先完成 `pre_task_plan.json`。
 > 预任务完成后，再结合预任务输出与原始需求来写报告正文。
@@ -461,7 +458,7 @@ def main():
 
     workflow_path.write_text(json.dumps(workflow, ensure_ascii=False, indent=2), encoding="utf-8")
     checklist_path.write_text(json.dumps(requirement_checklist, ensure_ascii=False, indent=2), encoding="utf-8")
-    requirement_analysis_path.write_text(json.dumps(requirement_analysis, ensure_ascii=False, indent=2), encoding="utf-8")
+    # WORK_PLAN.md is agent-authored — init_run does not write it
     pre_task_plan_path.write_text(json.dumps(pre_task_plan, ensure_ascii=False, indent=2), encoding="utf-8")
     prompt_config_path.write_text(json.dumps(prompt_config, ensure_ascii=False, indent=2), encoding="utf-8")
     browser_capture_plan_path.write_text(json.dumps(browser_capture_plan, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -469,6 +466,7 @@ def main():
     video_plan_path.write_text(json.dumps(video_plan, ensure_ascii=False, indent=2), encoding="utf-8")
     reference_template_cleanup_path.write_text(json.dumps(reference_template_cleanup, ensure_ascii=False, indent=2), encoding="utf-8")
     submission_package_path.write_text(json.dumps(submission_package, ensure_ascii=False, indent=2), encoding="utf-8")
+    approval_checkpoints_path.write_text(json.dumps(approval_checkpoints, ensure_ascii=False, indent=2), encoding="utf-8")
     insert_config_path.write_text(json.dumps(insert_config, ensure_ascii=False, indent=2), encoding="utf-8")
     copywriting_path.write_text(copywriting, encoding="utf-8")
     template_manifest_path.write_text(json.dumps(template_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -476,7 +474,7 @@ def main():
     print(f"Initialized run directory: {output_dir}")
     print(f"  workflow: {workflow_path}")
     print(f"  requirement checklist: {checklist_path}")
-    print(f"  requirement analysis: {requirement_analysis_path}")
+    print(f"  WORK_PLAN.md (agent will write this at Step 4): {work_plan_path}")
     print(f"  pre-task plan: {pre_task_plan_path}")
     print(f"  copywriting: {copywriting_path}")
     print(f"  prompt config: {prompt_config_path}")
@@ -485,6 +483,7 @@ def main():
     print(f"  video plan: {video_plan_path}")
     print(f"  reference template cleanup: {reference_template_cleanup_path}")
     print(f"  submission package: {submission_package_path}")
+    print(f"  approval checkpoints: {approval_checkpoints_path}")
     print(f"  insert config: {insert_config_path}")
     print(f"  template manifest: {template_manifest_path}")
     print(f"  task scripts: {task_scripts_dir}")

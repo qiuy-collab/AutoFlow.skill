@@ -15,12 +15,15 @@ Before setting `ai_visual_review_completed = true`, check every `ai_simulated` i
 - only necessary information, not a high-density wall of tiny UI
 - a believable background instead of an empty cutout scene
 - a consistent environment/background style across the full image set unless the requirement explicitly needs scene changes
+- pixel-level sharpness with crisp text and clean UI edges
+- no blur, haze, soft-focus wash, mosaic blocks, or blocky compression artifacts
+- consistent timestamps or time-of-day cues when the same operation session is being shown
 - no `localhost`, `127.0.0.1`, dev URLs, tabs, or address bars unless explicitly required
 - no malformed icons, twisted controls, broken charts, warped tables, or obviously fake UI details
 
 If any item fails:
 - revise the prompt
-- regenerate the image
+- regenerate only the failed image via a supplement prompt config, not the full batch
 - review again
 
 ## Diagram review
@@ -39,7 +42,24 @@ If any item fails:
 - regenerate the diagram
 - review again
 
+## Browser capture review
+
+Before setting `browser_visual_review_completed = true`, check every `browser_capture` image for:
+- the page reads like the actual site/app rather than a lab handout shell
+- no visible `lab1`, `lab2`, `exp1`, `exp2`, or similar experiment-stage labels unless the requirement explicitly asks for them
+- no note panels, report wording, instructional copy, or explanation blocks that belong in the report instead of the frontend
+- no obvious debug/dev scaffolding that distracts from the actual page content
+- no `localhost`, `127.0.0.1`, dev URLs, tabs, or address bars unless explicitly required
+- the screenshot focuses on the real user flow and the page state needed by the report
+- text is readable and the page looks intentional rather than placeholder-heavy
+
+If any item fails:
+- adjust the frontend presentation or page content first
+- recapture only the affected screenshots
+- review again
+
 ## Output contract
 
 - `ai_visual_review_completed` may be `true` only after AI screenshot review passes
+- `browser_visual_review_completed` may be `true` only after browser screenshot review passes
 - `diagram_visual_review_completed` may be `true` only after diagram review passes

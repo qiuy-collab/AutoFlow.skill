@@ -37,14 +37,16 @@ def load_workflow(path_str: str):
     workflow["_workflow_path"] = str(path)
     if "pre_task_plan_path" not in workflow and workflow.get("output_dir"):
         workflow["pre_task_plan_path"] = str((Path(workflow["output_dir"]) / "pre_task_plan.json").resolve())
-    if "requirement_analysis_path" not in workflow and workflow.get("output_dir"):
-        workflow["requirement_analysis_path"] = str((Path(workflow["output_dir"]) / "requirement_analysis.json").resolve())
+    if "work_plan_path" not in workflow and workflow.get("output_dir"):
+        workflow["work_plan_path"] = str((Path(workflow["output_dir"]) / "WORK_PLAN.md").resolve())
     if "video_plan_path" not in workflow and workflow.get("output_dir"):
         workflow["video_plan_path"] = str((Path(workflow["output_dir"]) / "video_plan.json").resolve())
     if "reference_template_cleanup_path" not in workflow and workflow.get("output_dir"):
         workflow["reference_template_cleanup_path"] = str((Path(workflow["output_dir"]) / "reference_template_cleanup.json").resolve())
     if "submission_package_path" not in workflow and workflow.get("output_dir"):
         workflow["submission_package_path"] = str((Path(workflow["output_dir"]) / "submission_package.json").resolve())
+    if "approval_checkpoints_path" not in workflow and workflow.get("output_dir"):
+        workflow["approval_checkpoints_path"] = str((Path(workflow["output_dir"]) / "approval_checkpoints.json").resolve())
     root = Path(__file__).resolve().parent
     workflow.setdefault("video_process_script", str((root / "video_process.py").resolve()))
     workflow.setdefault("blank_template_script", str((root / "prepare_blank_template.py").resolve()))
@@ -93,6 +95,7 @@ def validate_requirement_checklist(checklist, output):
     checklist.setdefault("video_required", False)
     checklist.setdefault("reference_template_cleanup_required", False)
     checklist.setdefault("submission_package_required", False)
+    checklist.setdefault("browser_visual_review_completed", False)
     checklist.setdefault("video_review_completed", False)
     required_keys = [
         "has_grading_rubric",
@@ -107,6 +110,7 @@ def validate_requirement_checklist(checklist, output):
         "reference_template_cleanup_required",
         "submission_package_required",
         "ai_visual_review_completed",
+        "browser_visual_review_completed",
         "diagram_visual_review_completed",
         "video_review_completed",
         "allow_zero_images",
@@ -128,27 +132,43 @@ def validate_requirement_checklist(checklist, output):
     output.append(f"Checklist reference template cleanup required: {checklist.get('reference_template_cleanup_required')}")
     output.append(f"Checklist submission package required: {checklist.get('submission_package_required')}")
     output.append(f"Checklist AI visual review completed: {checklist.get('ai_visual_review_completed')}")
+    output.append(f"Checklist browser visual review completed: {checklist.get('browser_visual_review_completed')}")
     output.append(f"Checklist diagram visual review completed: {checklist.get('diagram_visual_review_completed')}")
     output.append(f"Checklist video review completed: {checklist.get('video_review_completed')}")
 
 
-def validate_requirement_analysis(checklist, analysis, output):
-    required_keys = [
-        "status",
-        "source_of_truth",
-        "decision_summary",
-        "pre_task_judgment",
-        "route_judgment",
-        "figure_strategy",
-        "template_strategy",
-        "submission_strategy",
-    ]
-    missing = [key for key in required_keys if key not in analysis]
-    if missing:
-        raise SystemExit("requirement_analysis.json is missing keys:\n" + "\n".join(missing))
+def validate_work_plan(checklist, work_plan_path, output):
+    """Validate WORK_PLAN.md existence and content.
 
-    output.append(f"Requirement analysis status: {analysis.get('status')}")
-    decision_summary = str(analysis.get("decision_summary", "")).strip()
+    WORK_PLAN.md must contain five mandatory sections:
+    1. 原始需求摘要
+    2. 目标与评分映射表
+    3. 范围边界
+    4. 信息替换表
+    5. 任务执行清单
+    """
+    wp_path = Path(work_plan_path) if isinstance(work_plan_path, str) else work_plan_path
+    if not wp_path.exists():
+        raise SystemExit(f"WORK_PLAN.md not found at {wp_path}. Agent must write it at Step 4 before continuing.")
+
+    content = wp_path.read_text(encoding="utf-8")
+    if len(content.strip()) < 100:
+        raise SystemExit("WORK_PLAN.md is too short — agent must fill all five sections.")
+
+    required_sections = [
+        "原始需求摘要",
+        "目标与评分映射",
+        "范围边界",
+        "信息替换表",
+        "任务执行清单",
+    ]
+    missing_sections = [s for s in required_sections if s not in content]
+    if missing_sections:
+        raise SystemExit(
+            "WORK_PLAN.md is missing required sections:\n" +
+            "\n".join(f"  - {s}" for s in missing_sections)
+        )
+
     any_execution_flags = any(
         bool(checklist.get(key, False))
         for key in (
@@ -162,10 +182,13 @@ def validate_requirement_analysis(checklist, analysis, output):
             "submission_package_required",
         )
     )
-    if any_execution_flags and not decision_summary:
+    if any_execution_flags and "## " not in content:
         raise SystemExit(
-            "requirement_analysis.json.decision_summary is empty, but the checklist already enables requirement-dependent execution flags"
+            "WORK_PLAN.md lacks section headings, but the checklist enables execution flags."
         )
+
+    output.append(f"WORK_PLAN.md validated: {len(content)} chars, all sections present")
+    output.append(f"Work plan path: {wp_path}")
 
 
 def validate_pre_task_plan(checklist, pre_task_plan):
@@ -217,6 +240,56 @@ def default_submission_package():
     return {"enabled": False, "include_paths": [], "output_zip": "submit.zip"}
 
 
+def default_approval_checkpoints():
+    return {
+        "work_plan_confirmed": False,
+        "work_plan_confirmation_note": "",
+        "image_review_confirmed": False,
+        "image_review_confirmation_note": "",
+        "delivery_review_confirmed": False,
+        "delivery_review_confirmation_note": "",
+        "notes": []
+    }
+
+
+def validate_approval_checkpoints(approval):
+    required_keys = [
+        "work_plan_confirmed",
+        "work_plan_confirmation_note",
+        "image_review_confirmed",
+        "image_review_confirmation_note",
+        "delivery_review_confirmed",
+        "delivery_review_confirmation_note",
+    ]
+    missing = [key for key in required_keys if key not in approval]
+    if missing:
+        raise SystemExit(
+            "approval_checkpoints.json is missing keys:\n" + "\n".join(missing)
+        )
+
+
+def require_work_plan_confirmation(approval, approval_path: Path, command: str):
+    if bool(approval.get("work_plan_confirmed", False)):
+        return
+    raise SystemExit(
+        "STOP REQUIRED: WORK_PLAN.md has not been explicitly approved by the user.\n"
+        f"Command blocked: {command}\n"
+        f"Update {approval_path} and set work_plan_confirmed=true only after user confirmation."
+    )
+
+
+def require_image_review_confirmation(checklist, approval, approval_path: Path, command: str):
+    if not bool(checklist.get("images_required", False)):
+        return
+    if bool(approval.get("image_review_confirmed", False)):
+        return
+    raise SystemExit(
+        "STOP REQUIRED: generated images have not been explicitly approved by the user for DOCX insertion.\n"
+        f"Command blocked: {command}\n"
+        f"Update {approval_path} and set image_review_confirmed=true only after user image review."
+    )
+
+
 def validate_video_plan(checklist, video_plan):
     if not checklist.get("video_required", False):
         return
@@ -255,6 +328,59 @@ def validate_submission_package(checklist, package_plan):
             raise SystemExit(f"submission_package.json.include_paths[{index}] must be an object with at least a path field")
         if not str(item.get("path", "")).strip():
             raise SystemExit(f"submission_package.json.include_paths[{index}].path is empty")
+
+
+def validate_browser_capture_plan(checklist, browser_capture_plan):
+    if not checklist.get("browser_capture_required", False):
+        return
+
+    presentation_mode = str(browser_capture_plan.get("presentation_mode", "")).strip()
+    if presentation_mode not in {"site_only", "guided_demo"}:
+        raise SystemExit(
+            "browser_capture_plan.json.presentation_mode must be 'site_only' or 'guided_demo'"
+        )
+
+    ui_review_rules = browser_capture_plan.get("ui_review_rules")
+    if not isinstance(ui_review_rules, dict):
+        raise SystemExit("browser_capture_plan.json.ui_review_rules must be an object")
+
+    required_rule_keys = [
+        "site_only",
+        "allow_experiment_shell",
+        "allow_note_panels",
+        "allow_report_explanation_text",
+        "forbidden_visible_terms",
+    ]
+    missing = [key for key in required_rule_keys if key not in ui_review_rules]
+    if missing:
+        raise SystemExit(
+            "browser_capture_plan.json.ui_review_rules is missing keys:\n" +
+            "\n".join(missing)
+        )
+
+    forbidden_terms = ui_review_rules.get("forbidden_visible_terms")
+    if not isinstance(forbidden_terms, list) or not forbidden_terms:
+        raise SystemExit(
+            "browser_capture_plan.json.ui_review_rules.forbidden_visible_terms must be a non-empty list"
+        )
+
+    if presentation_mode == "site_only":
+        if not bool(ui_review_rules.get("site_only", False)):
+            raise SystemExit(
+                "browser_capture_plan.json.presentation_mode=site_only requires ui_review_rules.site_only=true"
+            )
+        if bool(ui_review_rules.get("allow_experiment_shell", False)):
+            raise SystemExit(
+                "browser_capture_plan.json.presentation_mode=site_only cannot allow experiment shell chrome"
+            )
+        if bool(ui_review_rules.get("allow_note_panels", False)):
+            raise SystemExit(
+                "browser_capture_plan.json.presentation_mode=site_only cannot allow note panels"
+            )
+        if bool(ui_review_rules.get("allow_report_explanation_text", False)):
+            raise SystemExit(
+                "browser_capture_plan.json.presentation_mode=site_only cannot allow report explanation text"
+            )
 
 
 def validate_route_boundaries(checklist, planned_figures, browser_capture_plan, diagram_plan):
@@ -317,7 +443,7 @@ def validate_workflow(workflow):
     template = Path(workflow["template_path"])
     output_dir = Path(workflow["output_dir"])
     checklist_path = Path(workflow["requirement_checklist_path"])
-    requirement_analysis_path = Path(workflow["requirement_analysis_path"])
+    work_plan_path = Path(workflow.get("work_plan_path", str(output_dir / "WORK_PLAN.md")))
     pre_task_plan_path = Path(workflow["pre_task_plan_path"])
     copywriting_path = Path(workflow["copywriting_path"])
     prompt_config_path = Path(workflow["prompt_config_path"])
@@ -326,6 +452,7 @@ def validate_workflow(workflow):
     video_plan_path = Path(workflow["video_plan_path"])
     reference_template_cleanup_path = Path(workflow["reference_template_cleanup_path"])
     submission_package_path = Path(workflow["submission_package_path"])
+    approval_checkpoints_path = Path(workflow["approval_checkpoints_path"])
     insert_config_path = Path(workflow["insert_config_path"])
     template_manifest_path = Path(workflow["template_manifest_path"])
     docx_scripts = workflow.get("docx_scripts", {})
@@ -340,12 +467,12 @@ def validate_workflow(workflow):
             template,
             output_dir,
             checklist_path,
-            requirement_analysis_path,
             copywriting_path,
             prompt_config_path,
             browser_capture_plan_path,
             diagram_plan_path,
             insert_config_path,
+            approval_checkpoints_path,
             template_manifest_path,
             fill_script,
             insert_script,
@@ -358,8 +485,7 @@ def validate_workflow(workflow):
 
     checklist = load_json(checklist_path)
     validate_requirement_checklist(checklist, output)
-    requirement_analysis = load_json(requirement_analysis_path)
-    validate_requirement_analysis(checklist, requirement_analysis, output)
+    validate_work_plan(checklist, work_plan_path, output)
     pre_task_plan = load_json(pre_task_plan_path) if pre_task_plan_path.exists() else default_pre_task_plan()
     validate_pre_task_plan(checklist, pre_task_plan)
     prompt_config = load_json(prompt_config_path)
@@ -368,10 +494,12 @@ def validate_workflow(workflow):
     video_plan = load_json(video_plan_path) if video_plan_path.exists() else default_video_plan()
     reference_template_cleanup = load_json(reference_template_cleanup_path) if reference_template_cleanup_path.exists() else default_reference_template_cleanup()
     submission_package = load_json(submission_package_path) if submission_package_path.exists() else default_submission_package()
+    approval_checkpoints = load_json(approval_checkpoints_path) if approval_checkpoints_path.exists() else default_approval_checkpoints()
     insert_config = load_json(insert_config_path)
     validate_video_plan(checklist, video_plan)
     validate_reference_template_cleanup(checklist, reference_template_cleanup)
     validate_submission_package(checklist, submission_package)
+    validate_approval_checkpoints(approval_checkpoints)
 
     copy_keys = placeholder_keys(copywriting_path)
     prompt_keys = [item["name"] for item in prompt_config.get("images", [])]
@@ -434,6 +562,7 @@ def validate_workflow(workflow):
             raise SystemExit("Checklist requires browser capture, but base_url is empty")
         if not browser_capture_plan.get("screenshots"):
             raise SystemExit("Checklist requires browser capture, but screenshots is empty")
+        validate_browser_capture_plan(checklist, browser_capture_plan)
 
     if diagram_assets_required:
         if not diagram_plan.get("enabled", False):
@@ -441,22 +570,16 @@ def validate_workflow(workflow):
         if not diagram_plan.get("diagrams"):
             raise SystemExit("Checklist requires diagram assets, but diagram_plan.json has no diagrams")
 
-    if ai_images_required and not bool(checklist.get("ai_visual_review_completed", False)):
-        raise SystemExit("Checklist requires AI images, but ai_visual_review_completed is not true")
-
     if ai_images_required:
         max_workers = int(prompt_config.get("max_workers", 0))
         if max_workers <= 0:
             raise SystemExit("prompt_config.json.max_workers must be a positive integer when AI images are required")
 
-    if diagram_assets_required and not bool(checklist.get("diagram_visual_review_completed", False)):
-        raise SystemExit("Checklist requires diagram assets, but diagram_visual_review_completed is not true")
-
     prompt_errors = lint_prompt_config(prompt_config)
     if prompt_errors and prompt_config.get("image_policy", {}).get("fail_on_prompt_risk", True):
         raise SystemExit("Prompt policy validation failed:\n" + "\n".join(prompt_errors))
 
-    return checklist, requirement_analysis, prompt_config, browser_capture_plan, diagram_plan, video_plan, reference_template_cleanup, submission_package, insert_config, output
+    return checklist, work_plan_path, prompt_config, browser_capture_plan, diagram_plan, video_plan, reference_template_cleanup, submission_package, approval_checkpoints, insert_config, output
 
 
 def ensure_docx_scripts_customized(workflow):
@@ -521,10 +644,14 @@ def run_prompt_validation(workflow):
     print("=== Prompt JSON validation (Agnes AI) ===")
     result = subprocess.run(
         [sys.executable, str(validator_script), "--config", str(prompt_config_path)],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
-    print(result.stdout.strip())
+    if result.stdout:
+        print(result.stdout.strip())
     if result.stderr:
         print(result.stderr.strip())
 
@@ -544,6 +671,11 @@ def run_prompt_validation(workflow):
 def run_generate_py(workflow):
     root = Path(__file__).resolve().parent
     prompt_config_path = Path(workflow["prompt_config_path"])
+    prompt_config = load_json(prompt_config_path)
+    configured_upstreams = int(prompt_config.get("upstream_count", 1) or 1)
+    upstream_args = ["--upstreams", str(configured_upstreams)]
+    if configured_upstreams >= 1:
+        upstream_args += ["--upstream", str(int(prompt_config.get("upstream_index", 0) or 0))]
 
     # B6: Validate prompt JSON before upstream check
     if not run_prompt_validation(workflow):
@@ -555,8 +687,11 @@ def run_generate_py(workflow):
     # B7: Test upstream before batch — STRICT, no silent fallback
     print("=== Upstream connectivity check ===")
     check_result = subprocess.run(
-        [sys.executable, str(root / "generate_images.py"), "--check"],
-        capture_output=True, text=True
+        [sys.executable, str(root / "generate_images.py"), "--check", "--config", str(prompt_config_path), *upstream_args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
     check_output = (check_result.stderr or "").strip() + "\n" + (check_result.stdout or "").strip()
@@ -582,8 +717,11 @@ def run_generate_py(workflow):
 
     # Run batch generation with strict failure handling
     result = subprocess.run(
-        [sys.executable, str(root / "generate_images.py"), "--config", str(prompt_config_path)],
-        capture_output=True, text=True
+        [sys.executable, str(root / "generate_images.py"), "--config", str(prompt_config_path), *upstream_args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
 
     gen_output = (result.stdout or "").strip() + "\n" + (result.stderr or "").strip()
@@ -599,6 +737,21 @@ def run_generate_py(workflow):
             "  3. Or fix upstream API configuration in .env\n"
             "  4. Re-run after fixing the root cause"
         )
+
+    report_path = Path(workflow["output_dir"]) / "image_generation_report.json"
+    if report_path.exists():
+        try:
+            report = load_json(report_path)
+            failed_names = report.get("failed_image_names", [])
+            supplement_path = report.get("supplement_config_path", "")
+            if failed_names:
+                print(
+                    "[PARTIAL] Some images still need regeneration.\n"
+                    f"Failed images: {', '.join(failed_names)}\n"
+                    f"Use supplement config instead of rerunning the full batch: {supplement_path}"
+                )
+        except Exception:
+            pass
 
 
 def run_browser_capture(workflow):
@@ -802,7 +955,6 @@ def gate_init(workflow: dict, output_dir: Path, checklist: dict) -> tuple:
     required_init_files = [
         "workflow.json",
         "requirement_checklist.json",
-        "requirement_analysis.json",
         "pre_task_plan.json",
         "copywriting.md",
         "prompt_config.json",
@@ -816,6 +968,11 @@ def gate_init(workflow: dict, output_dir: Path, checklist: dict) -> tuple:
         if not (output_dir / fname).exists():
             errors.append(f"[Gate 1/C] 缺少初始化文件: {fname}，请重新运行 init_run.py")
 
+    # Check WORK_PLAN.md separately (agent-authored, not init-produced)
+    work_plan_file = output_dir / "WORK_PLAN.md"
+    if not work_plan_file.exists():
+        errors.append("[Gate 1/C] WORK_PLAN.md 缺失 — Agent 必须在 Step 4 撰写后继续")
+
     task_scripts = ["fill_template.py", "insert_images.py", "verify_template.py"]
     for fname in task_scripts:
         if not (output_dir / "task_scripts" / fname).exists():
@@ -826,7 +983,7 @@ def gate_init(workflow: dict, output_dir: Path, checklist: dict) -> tuple:
     if run_mode == "planning_only":
         errors.append(
             "[Gate 1/D] requirement_checklist.json.run_mode 仍为 planning_only，"
-            "Agent 必须完成 requirement_analysis.json 并更新 checklist 后才能继续"
+            "Agent 必须完成 WORK_PLAN.md 并更新 checklist 后才能继续"
         )
 
     return (len(errors) == 0, errors, warnings)
@@ -925,17 +1082,23 @@ def gate_pre_task(workflow: dict, checklist: dict, pre_task_plan: dict) -> tuple
 # ── Gate 3: EVIDENCE ────────────────────────────────────────
 # 流程图节点: R (分析评分标准) → S (选路线) → T/U/V/W (填配置)
 
-def gate_evidence(workflow: dict, checklist: dict, requirement_analysis: dict) -> tuple:
+def gate_evidence(workflow: dict, checklist: dict, work_plan_path) -> tuple:
     errors, warnings = [], []
     output_dir = Path(workflow.get("output_dir", "."))
 
-    # R→S: requirement_analysis 的 decision_summary 不能为空
-    decision_summary = str(requirement_analysis.get("decision_summary", "")).strip()
-    if not decision_summary:
+    # R→S: WORK_PLAN.md must exist and have all 5 sections
+    wp_path = Path(work_plan_path) if isinstance(work_plan_path, str) else work_plan_path
+    if not wp_path.exists():
         errors.append(
-            "[Gate 3/R-S] requirement_analysis.json.decision_summary 为空，"
-            "Agent 必须分析需求后填写"
+            "[Gate 3/R-S] WORK_PLAN.md 不存在，Agent 必须在 Step 4 分析需求后撰写"
         )
+    else:
+        wp_content = wp_path.read_text(encoding="utf-8")
+        if "目标与评分映射" not in wp_content:
+            errors.append(
+                "[Gate 3/R-S] WORK_PLAN.md 缺少「目标与评分映射」部分，"
+                "Agent 必须完成所有五个必要章节"
+            )
 
     # T: AI 截图路线
     if bool(checklist.get("ai_images_required", False)):
@@ -980,6 +1143,12 @@ def gate_evidence(workflow: dict, checklist: dict, requirement_analysis: dict) -
                 errors.append("[Gate 3/U] browser_capture_plan.json.screenshots 为空")
 
     # V: 图表路线
+        if not bool(checklist.get("browser_visual_review_completed", False)):
+            errors.append(
+                "[Gate 4/AC] browser_visual_review_completed remains false; "
+                "Agent must complete browser screenshot review per docs/prompts/visual_review_rules.md"
+            )
+
     if bool(checklist.get("diagram_assets_required", False)):
         dp = _load_if_exists(output_dir / "diagram_plan.json")
         if not dp:
@@ -1069,6 +1238,12 @@ def gate_generation(workflow: dict, checklist: dict) -> tuple:
             png_path = images_dir / f"{name}.png"
             if not png_path.exists():
                 errors.append(f"[Gate 4/Y] 浏览器截图未找到: {name} ({png_path})")
+        if not bool(checklist.get("browser_visual_review_completed", False)):
+            errors.append(
+                "[Gate 4/AC] browser_visual_review_completed remains false; "
+                "Agent must complete browser screenshot review per docs/prompts/visual_review_rules.md"
+            )
+
 
     # Z: 图表文件必须存在
     if bool(checklist.get("diagram_assets_required", False)):
@@ -1122,7 +1297,7 @@ def gate_assembly(workflow: dict, checklist: dict) -> tuple:
     copywriting_path = output_dir / "copywriting.md"
     if copywriting_path.exists():
         content = copywriting_path.read_text(encoding="utf-8")
-        if "先完成 requirement_analysis.json" in content and "不要直接 run" in content:
+        if "先完成 `WORK_PLAN.md`" in content and "不要直接 run" in content:
             errors.append(
                 "[Gate 5/AE] copywriting.md 仍为初始化默认内容，Agent 必须写实际报告正文"
             )
@@ -1324,6 +1499,13 @@ def generate_delivery_review(workflow: dict, checklist: dict) -> dict:
             "detail": str(png_path) if png_path.exists() else f"Image not found: {name}"
         })
 
+    if checklist.get("browser_capture_required", False):
+        review["checks"].append({
+            "name": "browser_visual_review_completed",
+            "passed": bool(checklist.get("browser_visual_review_completed", False)),
+            "detail": "Visual review completed" if checklist.get("browser_visual_review_completed", False) else "Browser screenshot review not completed"
+        })
+
     # Check 3: Template scripts customized
     docx_scripts = workflow.get("docx_scripts", {})
     for script_name in ("fill", "insert", "verify"):
@@ -1371,7 +1553,7 @@ def run_gates(workflow: dict, phase: str = "all") -> int:
     """运行 Phase Gate 检查。返回 0 = 全部通过，非 0 = 有错误。"""
     output_dir = Path(workflow.get("output_dir", "."))
     checklist = _load_if_exists(output_dir / "requirement_checklist.json") or {}
-    requirement_analysis = _load_if_exists(output_dir / "requirement_analysis.json") or {}
+    work_plan_path = output_dir / "WORK_PLAN.md"
     pre_task_plan = _load_if_exists(output_dir / "pre_task_plan.json") or {
         "enabled": False, "completed": False, "task_type": "",
         "objective": "", "output_summary": "", "output_paths": [], "output_artifacts": [],
@@ -1381,7 +1563,7 @@ def run_gates(workflow: dict, phase: str = "all") -> int:
         "workflow": workflow,
         "output_dir": output_dir,
         "checklist": checklist,
-        "requirement_analysis": requirement_analysis,
+        "work_plan_path": work_plan_path,
         "pre_task_plan": pre_task_plan,
     }
 
@@ -1412,7 +1594,7 @@ def run_gates(workflow: dict, phase: str = "all") -> int:
             elif ph == "2":
                 passed, errs, warns = gate_func(workflow, checklist, pre_task_plan)
             elif ph == "3":
-                passed, errs, warns = gate_func(workflow, checklist, requirement_analysis)
+                passed, errs, warns = gate_func(workflow, checklist, work_plan_path)
             elif ph in ("4", "5", "6"):
                 passed, errs, warns = gate_func(workflow, checklist)
             else:
@@ -1455,7 +1637,7 @@ def run_gates(workflow: dict, phase: str = "all") -> int:
 def main():
     args = parse_args()
     workflow = load_workflow(args.workflow)
-    checklist, requirement_analysis, prompt_config, browser_capture_plan, diagram_plan, video_plan, reference_template_cleanup, submission_package, insert_config, notes = validate_workflow(workflow)
+    checklist, work_plan_path, prompt_config, browser_capture_plan, diagram_plan, video_plan, reference_template_cleanup, submission_package, approval_checkpoints, insert_config, notes = validate_workflow(workflow)
     for note in notes:
         print(note)
     if args.command == "validate":
@@ -1466,6 +1648,12 @@ def main():
         phase = getattr(args, "phase", "all")
         exit_code = run_gates(workflow, phase)
         sys.exit(exit_code)
+
+    approval_path = Path(workflow["approval_checkpoints_path"])
+    if args.command in {"images", "video", "package", "run"}:
+        require_work_plan_confirmation(approval_checkpoints, approval_path, args.command)
+    if args.command == "run":
+        require_image_review_confirmation(checklist, approval_checkpoints, approval_path, args.command)
 
     update_insert_config_from_prompts(workflow, prompt_config, insert_config)
     update_insert_config_from_browser_plan(workflow, browser_capture_plan, insert_config)
@@ -1478,6 +1666,10 @@ def main():
             run_browser_capture(workflow)
         if checklist.get("diagram_assets_required", False):
             run_diagram_assets(workflow)
+        if checklist.get("images_required", False):
+            approval_checkpoints["image_review_confirmed"] = False
+            approval_checkpoints["image_review_confirmation_note"] = ""
+            save_json(approval_path, approval_checkpoints)
         print("Image generation finished.")
         return
 
@@ -1497,12 +1689,6 @@ def main():
         ensure_docx_scripts_customized(workflow)
         if checklist.get("reference_template_cleanup_required", False):
             run_reference_template_cleanup(workflow, reference_template_cleanup)
-        if checklist.get("ai_images_required", False):
-            run_generate_py(workflow)
-        if checklist.get("browser_capture_required", False):
-            run_browser_capture(workflow)
-        if checklist.get("diagram_assets_required", False):
-            run_diagram_assets(workflow)
         if checklist.get("video_required", False):
             run_video_processing(workflow, video_plan)
         run_manifest_commands(workflow)
