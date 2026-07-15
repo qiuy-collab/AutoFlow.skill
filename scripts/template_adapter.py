@@ -1,5 +1,5 @@
 """
-Generic DOCX template adapter for auto-lab.
+Generic DOCX template adapter for AutoFlow.
 
 Provides reusable functions for common DOCX operations:
 - Finding and replacing placeholder text

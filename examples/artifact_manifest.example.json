@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "workflow_id": "af-example-project",
+  "updated_at": "2026-07-16T00:03:00+00:00",
+  "artifacts": [
+    {
+      "id": "source.plan",
+      "type": "data",
+      "path": "C:/work/run/plans/source_candidates.json",
+      "producer": "source",
+      "consumers": ["build"],
+      "sha256": "replace-with-real-sha256",
+      "validation": {"status": "valid", "validated_at": "2026-07-16T00:03:00+00:00"}
+    }
+  ]
+}

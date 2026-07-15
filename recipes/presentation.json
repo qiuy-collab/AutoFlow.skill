@@ -1,0 +1,37 @@
+{
+  "name": "presentation",
+  "description": "Prepare optional research and visuals, then create and visually review a presentation.",
+  "steps": [
+    {
+      "id": "task",
+      "module": "task",
+      "action": "research",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["task.result"],
+      "validator": "artifacts_exist",
+      "optional": true
+    },
+    {
+      "id": "image",
+      "module": "image",
+      "action": "diagram",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["image.assets"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual",
+      "optional": true
+    },
+    {
+      "id": "ppt",
+      "module": "ppt",
+      "action": "create",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["ppt.presentation"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual"
+    }
+  ]
+}

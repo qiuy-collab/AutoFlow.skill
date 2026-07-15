@@ -1,0 +1,15 @@
+{
+  "name": "custom",
+  "description": "Neutral starting point. The agent must replace or extend the steps before PLAN_STOP approval.",
+  "steps": [
+    {
+      "id": "task",
+      "module": "task",
+      "action": "execute",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["task.result"],
+      "validator": "artifacts_exist"
+    }
+  ]
+}

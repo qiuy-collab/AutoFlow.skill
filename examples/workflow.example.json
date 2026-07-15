@@ -1,0 +1,53 @@
+{
+  "$schema": "autoflow/1.0",
+  "schema_version": "1.0",
+  "workflow_id": "af-example-project",
+  "name": "course-system-delivery",
+  "request_file": "C:/work/request.md",
+  "output_dir": "C:/work/run",
+  "recipe": "project-delivery",
+  "recipe_description": "GitHub-first project adaptation with evidence and packaging.",
+  "created_at": "2026-07-16T00:00:00+00:00",
+  "steps": [
+    {
+      "id": "source",
+      "module": "task",
+      "action": "research",
+      "source_policy": "github_first",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["source.plan"],
+      "validator": "source_plan",
+      "gate_after": "source"
+    },
+    {
+      "id": "build",
+      "module": "task",
+      "action": "build",
+      "source_policy": "github_first",
+      "needs": ["source"],
+      "inputs": ["request", "source.plan"],
+      "outputs": ["project.source", "task.result"],
+      "validator": "artifacts_exist"
+    },
+    {
+      "id": "image",
+      "module": "image",
+      "action": "capture",
+      "needs": ["build"],
+      "inputs": ["project.source", "task.result"],
+      "outputs": ["image.assets"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual"
+    },
+    {
+      "id": "package",
+      "module": "package",
+      "action": "assemble",
+      "needs": ["build", "image"],
+      "inputs": ["project.source", "task.result", "image.assets"],
+      "outputs": ["package.bundle"],
+      "validator": "artifacts_exist"
+    }
+  ]
+}

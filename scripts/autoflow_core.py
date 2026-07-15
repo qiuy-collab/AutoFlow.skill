@@ -1,0 +1,908 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+
+SCHEMA_ID = "autoflow/1.0"
+SCHEMA_VERSION = "1.0"
+STEP_STATUSES = {"pending", "ready", "running", "blocked", "completed", "failed", "skipped"}
+GATE_STATUSES = {"pending", "approved", "rejected", "not_applicable"}
+GATE_NAMES = ("plan", "source", "visual", "delivery")
+VALIDATORS = {"artifacts_exist", "source_plan"}
+MODULE_ACTIONS = {
+    "task": {"research", "build", "compute", "execute"},
+    "image": {"capture", "ai", "diagram", "chart"},
+    "word": {"create", "edit", "fill"},
+    "ppt": {"create", "edit"},
+    "video": {"analyze", "record", "create", "process"},
+    "package": {"assemble"},
+}
+VISUAL_MODULES = {"image", "ppt"}
+PLAN_REQUIRED_SECTIONS = ("## 目标", "## 工作流", "## 产物", "## 范围与约束")
+
+
+class AutoFlowError(RuntimeError):
+    pass
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise AutoFlowError(f"Required file does not exist: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise AutoFlowError(f"Invalid JSON in {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise AutoFlowError(f"Expected a JSON object in {path}")
+    return data
+
+
+def save_json(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temp.replace(path)
+
+
+def workflow_paths(workflow_path: Path) -> dict[str, Path]:
+    root = workflow_path.resolve().parent
+    return {
+        "root": root,
+        "workflow": workflow_path.resolve(),
+        "state": root / "run_state.json",
+        "manifest": root / "artifact_manifest.json",
+        "work_plan": root / "WORK_PLAN.md",
+        "plans": root / "plans",
+        "source_plan": root / "plans" / "source_candidates.json",
+    }
+
+
+def _recipe_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "recipes"
+
+
+def detect_ppt_backend() -> dict[str, Any]:
+    candidates: list[tuple[str, Path]] = []
+    configured = os.environ.get("AUTOFLOW_PPTX_SKILL", "").strip()
+    if configured:
+        configured_path = Path(configured).expanduser()
+        candidates.append(("pptx", configured_path / "SKILL.md" if configured_path.is_dir() else configured_path))
+    candidates.extend(
+        [
+            ("pptx", Path.home() / ".codex" / "skills" / "pptx" / "SKILL.md"),
+            ("pptx", Path.home() / ".agents" / "skills" / "pptx" / "SKILL.md"),
+            ("pptx", Path.home() / ".newmax" / "skills" / "pptx" / "SKILL.md"),
+        ]
+    )
+    plugin_root = Path.home() / ".codex" / "plugins" / "cache" / "openai-primary-runtime" / "presentations"
+    if plugin_root.exists():
+        candidates.extend(
+            ("presentations", path)
+            for path in plugin_root.glob("*/skills/presentations/SKILL.md")
+        )
+    for name, path in candidates:
+        if path.is_file():
+            return {"status": "available", "backend": name, "skill_file": str(path.resolve())}
+    return {
+        "status": "missing",
+        "backend": "",
+        "skill_file": "",
+        "message": "Install the pptx or presentations Skill, or set AUTOFLOW_PPTX_SKILL.",
+    }
+
+
+def detect_word_backend() -> dict[str, Any]:
+    candidates: list[tuple[str, Path]] = [
+        ("minimax-docx", Path(__file__).resolve().parent.parent / "vendor" / "minimax-docx" / "SKILL.md"),
+        ("minimax-docx", Path.home() / ".codex" / "skills" / "minimax-docx" / "SKILL.md"),
+        ("minimax-docx", Path.home() / ".agents" / "skills" / "minimax-docx" / "SKILL.md"),
+    ]
+    plugin_root = Path.home() / ".codex" / "plugins" / "cache" / "openai-primary-runtime" / "documents"
+    if plugin_root.exists():
+        candidates.extend(("documents", path) for path in plugin_root.glob("*/skills/documents/SKILL.md"))
+    for name, path in candidates:
+        if path.is_file():
+            return {"status": "available", "backend": name, "skill_file": str(path.resolve())}
+    return {
+        "status": "missing",
+        "backend": "",
+        "skill_file": "",
+        "message": "Install minimax-docx/documents before running a Word workflow.",
+    }
+
+
+def validate_capabilities(workflow: dict[str, Any]) -> None:
+    if any(step.get("module") == "ppt" for step in workflow.get("steps", [])):
+        ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
+        skill_file = Path(str(ppt.get("skill_file", "")))
+        if ppt.get("status") != "available" or not skill_file.is_file():
+            raise AutoFlowError(
+                "PPT workflow requires an installed pptx/presentations Skill. "
+                "Set AUTOFLOW_PPTX_SKILL or install a supported backend before PLAN_STOP approval."
+            )
+    if any(step.get("module") == "word" for step in workflow.get("steps", [])):
+        word = (workflow.get("capabilities") or {}).get("word") or detect_word_backend()
+        skill_file = Path(str(word.get("skill_file", "")))
+        if word.get("status") != "available" or not skill_file.is_file():
+            raise AutoFlowError(
+                "Word workflow requires an installed minimax-docx/documents Skill. "
+                "Install a supported backend before PLAN_STOP approval."
+            )
+
+
+def load_recipe(name: str) -> dict[str, Any]:
+    selected = "custom" if name == "auto" else name
+    path = _recipe_dir() / f"{selected}.json"
+    if not path.exists():
+        available = ", ".join(sorted(p.stem for p in _recipe_dir().glob("*.json")))
+        raise AutoFlowError(f"Unknown recipe '{name}'. Available recipes: auto, {available}")
+    recipe = load_json(path)
+    if recipe.get("name") != selected or not isinstance(recipe.get("steps"), list):
+        raise AutoFlowError(f"Invalid recipe definition: {path}")
+    return recipe
+
+
+def _new_gate(required: bool, active: bool, status: str) -> dict[str, Any]:
+    return {
+        "required": required,
+        "active": active,
+        "status": status,
+        "note": "",
+        "updated_at": utc_now(),
+        "history": [],
+    }
+
+
+def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Path:
+    request_file = request_file.expanduser().resolve()
+    output_dir = output_dir.expanduser().resolve()
+    if not request_file.is_file():
+        raise AutoFlowError(f"Request file does not exist: {request_file}")
+    workflow_path = output_dir / "workflow.json"
+    if workflow_path.exists():
+        raise AutoFlowError(f"Run already initialized: {workflow_path}")
+
+    recipe = load_recipe(recipe_name)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "plans").mkdir(exist_ok=True)
+
+    workflow_id = f"af-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}"
+    workflow = {
+        "$schema": SCHEMA_ID,
+        "schema_version": SCHEMA_VERSION,
+        "workflow_id": workflow_id,
+        "name": output_dir.name,
+        "request_file": str(request_file),
+        "output_dir": str(output_dir),
+        "recipe": recipe["name"],
+        "recipe_description": recipe.get("description", ""),
+        "created_at": utc_now(),
+        "steps": recipe["steps"],
+        "capabilities": {
+            **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in recipe["steps"]) else {}),
+            **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in recipe["steps"]) else {}),
+        },
+    }
+    validate_workflow_definition(workflow)
+
+    state = {
+        "schema_version": SCHEMA_VERSION,
+        "workflow_id": workflow_id,
+        "status": "planning",
+        "updated_at": utc_now(),
+        "steps": {
+            step["id"]: {
+                "status": "pending",
+                "attempts": 0,
+                "note": "",
+                "updated_at": utc_now(),
+            }
+            for step in workflow["steps"]
+        },
+        "gates": {
+            "plan": _new_gate(True, True, "pending"),
+            "source": _new_gate(False, False, "not_applicable"),
+            "visual": _new_gate(False, False, "not_applicable"),
+            "delivery": _new_gate(True, False, "pending"),
+        },
+    }
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "workflow_id": workflow_id,
+        "updated_at": utc_now(),
+        "artifacts": [],
+    }
+    work_plan = f"""# AutoFlow Work Plan — {output_dir.name}
+
+> Recipe: `{recipe['name']}`
+> Workflow: `{workflow_id}`
+
+## 目标
+
+待填写：说明用户最终要得到什么，以及成功标准。
+
+## 工作流
+
+待填写：说明采用的模块、执行顺序、STOP 和每步验证方式。
+
+## 产物
+
+待填写：列出最终产物及其预期路径或类型。
+
+## 范围与约束
+
+待填写：说明模板、技术栈、禁止项、外部依赖和不在范围内的事项。
+"""
+
+    save_json(workflow_path, workflow)
+    save_json(output_dir / "run_state.json", state)
+    save_json(output_dir / "artifact_manifest.json", manifest)
+    (output_dir / "WORK_PLAN.md").write_text(work_plan, encoding="utf-8")
+    return workflow_path
+
+
+def load_run(workflow_path: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Path]]:
+    workflow_path = workflow_path.expanduser().resolve()
+    paths = workflow_paths(workflow_path)
+    workflow = load_json(paths["workflow"])
+    if workflow.get("$schema") != SCHEMA_ID or workflow.get("schema_version") != SCHEMA_VERSION:
+        if any(key in workflow for key in ("template_path", "output_docx", "requirement_checklist_path")):
+            raise AutoFlowError(
+                "Legacy workflow detected. AutoFlow does not support AutoLab workflow.json files; "
+                "create a new run with 'python scripts/autoflow.py init'."
+            )
+        raise AutoFlowError(
+            f"Unsupported workflow schema. Expected {SCHEMA_ID} version {SCHEMA_VERSION}."
+        )
+    state = load_json(paths["state"])
+    manifest = load_json(paths["manifest"])
+    return workflow, state, manifest, paths
+
+
+def validate_workflow_definition(workflow: dict[str, Any]) -> None:
+    if workflow.get("$schema") != SCHEMA_ID or workflow.get("schema_version") != SCHEMA_VERSION:
+        raise AutoFlowError(f"Workflow must use {SCHEMA_ID} schema version {SCHEMA_VERSION}")
+    steps = workflow.get("steps")
+    if not isinstance(steps, list) or not steps:
+        raise AutoFlowError("Workflow must contain at least one step")
+
+    ids: list[str] = []
+    produced: dict[str, str] = {}
+    for step in steps:
+        if not isinstance(step, dict):
+            raise AutoFlowError("Every workflow step must be an object")
+        step_id = str(step.get("id", "")).strip()
+        module = str(step.get("module", "")).strip()
+        action = str(step.get("action", "")).strip()
+        if not step_id:
+            raise AutoFlowError("Every workflow step needs a non-empty id")
+        if step_id in ids:
+            raise AutoFlowError(f"Duplicate step id: {step_id}")
+        if module not in MODULE_ACTIONS or action not in MODULE_ACTIONS[module]:
+            raise AutoFlowError(f"Unsupported module action in {step_id}: {module}.{action}")
+        needs = step.get("needs", [])
+        inputs = step.get("inputs", [])
+        outputs = step.get("outputs", [])
+        if not all(isinstance(values, list) for values in (needs, inputs, outputs)):
+            raise AutoFlowError(f"Step {step_id} needs/inputs/outputs must be arrays")
+        for artifact_id in outputs:
+            if artifact_id in produced:
+                raise AutoFlowError(
+                    f"Artifact '{artifact_id}' is produced by both {produced[artifact_id]} and {step_id}"
+                )
+            produced[artifact_id] = step_id
+        gate_after = step.get("gate_after")
+        if gate_after is not None and gate_after not in {"source", "visual"}:
+            raise AutoFlowError(f"Step {step_id} has unsupported gate_after '{gate_after}'")
+        validator = step.get("validator")
+        if validator not in VALIDATORS:
+            raise AutoFlowError(f"Step {step_id} has unsupported validator '{validator}'")
+        if gate_after == "source" and not (
+            module == "task" and action == "research" and step.get("source_policy") == "github_first"
+        ):
+            raise AutoFlowError(f"Step {step_id} may use SOURCE_STOP only for task.research with github_first")
+        if gate_after == "visual" and module not in VISUAL_MODULES:
+            raise AutoFlowError(f"Step {step_id} may use VISUAL_STOP only for image or ppt modules")
+        ids.append(step_id)
+
+    known = set(ids)
+    for step in steps:
+        step_id = step["id"]
+        for dependency in step.get("needs", []):
+            if dependency not in known:
+                raise AutoFlowError(f"Step {step_id} depends on unknown step: {dependency}")
+            if dependency == step_id:
+                raise AutoFlowError(f"Step {step_id} cannot depend on itself")
+        for artifact_id in step.get("inputs", []):
+            if artifact_id != "request" and artifact_id not in produced:
+                raise AutoFlowError(f"Step {step_id} consumes unknown artifact: {artifact_id}")
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+    by_id = {step["id"]: step for step in steps}
+
+    def visit(step_id: str) -> None:
+        if step_id in visiting:
+            raise AutoFlowError(f"Workflow contains a dependency cycle at step: {step_id}")
+        if step_id in visited:
+            return
+        visiting.add(step_id)
+        for dependency in by_id[step_id].get("needs", []):
+            visit(dependency)
+        visiting.remove(step_id)
+        visited.add(step_id)
+
+    for step_id in ids:
+        visit(step_id)
+
+
+def validate_work_plan(path: Path) -> None:
+    if not path.is_file():
+        raise AutoFlowError(f"WORK_PLAN.md does not exist: {path}")
+    content = path.read_text(encoding="utf-8")
+    missing = [section for section in PLAN_REQUIRED_SECTIONS if section not in content]
+    if missing:
+        raise AutoFlowError("WORK_PLAN.md is missing sections: " + ", ".join(missing))
+    if len(content.strip()) < 180 or "待填写" in content or "TODO" in content.upper():
+        raise AutoFlowError("WORK_PLAN.md is still a template; complete it before PLAN_STOP approval")
+
+
+def _hash_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def hash_path(path: Path) -> str:
+    if path.is_file():
+        return _hash_file(path)
+    if not path.is_dir():
+        raise AutoFlowError(f"Artifact path does not exist: {path}")
+    digest = hashlib.sha256()
+    for child in sorted(item for item in path.rglob("*") if item.is_file()):
+        digest.update(child.relative_to(path).as_posix().encode("utf-8"))
+        digest.update(_hash_file(child).encode("ascii"))
+    return digest.hexdigest()
+
+
+def _artifact_type(path: Path) -> str:
+    if path.is_dir():
+        return "directory"
+    suffix = path.suffix.lower()
+    return {
+        ".docx": "word",
+        ".pptx": "ppt",
+        ".png": "image",
+        ".jpg": "image",
+        ".jpeg": "image",
+        ".svg": "image",
+        ".webp": "image",
+        ".mp4": "video",
+        ".mov": "video",
+        ".avi": "video",
+        ".zip": "package",
+        ".json": "data",
+        ".csv": "data",
+    }.get(suffix, "file")
+
+
+def parse_artifact_specs(specs: list[str]) -> dict[str, Path]:
+    result: dict[str, Path] = {}
+    for spec in specs:
+        if "=" not in spec:
+            raise AutoFlowError("Artifacts must use ARTIFACT_ID=PATH syntax")
+        artifact_id, raw_path = spec.split("=", 1)
+        artifact_id = artifact_id.strip()
+        raw_path = raw_path.strip()
+        if not artifact_id or not raw_path:
+            raise AutoFlowError("Artifacts must use non-empty ARTIFACT_ID=PATH values")
+        result[artifact_id] = Path(raw_path).expanduser().resolve()
+    return result
+
+
+def _step_map(workflow: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {step["id"]: step for step in workflow["steps"]}
+
+
+def sync_planning_state(workflow: dict[str, Any], state: dict[str, Any]) -> None:
+    """Synchronize step state after the agent edits a custom DAG before PLAN_STOP."""
+    validate_workflow_definition(workflow)
+    plan_gate = state.get("gates", {}).get("plan", {})
+    if plan_gate.get("status") not in {"pending", "rejected"}:
+        raise AutoFlowError("Workflow steps can only be synchronized before PLAN_STOP approval")
+    for item in state.get("steps", {}).values():
+        if item.get("attempts", 0) or item.get("status") not in {"pending", "ready"}:
+            raise AutoFlowError("Cannot synchronize a workflow after step execution has started")
+    workflow["capabilities"] = {
+        **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in workflow["steps"]) else {}),
+        **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in workflow["steps"]) else {}),
+    }
+    state["steps"] = {
+        step["id"]: {
+            "status": "pending",
+            "attempts": 0,
+            "note": "",
+            "updated_at": utc_now(),
+        }
+        for step in workflow["steps"]
+    }
+    state["status"] = "planning"
+    state["updated_at"] = utc_now()
+
+
+def _manifest_map(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {item["id"]: item for item in manifest.get("artifacts", [])}
+
+
+def register_step_artifacts(
+    workflow: dict[str, Any], manifest: dict[str, Any], step: dict[str, Any], artifacts: dict[str, Path]
+) -> None:
+    expected = set(step.get("outputs", []))
+    supplied = set(artifacts)
+    if expected != supplied:
+        missing = sorted(expected - supplied)
+        extra = sorted(supplied - expected)
+        details = []
+        if missing:
+            details.append("missing=" + ",".join(missing))
+        if extra:
+            details.append("unexpected=" + ",".join(extra))
+        raise AutoFlowError(f"Artifacts for step {step['id']} do not match declared outputs: {'; '.join(details)}")
+
+    existing = _manifest_map(manifest)
+    consumers = {
+        artifact_id: [candidate["id"] for candidate in workflow["steps"] if artifact_id in candidate.get("inputs", [])]
+        for artifact_id in expected
+    }
+    for artifact_id, path in artifacts.items():
+        if not path.exists():
+            raise AutoFlowError(f"Artifact path does not exist: {path}")
+        record = {
+            "id": artifact_id,
+            "type": _artifact_type(path),
+            "path": str(path),
+            "producer": step["id"],
+            "consumers": consumers[artifact_id],
+            "sha256": hash_path(path),
+            "validation": {"status": "valid", "validated_at": utc_now()},
+        }
+        existing[artifact_id] = record
+    manifest["artifacts"] = sorted(existing.values(), key=lambda item: item["id"])
+    manifest["updated_at"] = utc_now()
+
+
+def _validate_candidates(candidates: list[dict[str, Any]]) -> None:
+    if not 3 <= len(candidates) <= 5:
+        raise AutoFlowError("SOURCE_STOP requires three to five genuinely usable GitHub candidates")
+    score_keys = {"requirement_fit", "modification_distance", "stack", "buildability", "maintenance", "license"}
+    for index, candidate in enumerate(candidates, start=1):
+        required = ("rank", "name", "repository_url", "revision", "license", "judgment")
+        missing = [key for key in required if not str(candidate.get(key, "")).strip()]
+        scores = candidate.get("scores") or {}
+        if missing or not score_keys.issubset(scores):
+            details = missing + (["scores"] if not score_keys.issubset(scores) else [])
+            raise AutoFlowError(f"Candidate {index} is missing: {', '.join(details)}")
+        invalid_scores = [key for key in score_keys if not isinstance(scores.get(key), (int, float)) or not 0 <= scores[key] <= 5]
+        if invalid_scores:
+            raise AutoFlowError(f"Candidate {index} has invalid 0-5 scores: {', '.join(sorted(invalid_scores))}")
+
+
+def validate_source_plan(path: Path, for_approval: bool = False) -> str:
+    plan = load_json(path)
+    status = str(plan.get("status", ""))
+    queries = plan.get("queries", [])
+    if not isinstance(queries, list) or not any(str(query).strip() for query in queries):
+        raise AutoFlowError("source_candidates.json must record at least one real search query")
+    candidates = plan.get("candidates", [])
+    if not isinstance(candidates, list):
+        raise AutoFlowError("source_candidates.json.candidates must be an array")
+    if status == "awaiting_user_choice":
+        if not candidates:
+            raise AutoFlowError("awaiting_user_choice requires at least one GitHub candidate")
+        _validate_candidates(candidates)
+        if for_approval:
+            raise AutoFlowError("Record the user's selected candidate before approving SOURCE_STOP")
+        return status
+    if status in {"selected", "completed"}:
+        if not candidates:
+            raise AutoFlowError("A selected source plan must retain its candidate list")
+        _validate_candidates(candidates)
+        selected = plan.get("selected_candidate") or {}
+        required = ("name", "repository_url", "selected_revision", "selection_rationale")
+        missing = [key for key in required if not str(selected.get(key, "")).strip()]
+        if missing:
+            raise AutoFlowError("selected_candidate is missing: " + ", ".join(missing))
+        choice = plan.get("user_choice") or {}
+        if choice.get("status") != "confirmed":
+            raise AutoFlowError("source_candidates.json.user_choice.status must be confirmed")
+        return status
+    if status == "no_suitable_project":
+        if candidates:
+            raise AutoFlowError("no_suitable_project requires an empty candidate list")
+        fallback = plan.get("fallback") or {}
+        if not fallback.get("used") or not str(fallback.get("reason", "")).strip():
+            raise AutoFlowError("No-candidate fallback requires used=true and a reason")
+        rejected = plan.get("rejected_candidates") or []
+        search_notes = str(plan.get("search_notes", "")).strip()
+        if not rejected and not search_notes:
+            raise AutoFlowError("No-candidate fallback must record rejected projects or search_notes")
+        for index, item in enumerate(rejected, start=1):
+            if not str(item.get("repository_url", "")).strip() or not str(item.get("reason", "")).strip():
+                raise AutoFlowError(f"Rejected candidate {index} must include repository_url and reason")
+        if for_approval:
+            raise AutoFlowError("SOURCE_STOP is not approved when no candidates exist; mark it not_applicable")
+        return status
+    raise AutoFlowError(
+        "source_candidates.json.status must be awaiting_user_choice, selected, completed, or no_suitable_project"
+    )
+
+
+def validate_build_completion(artifacts: dict[str, Path], source_plan_path: Path) -> None:
+    project_path = artifacts.get("project.source")
+    result_path = artifacts.get("task.result")
+    if not project_path or not project_path.is_dir():
+        raise AutoFlowError("task.build must produce project.source as an existing directory")
+    if not any(project_path.iterdir()):
+        raise AutoFlowError("project.source is empty")
+    if not any((project_path / name).is_file() for name in ("README.md", "README.txt", "readme.md")):
+        raise AutoFlowError("project.source must contain startup/handoff documentation (README.md)")
+    if not result_path or not result_path.is_file():
+        raise AutoFlowError("task.build must produce task.result as a JSON file")
+    result = load_json(result_path)
+    source_plan = load_json(source_plan_path)
+    source_mode = result.get("source_mode")
+    expected_mode = "github_adaptation" if source_plan.get("status") in {"selected", "completed"} else "from_scratch"
+    if source_mode != expected_mode:
+        raise AutoFlowError(f"task.result.source_mode must be {expected_mode}")
+    baseline = result.get("baseline") or {}
+    if baseline.get("status") != "passed" or not baseline.get("commands") or not str(baseline.get("result", "")).strip():
+        raise AutoFlowError("task.result.baseline must record passed status, commands, and result")
+    changed_files = result.get("changed_files") or []
+    if not changed_files:
+        raise AutoFlowError("task.result.changed_files must record the implemented/adapted files")
+    verification = result.get("verification_results") or []
+    if not verification or not any(item.get("status") == "passed" for item in verification if isinstance(item, dict)):
+        raise AutoFlowError("task.result.verification_results must include at least one passed check")
+    if expected_mode == "github_adaptation":
+        if not (project_path / ".git").exists():
+            raise AutoFlowError("A GitHub adaptation must retain a .git repository in project.source")
+        selected = source_plan.get("selected_candidate") or {}
+        upstream = result.get("upstream") or {}
+        if upstream.get("repository_url") != selected.get("repository_url"):
+            raise AutoFlowError("task.result upstream URL does not match the user-selected candidate")
+        if upstream.get("selected_revision") != selected.get("selected_revision"):
+            raise AutoFlowError("task.result upstream revision does not match the selected revision")
+
+
+def _set_gate(state: dict[str, Any], gate_name: str, status: str, note: str, active: bool) -> None:
+    gate = state["gates"][gate_name]
+    previous = gate.get("status")
+    gate.setdefault("history", []).append(
+        {"from": previous, "to": status, "note": note, "at": utc_now()}
+    )
+    gate.update({"status": status, "note": note, "active": active, "updated_at": utc_now()})
+    if gate_name == "visual" and status == "pending":
+        gate["approved_artifacts"] = []
+    state["updated_at"] = utc_now()
+
+
+def _active_blocking_gate(state: dict[str, Any]) -> str | None:
+    for gate_name in ("plan", "source", "visual"):
+        gate = state["gates"][gate_name]
+        if gate.get("active") and gate.get("status") in {"pending", "rejected"}:
+            return gate_name
+    return None
+
+
+def refresh_ready(workflow: dict[str, Any], state: dict[str, Any]) -> list[str]:
+    blocker = _active_blocking_gate(state)
+    if blocker:
+        for item in state["steps"].values():
+            if item["status"] == "ready":
+                item["status"] = "pending"
+                item["updated_at"] = utc_now()
+        return []
+
+    ready: list[str] = []
+    for step in workflow["steps"]:
+        step_state = state["steps"][step["id"]]
+        if step_state["status"] not in {"pending", "ready"}:
+            continue
+        dependency_states = [state["steps"][dep]["status"] for dep in step.get("needs", [])]
+        can_run = all(status in {"completed", "skipped"} for status in dependency_states)
+        if can_run:
+            step_state["status"] = "ready"
+            step_state["updated_at"] = utc_now()
+            ready.append(step["id"])
+        elif step_state["status"] == "ready":
+            step_state["status"] = "pending"
+            step_state["updated_at"] = utc_now()
+    state["updated_at"] = utc_now()
+    return ready
+
+
+def _refresh_delivery(workflow: dict[str, Any], state: dict[str, Any]) -> None:
+    all_done = all(item["status"] in {"completed", "skipped"} for item in state["steps"].values())
+    blocker = _active_blocking_gate(state)
+    gate = state["gates"]["delivery"]
+    if all_done and blocker is None and state.get("status") != "completed":
+        if not gate.get("active"):
+            _set_gate(state, "delivery", "pending", "All workflow steps completed; delivery review required", True)
+        state["status"] = "awaiting_delivery_approval"
+    elif state.get("status") != "completed":
+        state["status"] = "running" if state["gates"]["plan"]["status"] == "approved" else "planning"
+
+
+def transition_step(
+    workflow: dict[str, Any],
+    state: dict[str, Any],
+    manifest: dict[str, Any],
+    paths: dict[str, Path],
+    step_id: str,
+    target: str,
+    note: str,
+    artifacts: dict[str, Path],
+) -> None:
+    steps = _step_map(workflow)
+    if step_id not in steps:
+        raise AutoFlowError(f"Unknown step: {step_id}")
+    if target not in STEP_STATUSES - {"pending", "ready"}:
+        raise AutoFlowError("transition --to must be running, blocked, completed, failed, or skipped")
+    current = state["steps"][step_id]["status"]
+    allowed = {
+        "pending": {"running", "skipped"},
+        "ready": {"running", "skipped"},
+        "running": {"blocked", "completed", "failed"},
+        "blocked": {"running", "failed"},
+        "failed": {"running"},
+        "completed": set(),
+        "skipped": set(),
+    }
+    if target not in allowed[current]:
+        raise AutoFlowError(f"Illegal step transition for {step_id}: {current} -> {target}")
+    step = steps[step_id]
+    if target == "skipped" and not step.get("optional", False):
+        raise AutoFlowError(f"Step {step_id} is not optional and cannot be skipped")
+    if target == "running":
+        blocker = _active_blocking_gate(state)
+        if blocker:
+            raise AutoFlowError(f"Step {step_id} is blocked by {blocker.upper()}_STOP")
+        unmet = [dep for dep in step.get("needs", []) if state["steps"][dep]["status"] not in {"completed", "skipped"}]
+        if unmet:
+            raise AutoFlowError(f"Step {step_id} has incomplete dependencies: {', '.join(unmet)}")
+        state["steps"][step_id]["attempts"] += 1
+    if target == "completed":
+        if step.get("module") == "task" and step.get("action") == "build":
+            validate_build_completion(artifacts, paths["source_plan"])
+        register_step_artifacts(workflow, manifest, step, artifacts)
+    elif artifacts:
+        raise AutoFlowError("--artifact may only be used when completing a step")
+
+    state["steps"][step_id].update({"status": target, "note": note, "updated_at": utc_now()})
+
+    if target == "completed" and step.get("gate_after") == "source":
+        source_status = validate_source_plan(paths["source_plan"])
+        if source_status == "awaiting_user_choice":
+            state["gates"]["source"]["required"] = True
+            _set_gate(state, "source", "pending", "GitHub candidates require explicit user selection", True)
+        elif source_status == "no_suitable_project":
+            state["gates"]["source"]["required"] = False
+            _set_gate(state, "source", "not_applicable", "No suitable project; use recorded from-scratch fallback", False)
+        else:
+            state["gates"]["source"]["required"] = True
+            _set_gate(state, "source", "pending", "Selected source still requires explicit user approval", True)
+
+    if target == "completed" and step.get("gate_after") == "visual":
+        state["gates"]["visual"]["required"] = True
+        _set_gate(state, "visual", "pending", f"Visual artifacts from {step_id} require user review", True)
+
+    refresh_ready(workflow, state)
+    _refresh_delivery(workflow, state)
+
+
+def _validate_artifacts(manifest: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    seen: set[str] = set()
+    for item in manifest.get("artifacts", []):
+        artifact_id = item.get("id")
+        if not artifact_id or artifact_id in seen:
+            errors.append(f"Invalid or duplicate artifact id: {artifact_id}")
+            continue
+        seen.add(artifact_id)
+        path = Path(str(item.get("path", "")))
+        if not path.exists():
+            errors.append(f"Artifact path missing: {artifact_id} -> {path}")
+            continue
+        actual = hash_path(path)
+        if actual != item.get("sha256"):
+            errors.append(f"Artifact changed after validation: {artifact_id} -> {path}")
+        if (item.get("validation") or {}).get("status") != "valid":
+            errors.append(f"Artifact is not marked valid: {artifact_id}")
+    return errors
+
+
+def _refresh_manifest_artifact(manifest: dict[str, Any], artifact_id: str) -> None:
+    item = _manifest_map(manifest).get(artifact_id)
+    if not item:
+        raise AutoFlowError(f"Artifact manifest is missing: {artifact_id}")
+    path = Path(item["path"])
+    if not path.exists():
+        raise AutoFlowError(f"Artifact path does not exist: {path}")
+    item["sha256"] = hash_path(path)
+    item["validation"] = {"status": "valid", "validated_at": utc_now()}
+    manifest["updated_at"] = utc_now()
+
+
+def approve_gate(
+    workflow: dict[str, Any], state: dict[str, Any], manifest: dict[str, Any], paths: dict[str, Path], gate_name: str, note: str
+) -> None:
+    if gate_name not in GATE_NAMES:
+        raise AutoFlowError(f"Unknown gate: {gate_name}")
+    if not note.strip():
+        raise AutoFlowError("Gate approval requires a non-empty note quoting or summarizing explicit user approval")
+    gate = state["gates"][gate_name]
+    if not gate.get("active") or gate.get("status") not in {"pending", "rejected"}:
+        raise AutoFlowError(f"{gate_name.upper()}_STOP is not awaiting approval")
+    if gate_name == "plan":
+        sync_planning_state(workflow, state)
+        validate_work_plan(paths["work_plan"])
+        validate_workflow_definition(workflow)
+        validate_capabilities(workflow)
+    elif gate_name == "source":
+        validate_source_plan(paths["source_plan"], for_approval=True)
+        _refresh_manifest_artifact(manifest, "source.plan")
+    elif gate_name == "visual":
+        visual_steps = {
+            step["id"] for step in workflow["steps"] if step["module"] in VISUAL_MODULES and state["steps"][step["id"]]["status"] == "completed"
+        }
+        visual_artifacts = [item for item in manifest.get("artifacts", []) if item.get("producer") in visual_steps]
+        if not visual_artifacts:
+            raise AutoFlowError("VISUAL_STOP cannot be approved without completed visual artifacts")
+        artifact_errors = _validate_artifacts({"artifacts": visual_artifacts})
+        if artifact_errors:
+            raise AutoFlowError("Visual artifact validation failed: " + "; ".join(artifact_errors))
+        gate["approved_artifacts"] = [
+            {"id": item["id"], "sha256": item["sha256"]} for item in visual_artifacts
+        ]
+    elif gate_name == "delivery":
+        if not all(item["status"] in {"completed", "skipped"} for item in state["steps"].values()):
+            raise AutoFlowError("DELIVERY_STOP cannot be approved before all steps complete")
+        artifact_errors = _validate_artifacts(manifest)
+        if artifact_errors:
+            raise AutoFlowError("Delivery artifact validation failed: " + "; ".join(artifact_errors))
+
+    _set_gate(state, gate_name, "approved", note.strip(), False)
+    if gate_name == "delivery":
+        state["status"] = "completed"
+    else:
+        state["status"] = "running"
+        refresh_ready(workflow, state)
+        _refresh_delivery(workflow, state)
+
+
+def set_gate_state(
+    workflow: dict[str, Any], state: dict[str, Any], paths: dict[str, Path], gate_name: str, target: str, note: str
+) -> None:
+    if gate_name not in GATE_NAMES:
+        raise AutoFlowError(f"Unknown gate: {gate_name}")
+    if target not in {"rejected", "not_applicable"}:
+        raise AutoFlowError("gate --to must be rejected or not_applicable")
+    if not note.strip():
+        raise AutoFlowError("Changing a gate requires a non-empty note")
+    if gate_name in {"plan", "delivery"} and target == "not_applicable":
+        raise AutoFlowError(f"{gate_name.upper()}_STOP is mandatory and cannot be not_applicable")
+    gate = state["gates"][gate_name]
+    if target == "rejected" and not gate.get("active"):
+        raise AutoFlowError(f"{gate_name.upper()}_STOP is not active and cannot be rejected")
+    if target == "not_applicable" and gate_name == "source":
+        if validate_source_plan(paths["source_plan"]) != "no_suitable_project":
+            raise AutoFlowError("SOURCE_STOP is not applicable only after a validated no-candidate search")
+    if target == "not_applicable" and gate_name == "visual":
+        visual_steps = [step for step in workflow["steps"] if step.get("gate_after") == "visual"]
+        if any(state["steps"][step["id"]]["status"] != "skipped" for step in visual_steps):
+            raise AutoFlowError("VISUAL_STOP is not applicable only when every visual-gated step is skipped")
+    _set_gate(state, gate_name, target, note.strip(), target == "rejected")
+    state["status"] = "blocked" if target == "rejected" else state.get("status", "running")
+
+
+def validate_run(workflow: dict[str, Any], state: dict[str, Any], manifest: dict[str, Any], paths: dict[str, Path]) -> list[str]:
+    errors: list[str] = []
+    try:
+        validate_workflow_definition(workflow)
+    except AutoFlowError as exc:
+        errors.append(str(exc))
+    try:
+        validate_capabilities(workflow)
+    except AutoFlowError as exc:
+        errors.append(str(exc))
+    if state.get("schema_version") != SCHEMA_VERSION or state.get("workflow_id") != workflow.get("workflow_id"):
+        errors.append("run_state.json does not match workflow schema/id")
+    if manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("workflow_id") != workflow.get("workflow_id"):
+        errors.append("artifact_manifest.json does not match workflow schema/id")
+    request_file = Path(str(workflow.get("request_file", "")))
+    if not request_file.is_file():
+        errors.append(f"Request file does not exist: {request_file}")
+    output_dir = Path(str(workflow.get("output_dir", ""))).resolve()
+    if output_dir != paths["root"]:
+        errors.append(f"workflow.output_dir does not match the run directory: {output_dir}")
+    expected_steps = {step["id"] for step in workflow.get("steps", [])}
+    if set(state.get("steps", {})) != expected_steps:
+        errors.append("run_state.json step ids do not match workflow.json")
+    for step_id, item in state.get("steps", {}).items():
+        if item.get("status") not in STEP_STATUSES:
+            errors.append(f"Invalid status for step {step_id}: {item.get('status')}")
+    for gate_name in GATE_NAMES:
+        gate = (state.get("gates") or {}).get(gate_name)
+        if not gate:
+            errors.append(f"Missing gate state: {gate_name}")
+        elif gate.get("status") not in GATE_STATUSES:
+            errors.append(f"Invalid status for gate {gate_name}: {gate.get('status')}")
+    errors.extend(_validate_artifacts(manifest))
+
+    manifest_ids = set(_manifest_map(manifest))
+    by_id = _step_map(workflow) if workflow.get("steps") else {}
+    for step_id, item in state.get("steps", {}).items():
+        if item.get("status") == "completed" and step_id in by_id:
+            missing = set(by_id[step_id].get("outputs", [])) - manifest_ids
+            if missing:
+                errors.append(f"Completed step {step_id} is missing artifacts: {', '.join(sorted(missing))}")
+    if state.get("gates", {}).get("plan", {}).get("status") == "approved":
+        try:
+            validate_work_plan(paths["work_plan"])
+        except AutoFlowError as exc:
+            errors.append(str(exc))
+    source_gate = state.get("gates", {}).get("source", {})
+    if source_gate.get("status") == "approved":
+        try:
+            validate_source_plan(paths["source_plan"], for_approval=True)
+        except AutoFlowError as exc:
+            errors.append(str(exc))
+    if state.get("status") == "completed" and state.get("gates", {}).get("delivery", {}).get("status") != "approved":
+        errors.append("A completed run must have an approved DELIVERY_STOP")
+    return errors
+
+
+def save_run(state: dict[str, Any], manifest: dict[str, Any], paths: dict[str, Path]) -> None:
+    state["updated_at"] = utc_now()
+    manifest["updated_at"] = utc_now()
+    save_json(paths["state"], state)
+    save_json(paths["manifest"], manifest)
+
+
+def status_summary(workflow: dict[str, Any], state: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "workflow_id": workflow["workflow_id"],
+        "name": workflow["name"],
+        "recipe": workflow["recipe"],
+        "status": state["status"],
+        "steps": [
+            {
+                "id": step["id"],
+                "module": step["module"],
+                "action": step["action"],
+                "status": state["steps"][step["id"]]["status"],
+            }
+            for step in workflow["steps"]
+        ],
+        "gates": {
+            name: {
+                "status": state["gates"][name]["status"],
+                "active": state["gates"][name]["active"],
+                "note": state["gates"][name]["note"],
+            }
+            for name in GATE_NAMES
+        },
+        "artifact_count": len(manifest.get("artifacts", [])),
+    }

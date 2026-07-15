@@ -18,8 +18,9 @@ BROWSER_CANDIDATES = [
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Capture local frontend screenshots for auto-lab.")
-    parser.add_argument("--workflow", required=True, help="Path to workflow.json")
+    parser = argparse.ArgumentParser(description="Capture local frontend screenshots for AutoFlow.")
+    parser.add_argument("--config", required=True, help="Path to the browser capture plan JSON")
+    parser.add_argument("--output-dir", required=True, help="Directory for captured screenshots")
     parser.add_argument("--timeout-seconds", type=int, default=45, help="Server startup timeout")
     return parser.parse_args()
 
@@ -97,7 +98,7 @@ def start_local_app(plan, timeout_seconds: int):
     if not command:
         return None, None
     cwd = plan.get("startup_cwd", "").strip() or None
-    log_path = Path(plan.get("startup_log_path") or Path(cwd or Path.cwd()) / "auto_lab_browser_startup.log")
+    log_path = Path(plan.get("startup_log_path") or Path(cwd or Path.cwd()) / "autoflow_browser_startup.log")
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(command, cwd=cwd, shell=True, stdout=log_handle, stderr=subprocess.STDOUT)
@@ -158,8 +159,7 @@ def run_action(page, action, plan):
         raise SystemExit(f"Unsupported browser capture action type: {action_type}")
 
 
-def capture_screenshots(workflow, plan):
-    images_dir = Path(workflow["images_dir"])
+def capture_screenshots(images_dir: Path, plan):
     images_dir.mkdir(parents=True, exist_ok=True)
     executable = choose_browser_executable()
     with sync_playwright() as p:
@@ -181,9 +181,9 @@ def capture_screenshots(workflow, plan):
 
 def main():
     args = parse_args()
-    workflow_path = Path(args.workflow).expanduser().resolve()
-    workflow = load_json(workflow_path)
-    plan = load_json(Path(workflow["browser_capture_plan_path"]))
+    config_path = Path(args.config).expanduser().resolve()
+    plan = load_json(config_path)
+    images_dir = Path(args.output_dir).expanduser().resolve()
 
     if not plan.get("enabled", False):
         raise SystemExit("browser_capture_plan.json is not enabled")
@@ -193,7 +193,7 @@ def main():
     process = None
     try:
         process, _ = start_local_app(plan, args.timeout_seconds)
-        capture_screenshots(workflow, plan)
+        capture_screenshots(images_dir, plan)
     finally:
         stop_local_app(process)
 

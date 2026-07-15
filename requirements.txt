@@ -1,4 +1,4 @@
-# Auto-Lab Python Dependencies
+# AutoFlow Python dependencies
 # Install: pip install -r requirements.txt
 
 # Core
@@ -6,7 +6,7 @@ requests>=2.28.0
 python-docx>=0.8.11
 Pillow>=9.0.0
 
-# Browser capture (optional, for browser_capture route)
+# Browser capture (optional, for image.capture)
 # playwright>=1.30.0
 
 # Video processing (optional, for video route)

@@ -25,7 +25,7 @@ def find_tool(name: str):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Analyze videos and record short screen evidence for auto-lab.")
+    parser = argparse.ArgumentParser(description="Analyze videos and record screen evidence for AutoFlow.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     analyze = subparsers.add_parser("analyze")

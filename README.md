@@ -1,177 +1,156 @@
 <div align="center">
 
-# Auto-Lab.skill
+# AutoFlow.skill
 
-**把报告的活交给 Agent，珍惜时间。**
+**让 Agent 把多个步骤、多个 Skills 和多个交付物组织成一条可验证的工作流。**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-3.0-blue.svg)](#)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
 </div>
 
 ---
 
-## 各种报告多得烦人？
+## AutoFlow 是什么
 
-排版麻烦得要死？  
-学校模板一堆格式要求？  
-截图、流程图、ER 图、运行结果还得自己整理？
+AutoFlow 不再是一条固定的实验报告流水线。它把复杂任务拆成六类模块，再按需求组合成有依赖关系的工作流：
 
----
+- `task`：调研、GitHub 源码选型、项目改造、计算和真实执行
+- `image`：真实截图、AI 资产、图示和数据图表
+- `word`：Word 创建、编辑和模板填写
+- `ppt`：通过已安装的 `pptx` Skill 创建或编辑演示文稿
+- `video`：分析、录屏、创建和处理视频
+- `package`：按需求整理交付目录和压缩包
 
-## 已用 skills 验证过哪些领域
+Agent 负责理解任务和调用工具，Python 核心负责检查 DAG、步骤状态、STOP 和真实产物。这样既能灵活组合 Skills，也不会把关键选择藏在一段长对话里。
 
-目前验证过这些类型：
+## 典型组合
 
-- 数据分析实验报告
-- Linux / 操作系统实操报告
-- Python / Java / Web 开发报告
-- 管理系统课程设计
-- 数据库设计、ER 图、流程图、架构图
-- 答辩 PPT / 课程汇报 PPT
-- 实操视频自动录制
-- Word 模板填写、图文排版、提交包整理
+| Recipe | 工作流 |
+|---|---|
+| `lab-report` | task → image → word → package |
+| `report-and-slides` | task → image → word + ppt → package |
+| `project-delivery` | GitHub discovery → build → image → package |
+| `document` | 可选 task/image → word |
+| `presentation` | 可选 task/image → ppt |
+| `custom` | Agent 根据需求生成任意 DAG |
 
----
+## 四类 STOP
+
+- `PLAN_STOP`：先展示完整工作流和交付范围，用户确认后执行。
+- `SOURCE_STOP`：GitHub 有合适候选时列出 3–5 个，让用户选定后再克隆和改造。
+- `VISUAL_STOP`：新图片、图表或 PPT 生成后先展示，批准后才进入下游。
+- `DELIVERY_STOP`：全部校验通过后展示交付清单，用户签收后完成。
+
+没有合适 GitHub 项目时，AutoFlow 会记录查询和排除理由，然后从头实现，不制造凑数候选。
 
 ## Quick Start
 
-把这段发给 AI Agent，让它先完成初始化：
+把下面这段发给 Agent：
 
 ```text
-请读取并初始化这个 skill：
+请使用 autoflow 完成这个任务。
 
-https://github.com/qiuy-collab/Auto-Lab.skill
-
-请只做初始化，不要开始生成报告。
-
-需要完成：
-1. 克隆仓库。
-2. 阅读 SKILL.md。
-3. 按 SKILL.md 检查运行环境。
-4. 自动安装基础依赖。
-5. 检查 vendor skills 是否完整。
-6. 运行环境检查脚本。
-7. 如果缺少 API Key、Word 模板、作业要求或其他文件，直接列出来让我补。
-
-注意：
-- 不要修改原始 Word 模板。
-- 不要跳过 SKILL.md 里的检查点。
-- 初始化完成后先停下，等我继续给任务文件。
+先读取 SKILL.md，根据需求选择 recipe 或生成 custom DAG。
+生成 WORK_PLAN.md 后停下来让我确认；不要绕过源码、视觉和交付 STOP。
 ```
 
----
-
-## 生图配置
+手动初始化一个运行目录：
 
 ```bash
-cp .env.example .env
+python scripts/autoflow.py init \
+  --request-file request.md \
+  --output-dir task_runs/my-run \
+  --recipe lab-report
+
+python scripts/autoflow.py status --workflow task_runs/my-run/workflow.json
+python scripts/autoflow.py validate --workflow task_runs/my-run/workflow.json
 ```
 
-然后打开 `.env`，填上你的生图接口地址和 Key：
+AutoFlow 没有“一键执行全部”的 `run` 命令。Agent 根据 ready steps 调用对应模块，核心 CLI 只验证和推进状态：
 
-```env
-BASEURL=https://your-image-api-base.example.com
-APIKEY=your_api_key_here
+```bash
+python scripts/autoflow.py next --workflow task_runs/my-run/workflow.json
+python scripts/autoflow.py transition --workflow task_runs/my-run/workflow.json --step task --to running
+python scripts/autoflow.py transition --workflow task_runs/my-run/workflow.json --step task --to completed --artifact task.result=C:/absolute/result.json
 ```
 
-脚本会请求：
+## 运行目录
 
 ```text
-{BASEURL}/v1/images/generations
+task_runs/my-run/
+├── workflow.json            # AutoFlow Schema 1.0 DAG
+├── run_state.json           # 步骤和 STOP 状态
+├── artifact_manifest.json   # 路径、生产者、消费者和 SHA-256
+├── WORK_PLAN.md             # 用户确认的工作计划
+└── plans/                   # GitHub、图片、Word、PPT、打包等模块计划
 ```
 
-推荐上游模型：`gpt-image-2`。
+旧版 AutoLab `workflow.json` 不兼容，需要重新初始化。
 
----
+## 环境检查
 
-## 运行效果
+```bash
+python scripts/env_setup.py --check-only --route all --no-probe
+```
 
-这里放的是一个《大数据处理技术》课程大作业示例。
+按模块准备环境：
 
-这次示例里，输入是一份作业要求和一个 Word 模板，最后整理出了报告、代码、数据、图表和提交文件。
+```bash
+python scripts/env_setup.py --route capture
+python scripts/env_setup.py --route diagram
+python scripts/env_setup.py --route video
+python scripts/env_setup.py --route ai
+```
 
-### 生成的报告
+AI 图片需要 `.env` 中的 `BASEURL` 和 `APIKEY`。Word 模块检测已安装的 `minimax-docx`/`documents` Skill，PPT 模块检测 `pptx`/`presentations` Skill；AutoFlow 不复制其专有实现。
 
-![生成的文档截图](examples/big-data-processing-report/效果图/生成的文档截图.png)
+## 项目结构
+
+```text
+AutoFlow.skill/
+├── SKILL.md                  # 精简路由入口
+├── modules/                  # 六个能力模块
+├── references/               # Workflow 与 STOP 协议
+├── recipes/                  # 内置 DAG 模板
+├── scripts/
+│   ├── autoflow.py           # 状态与校验 CLI
+│   ├── autoflow_core.py      # DAG、Gate、artifact 核心
+│   ├── generate_images.py
+│   ├── capture_frontend_screenshots.py
+│   ├── generate_diagram_assets.py
+│   ├── video_process.py
+│   └── package_submission.py
+├── tests/                    # 标准库单元与集成测试
+├── evals/                    # Skill 场景评测
+├── docs/                     # 规则和 GitHub Pages
+└── vendor/                   # 可选的本地 Skill 缓存（仓库不依赖其存在）
+```
+
+## 当前效果示例
+
+原 AutoLab 的报告能力现在是 `lab-report` recipe，用来验证 task/image/word/package 组合仍能完成真实交付。
+
+### 生成的文档
+
+![生成的文档截图](docs/效果图/生成的文档截图.png)
 
 ### 交付文件
 
-![交付文件](examples/big-data-processing-report/效果图/交付文件.png)
+![交付文件](docs/效果图/交付文件.png)
 
-### 示例内容
+## 测试
 
-| 内容 | 结果 |
-|---|---|
-| 作业要求 | 《大数据处理技术》课程大作业 |
-| 报告 | `大数据处理技术课程大作业报告.docx` |
-| 代码 | 数据生成、清洗、分析、可视化脚本 |
-| 数据 | 原始数据、清洗后数据 |
-| 输出 | CSV 结果、图表 |
-| 截图 | 12 张终端 / IDE 实验截图 |
-
-```text
-examples/big-data-processing-report/
-├── 需求/
-│   └── 《大数据处理技术》.docx
-├── 交付/
-│   ├── 大数据处理技术课程大作业报告.docx
-│   ├── code/
-│   ├── data/
-│   └── output/
-└── 效果图/
-    ├── 生成的文档截图.png
-    └── 交付文件.png
+```bash
+python -m unittest discover -s tests -v
+python -m py_compile scripts/*.py tests/*.py
 ```
 
----
-
-## Project Structure
-
-```text
-Auto-Lab.skill/
-├── SKILL.md                   # skill 执行指南
-├── README.md                  # 项目说明
-├── .env.example               # AI 截图接口配置示例
-├── scripts/                   # 核心脚本
-│   ├── init_run.py            # 初始化运行目录
-│   ├── run_workflow.py        # 工作流验证与执行
-│   ├── generate_images.py     # AI 截图生成
-│   └── package_submission.py  # 提交文件打包
-├── examples/                  # 示例任务
-│   └── big-data-processing-report/
-├── docs/                      # 规则文档
-└── vendor/                    # 配套 skill
-    ├── minimax-docx/
-    ├── baseline-ui/
-    ├── frontend-design/
-    └── webapp-testing/
-```
-
----
-
-## 参与改进
-
-这个 skill 还会继续补场景、补示例、补自动化流程。
-
-欢迎：
-
-- 提 Issue：反馈跑不通的地方、报告场景、模板适配问题。
-- 提 PR：补充脚本、示例、文档、截图生成配置。
-- 补案例：课程设计、答辩 PPT、实操视频、数据库实验、Linux 实验都可以。
-- 改文案：README、GitHub Page、提示词都欢迎继续改。
-
-觉得有用的话，也可以顺手点个 Star。
-
----
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=qiuy-collab/Auto-Lab.skill&type=Date)](https://www.star-history.com/#qiuy-collab/Auto-Lab.skill&Date)
-
----
+测试覆盖 DAG 循环、状态转换、四类 STOP、GitHub 有/无候选、视觉阻断、产物哈希、旧格式拒绝和 CLI 初始化。
 
 ## License
 
 MIT License © [qiuy-collab](https://github.com/qiuy-collab)
+
+项目地址：[qiuy-collab/AutoFlow.skill](https://github.com/qiuy-collab/AutoFlow.skill)

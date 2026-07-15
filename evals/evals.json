@@ -1,0 +1,38 @@
+{
+  "skill_name": "autoflow",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "用 autoflow 完成一个 JavaWeb 课程项目：先去 GitHub 找候选让我选，改造后生成运行截图、实验报告和提交包。",
+      "expected_output": "Select project-delivery or a custom DAG, stop at PLAN_STOP, perform GitHub-first discovery, stop at SOURCE_STOP when candidates exist, then route task/image/word/package with visual and delivery approvals.",
+      "files": [],
+      "assertions": [
+        "Does not clone or modify a GitHub candidate before explicit user selection",
+        "Uses separate source discovery and build steps",
+        "Records real artifacts and requires visual and delivery review"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "请用 autoflow 把这份需求做成 Word 报告和答辩 PPT，二者共用同一批图表，最后一起打包。",
+      "expected_output": "Use report-and-slides with shared task/image artifacts, Word and PPT branches, repeated visual review for the deck, and package assembly.",
+      "files": [],
+      "assertions": [
+        "Uses a DAG with Word and PPT branching from approved shared evidence",
+        "Invokes the external pptx Skill adapter rather than vendoring it",
+        "Reopens VISUAL_STOP after the presentation is produced"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "用 autoflow 只填写我给的 docx 模板，不需要做项目、截图、PPT 或压缩包。",
+      "expected_output": "Honor explicit AutoFlow invocation, use a minimal document recipe, skip unnecessary optional modules, preserve the template, and still require plan and delivery approval.",
+      "files": [],
+      "assertions": [
+        "Does not invent task, image, PPT, video, or package work",
+        "Uses the Word module and template-preserving backend",
+        "Retains mandatory PLAN_STOP and DELIVERY_STOP"
+      ]
+    }
+  ]
+}

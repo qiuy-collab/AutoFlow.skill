@@ -1,10 +1,10 @@
 # Image Prompt Rules
 
-This document defines how `auto-lab` should write `prompt_config.json`.
+This document defines how `AutoFlow image.ai` should write its prompt configuration.
 
 ## Scope boundary
 
-`prompt_config.json` is only for the `ai_simulated` route.
+`prompt_config.json` is only for the `image.ai` action.
 
 Use it for:
 - terminal screenshots
@@ -17,16 +17,16 @@ Do not use it for:
 - development software practice screenshots for the user's own app/web project when the UI should reflect the local running build
 - function diagrams, flowcharts, data flow diagrams, or ER diagrams
 
-Those belong to `browser_capture_plan.json` or `diagram_plan.json`.
+Those belong to `image.capture`, `image.diagram`, or `image.chart` plans.
 
 ## Planning order
 
 Before writing prompts:
 1. Read the requirement document.
-2. Fill `requirement_checklist.json`.
-3. If the assignment depends on a pre-task, complete it first and absorb the outputs.
-4. Decide whether the run uses `ai_simulated`, `browser_capture`, `diagram_assets`, or a combination.
-5. Only write prompts for figures assigned to `ai_simulated`.
+2. Read the image step and its declared input artifacts.
+3. Complete required task steps and absorb their real outputs.
+4. Decide which assets require `image.ai`, `image.capture`, `image.diagram`, or `image.chart`.
+5. Only write prompts for assets assigned to `image.ai`.
 
 ## Prompt quality rules
 
@@ -46,7 +46,7 @@ Before writing prompts:
 ## Output contract
 
 `prompt_config.json` should:
-- match only the `ai_simulated` figures
+- match only the `image.ai` artifacts
 - keep names aligned with `copywriting.md` placeholders
 - never include browser-capture-only or diagram-only figures
 - stay free of comments and helper fields

@@ -1,15 +1,17 @@
 {
   "enabled": true,
   "source_root": ".",
+  "allowed_output_root": ".",
   "output_zip": ".\\submit.zip",
+  "output_folder": ".\\submit",
   "include_paths": [
     {
-      "path": "result.docx",
+      "path": "artifacts/result.docx",
       "archive_root": ""
     },
     {
-      "path": "generated_images",
-      "archive_root": "generated_images"
+      "path": "artifacts/images",
+      "archive_root": "images"
     }
   ],
   "exclude_globs": [
@@ -18,7 +20,7 @@
     "*.log"
   ],
   "flatten": false,
-  "prompt_driven_rule": "Read the requirement/prompt first, decide the exact deliverables, then keep only those files in include_paths. Final archive name must stay submit.zip unless the user explicitly changes it.",
+  "prompt_driven_rule": "Read the request and artifact_manifest.json, then keep only declared deliverables in include_paths.",
   "notes": [
     "This file is the execution result of prompt-driven packaging, not a universal archive template.",
     "Typical deliverables may include the final report docx, required screenshots, code folders, or database files, depending on the assignment."

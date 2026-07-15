@@ -47,8 +47,9 @@ EXECUTABLE_CANDIDATES = {
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Generate DSL-driven diagram assets for auto-lab.")
-    parser.add_argument("--workflow", help="Path to workflow.json")
+    parser = argparse.ArgumentParser(description="Generate DSL-driven diagram assets for AutoFlow.")
+    parser.add_argument("--config", help="Path to the diagram plan JSON")
+    parser.add_argument("--output-dir", help="Directory for rendered diagram assets")
     parser.add_argument("--check", action="store_true", help="Check whether required renderers are available.")
     args = parser.parse_args()
     if not args.check and not args.workflow:
@@ -736,9 +737,10 @@ def main():
     if args.check:
         sys.exit(check_environment())
 
-    workflow = load_json(Path(args.workflow).expanduser().resolve())
-    diagram_plan = load_json(Path(workflow["diagram_plan_path"]))
-    output_dir = Path(workflow["images_dir"])
+    if not args.config or not args.output_dir:
+        raise SystemExit("--config and --output-dir are required unless --check is used")
+    diagram_plan = load_json(Path(args.config).expanduser().resolve())
+    output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not diagram_plan.get("enabled", False):

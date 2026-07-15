@@ -1,5 +1,5 @@
 """
-Prompt JSON Validator for auto-lab.
+Prompt JSON Validator for AutoFlow.
 
 Three-layer validation:
   Layer 0 — STRUCTURAL: local-only, checks all required fields exist (no API needed)
@@ -431,7 +431,7 @@ Use the following requirement context when judging route choice, image intent, a
 ```
 """
 
-    return f"""You are validating an auto-lab prompt_config.json before image generation.
+    return f"""You are validating an AutoFlow image prompt configuration before generation.
 
 {req_section}
 

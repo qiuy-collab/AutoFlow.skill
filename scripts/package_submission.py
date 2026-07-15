@@ -6,8 +6,8 @@ from pathlib import Path
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Package auto-lab submission contents into submit.zip.")
-    parser.add_argument("--config", required=True, help="Path to submission_package.json")
+    parser = argparse.ArgumentParser(description="Assemble declared AutoFlow artifacts into a delivery folder and archive.")
+    parser.add_argument("--config", required=True, help="Path to the package module plan JSON")
     return parser.parse_args()
 
 
@@ -72,8 +72,12 @@ def package_submission(config_path: Path):
     if not config.get("enabled", False):
         raise SystemExit("submission_package.json is not enabled")
 
+    allowed_output_root = normalize_path(config_path.parent, config.get("allowed_output_root", "."))
     output_zip = normalize_path(config_path.parent, config.get("output_zip", "submit.zip"))
-    output_folder = output_zip.parent / "submit"
+    output_folder = normalize_path(config_path.parent, config.get("output_folder", str(output_zip.parent / "submit")))
+    for label, target in (("output_zip", output_zip), ("output_folder", output_folder)):
+        if target == allowed_output_root or allowed_output_root not in target.parents:
+            raise SystemExit(f"{label} must stay below allowed_output_root: {allowed_output_root}")
     source_root, files = collect_files(config_path, config)
     if not files:
         raise SystemExit("submission_package.json did not resolve any files to package")

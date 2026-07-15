@@ -6,7 +6,7 @@ Use this when the assignment requires a final hand-in archive.
 
 - Packaging is prompt-driven.
 - Read the assignment requirement first.
-- Decide the exact deliverables from the prompt, then write `submission_package.json`.
+- Decide the exact deliverables from the prompt and `artifact_manifest.json`, then write `plans/package.json`.
 - The final archive name must be `submit.zip` unless the user explicitly requires a different name.
 - Before delivery, list every required deliverable and review them one by one for correctness, completeness, and presentation quality.
 
@@ -20,7 +20,7 @@ Use this when the assignment requires a final hand-in archive.
 
 - The archive must be named `submit.zip`.
 - Do NOT add extra suffixes like "AI版", "完整版", "final", "v2", or any other labels.
-- If the source document specifies a different name, use that name and set `allow_custom_zip_name=true` in `submission_package.json`.
+- If the source document specifies a different name, use that name in `plans/package.json`.
 - When no naming is specified in the source document, always use `submit.zip`.
 
 ## Typical packaging decisions

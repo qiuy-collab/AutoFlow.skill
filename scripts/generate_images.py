@@ -302,8 +302,8 @@ def resolve_output_dir(config_path: Path, configured_output_dir: Optional[str]) 
     raise SystemExit(
         f"prompt_config.json must have an explicit 'output_dir' field.\n"
         f"Current config: {config_path}\n"
-        f"Expected: inside an init_run.py output directory with workflow.json.\n"
-        f"Fix: set 'output_dir' in prompt_config.json to the correct project images directory."
+        f"Expected: inside an AutoFlow run directory with workflow.json.\n"
+        f"Fix: set 'output_dir' in the image plan to the correct artifact directory."
     )
 
 
@@ -970,7 +970,7 @@ def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="GPT Image 2 batch generator for auto-lab (txt2img + img2img). Single upstream only.",
+        description="GPT Image 2 batch generator for AutoFlow (txt2img + img2img). Single upstream only.",
         epilog=(
             "Examples:\n"
             "  python generate_images.py --config prompt_config.json\n"
@@ -1038,7 +1038,7 @@ def main():
         else:
             raise SystemExit(
                 "Batch image generation requires --config <path/to/prompt_config.json>.\n"
-                "The config should be in your init_run output directory.\n"
+                "The config should be in your AutoFlow run directory.\n"
                 "Example: python generate_images.py --config output/my_project/prompt_config.json"
             )
     if not Path(config_path).exists():

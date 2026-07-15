@@ -1,4 +1,4 @@
-# auto-lab environment check
+# AutoFlow environment check
 #Requires -Version 5.1
 
 param()
@@ -47,23 +47,23 @@ function Read-EnvKeys([string]$Path) {
     return $map
 }
 
-Write-Host "=== auto-lab Environment Check ==="
+Write-Host "=== AutoFlow Environment Check ==="
 Write-Host "Root: $Root"
 Write-Host ""
 
-# Check vendor skills (shipped with repo)
-$VendorSkills = @(
-    @{Name="minimax-docx"; Path=Join-Path $Root "vendor\minimax-docx\SKILL.md"},
-    @{Name="baseline-ui"; Path=Join-Path $Root "vendor\baseline-ui\SKILL.md"},
-    @{Name="frontend-design"; Path=Join-Path $Root "vendor\frontend-design\SKILL.md"},
-    @{Name="webapp-testing"; Path=Join-Path $Root "vendor\webapp-testing\SKILL.md"}
-)
-
-foreach ($skill in $VendorSkills) {
-    if (Test-Path $skill.Path) {
-        Ok "vendor skill found: $($skill.Name)"
+# Check optional Skill capabilities in the local cache or user-level directories.
+$SkillNames = @("minimax-docx", "pptx", "baseline-ui", "frontend-design", "webapp-testing")
+foreach ($skillName in $SkillNames) {
+    $candidates = @(
+        (Join-Path $Root "vendor\$skillName\SKILL.md"),
+        (Join-Path $HOME ".codex\skills\$skillName\SKILL.md"),
+        (Join-Path $HOME ".agents\skills\$skillName\SKILL.md")
+    )
+    $skillPath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($skillPath) {
+        Ok "skill capability found: $skillName ($skillPath)"
     } else {
-        Fail "vendor skill missing: $($skill.Name)"
+        Warn "optional skill capability missing: $skillName; dependent workflows stop at PLAN"
     }
 }
 
@@ -168,7 +168,7 @@ foreach ($tool in $DiagramTools) {
     if ($cmd) {
         Ok "$($tool.Description) available: $($cmd.Source)"
     } else {
-        Warn "$($tool.Description) not found; diagram_assets route needs it ($($tool.Hint))"
+        Warn "$($tool.Description) not found; image.diagram needs it ($($tool.Hint))"
     }
 }
 
@@ -181,26 +181,26 @@ if (Get-Command java -ErrorAction SilentlyContinue) {
 $envKeys = Read-EnvKeys $EnvFile
 if (Test-Path $EnvFile) {
     if ($envKeys.ContainsKey("BASEURL") -and $envKeys.ContainsKey("APIKEY")) {
-        Ok ".env contains BASEURL and APIKEY for ai_simulated route"
+        Ok ".env contains BASEURL and APIKEY for image.ai"
         try {
             $probeResult = & python (Join-Path $PSScriptRoot "generate_images.py") --check *> $null
             if ($LASTEXITCODE -eq 0) {
                 Ok "upstream image API probe succeeded"
             } else {
-                Warn "upstream image API probe failed; ai_simulated route may not work"
+                Warn "upstream image API probe failed; image.ai may not work"
             }
         } catch {
-            Warn "upstream image API probe failed; ai_simulated route may not work"
+            Warn "upstream image API probe failed; image.ai may not work"
         }
     } else {
-        Warn ".env exists but BASEURL/APIKEY are incomplete; ai_simulated route may not work"
+        Warn ".env exists but BASEURL/APIKEY are incomplete; image.ai may not work"
     }
 } else {
-    Warn ".env missing; diagram_assets and browser_capture can still run, but ai_simulated needs real values"
-    if (Test-Path $EnvExample) { Warn "copy .env.example to .env and fill real values before using ai_simulated" }
+    Warn ".env missing; image.diagram and image.capture can still run, but image.ai needs real values"
+    if (Test-Path $EnvExample) { Warn "copy .env.example to .env and fill real values before using image.ai" }
 }
 
-foreach ($scriptName in @("init_run.py", "run_workflow.py", "capture_frontend_screenshots.py", "generate_diagram_assets.py", "video_process.py", "prepare_blank_template.py", "test_image_concurrency.py", "package_submission.py")) {
+foreach ($scriptName in @("autoflow.py", "capture_frontend_screenshots.py", "generate_diagram_assets.py", "video_process.py", "prepare_blank_template.py", "test_image_concurrency.py", "package_submission.py", "artifact_map.py")) {
     $scriptPath = Join-Path $PSScriptRoot $scriptName
     if (-not (Test-Path $scriptPath)) {
         Fail "$scriptName missing"

@@ -1,6 +1,6 @@
 # Diagram Asset Rules (DSL-driven)
 
-This document defines how `auto-lab` should write `diagram_plan.json` and generate diagram assets.
+This document defines how `AutoFlow image.diagram` should write a plan and generate diagram assets.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ RENDERER_MAP = {
 
 ## Scope boundary
 
-`diagram_plan.json` is only for the `diagram_assets` route.
+`diagram_plan.json` is only for the `image.diagram` action.
 
 Use it for:
 - function diagrams (功能图)
@@ -51,9 +51,9 @@ Do NOT use it for:
 ## Planning order
 
 1. Read the requirement document.
-2. Fill `requirement_checklist.json`.
-3. If the assignment depends on a pre-task, complete it first and absorb the outputs.
-4. Decide which figures belong to `diagram_assets`.
+2. Read the diagram step and its declared input artifacts.
+3. Complete required task steps and absorb their outputs.
+4. Decide which figures belong to `image.diagram`.
 5. For each diagram, define semantic structure (no absolute coordinates):
    - `name` (used as filename prefix)
    - `kind` (flowchart / er_diagram / data_flow_diagram / function_diagram / architecture_diagram / uml_diagram)
@@ -149,7 +149,7 @@ output/images/user_case.png
 ## Run command
 
 ```bash
-python generate_diagram_assets.py --workflow workflow.json
+python scripts/generate_diagram_assets.py --config plans/diagram_plan.json --output-dir artifacts/diagrams
 ```
 
 ## Prerequisites
@@ -188,7 +188,7 @@ Before inserting a diagram into the report, check:
 ## Output contract
 
 `diagram_plan.json` should:
-- match only the `diagram_assets` figures
+- match only the `image.diagram` artifacts
 - keep names aligned with `copywriting.md` placeholders
 - never include AI screenshot figures or browser-capture figures
 - stay free of comments and helper fields
