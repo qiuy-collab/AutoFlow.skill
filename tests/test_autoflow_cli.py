@@ -23,6 +23,7 @@ class AutoFlowCliTests(unittest.TestCase):
         self.assertEqual(payload["$schema"], "autoflow/capabilities/1.0")
         self.assertEqual(payload["capabilities"]["webapp_testing"]["backend"], "integrated-webapp-testing")
         self.assertEqual(payload["capabilities"]["superpowers"]["backend"], "integrated-superpowers")
+        self.assertEqual(payload["capabilities"]["agent_skills"]["backend"], "integrated-agent-skills")
         self.assertEqual(payload["capabilities"]["engineering_quality"]["backend"], "integrated-engineering-quality")
         self.assertEqual(payload["capabilities"]["impeccable"]["backend"], "integrated-impeccable")
 
@@ -50,6 +51,10 @@ class AutoFlowCliTests(unittest.TestCase):
             self.assertEqual(payload["step"]["id"], "build")
             self.assertIn("test-driven-development", payload["skill_names"])
             self.assertIn("code-review-and-quality", payload["skill_names"])
+            self.assertIn("api-and-interface-design", payload["skill_names"])
+            self.assertIn("frontend-ui-engineering", payload["skill_names"])
+            self.assertIn("agent_skills", payload["capability_names"])
+            self.assertTrue(all(Path(path).is_file() for path in payload["skill_files"]))
 
     def test_auto_init_records_a_compound_recipe_recommendation(self):
         with tempfile.TemporaryDirectory() as temp:

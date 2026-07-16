@@ -1,0 +1,58 @@
+{
+  "$schema": "autoflow/integration-manifest/1.0",
+  "name": "agent-skills",
+  "upstream": "https://github.com/addyosmani/agent-skills",
+  "revision": "c1974de476a39cb002a3b8e51e6a7e8e57b808c6",
+  "license": "MIT",
+  "runtime_bootstrap_copied": false,
+  "plugin_hooks_copied": false,
+  "network_access_required": false,
+  "skills": [
+    "api-and-interface-design",
+    "browser-testing-with-devtools",
+    "ci-cd-and-automation",
+    "code-simplification",
+    "context-engineering",
+    "debugging-and-error-recovery",
+    "deprecation-and-migration",
+    "doubt-driven-development",
+    "frontend-ui-engineering",
+    "git-workflow-and-versioning",
+    "idea-refine",
+    "interview-me",
+    "observability-and-instrumentation",
+    "planning-and-task-breakdown",
+    "using-agent-skills"
+  ],
+  "references": [
+    "accessibility-checklist.md",
+    "definition-of-done.md",
+    "observability-checklist.md",
+    "orchestration-patterns.md",
+    "performance-checklist.md",
+    "security-checklist.md",
+    "testing-patterns.md"
+  ],
+  "overlap_routes": {
+    "engineering-quality": [
+      "code-review-and-quality",
+      "security-and-hardening",
+      "performance-optimization",
+      "shipping-and-launch",
+      "documentation-and-adrs",
+      "source-driven-development",
+      "spec-driven-development",
+      "incremental-implementation"
+    ],
+    "superpowers": [
+      "brainstorming",
+      "writing-plans",
+      "test-driven-development",
+      "systematic-debugging",
+      "verification-before-completion",
+      "requesting-code-review",
+      "executing-plans",
+      "finishing-a-development-branch"
+    ]
+  }
+}

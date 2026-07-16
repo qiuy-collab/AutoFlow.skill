@@ -57,6 +57,23 @@ ENGINEERING_QUALITY_SKILL_NAMES = (
     "spec-driven-development",
     "incremental-implementation",
 )
+AGENT_SKILLS_SKILL_NAMES = (
+    "api-and-interface-design",
+    "browser-testing-with-devtools",
+    "ci-cd-and-automation",
+    "code-simplification",
+    "context-engineering",
+    "debugging-and-error-recovery",
+    "deprecation-and-migration",
+    "doubt-driven-development",
+    "frontend-ui-engineering",
+    "git-workflow-and-versioning",
+    "idea-refine",
+    "interview-me",
+    "observability-and-instrumentation",
+    "planning-and-task-breakdown",
+    "using-agent-skills",
+)
 PLAN_REQUIRED_SECTIONS = (
     "## 目标",
     "## 需求与证据",
@@ -271,6 +288,112 @@ def engineering_quality_skill_names(step: dict[str, Any], status: str = "pending
     return []
 
 
+def agent_skills_skill_names(step: dict[str, Any], status: str = "pending") -> list[str]:
+    """Return the curated agent-skills overlay for one routed step.
+
+    A recipe may provide an explicit ``agent_skills`` list for a specialized
+    DAG. Otherwise the resolver supplies a small, deterministic set based on
+    the module/action. This keeps the CLI useful without making the Agent read
+    every integrated Skill for every step.
+    """
+    requested = step.get("agent_skills")
+    if requested is not None:
+        if not isinstance(requested, list) or not all(isinstance(name, str) for name in requested):
+            raise AutoFlowError("Step agent_skills must be an array of Skill names")
+        unknown = sorted(set(requested) - set(AGENT_SKILLS_SKILL_NAMES))
+        if unknown:
+            raise AutoFlowError("Unsupported agent-skills route: " + ", ".join(unknown))
+        names = list(requested)
+    else:
+        module = step.get("module")
+        action = step.get("action")
+        names = ["using-agent-skills"]
+        if module == "task" and action == "research":
+            names.extend(
+                ["interview-me", "idea-refine", "planning-and-task-breakdown", "doubt-driven-development"]
+            )
+        elif module == "task" and action == "build":
+            names.extend(
+                [
+                    "context-engineering",
+                    "planning-and-task-breakdown",
+                    "api-and-interface-design",
+                    "git-workflow-and-versioning",
+                ]
+            )
+            if step.get("design_backend") or step.get("frontend") or step.get("ui"):
+                names.append("frontend-ui-engineering")
+            if step.get("runtime_observability"):
+                names.append("observability-and-instrumentation")
+        elif module == "task" and action == "execute":
+            names.extend(["context-engineering", "observability-and-instrumentation"])
+            if step.get("capture_backend") or step.get("browser_testing"):
+                names.append("browser-testing-with-devtools")
+        elif module == "image" and action == "capture":
+            names.append("browser-testing-with-devtools")
+        elif module == "package" and action == "assemble":
+            names.extend(["git-workflow-and-versioning", "ci-cd-and-automation"])
+        if status in {"blocked", "failed"}:
+            names.append("debugging-and-error-recovery")
+    return list(dict.fromkeys(names))
+
+
+def detect_agent_skills_backend() -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    integration = root / "integrations" / "agent-skills"
+    skill_files = {
+        name: str((integration / name / "SKILL.md").resolve())
+        for name in AGENT_SKILLS_SKILL_NAMES
+    }
+    reference_names = (
+        "accessibility-checklist.md",
+        "definition-of-done.md",
+        "observability-checklist.md",
+        "orchestration-patterns.md",
+        "performance-checklist.md",
+        "security-checklist.md",
+        "testing-patterns.md",
+    )
+    reference_files = {
+        name: str((integration / "references" / name).resolve())
+        for name in reference_names
+    }
+    manifest = integration / "integration_manifest.json"
+    adapter = integration / "AUTOFLOW_ADAPTER.md"
+    upstream = integration / "UPSTREAM.md"
+    missing = [name for name, path in skill_files.items() if not Path(path).is_file()]
+    missing.extend(name for name, path in reference_files.items() if not Path(path).is_file())
+    for label, path in (
+        ("integration_manifest.json", manifest),
+        ("AUTOFLOW_ADAPTER.md", adapter),
+        ("UPSTREAM.md", upstream),
+        ("LICENSE", integration / "LICENSE"),
+    ):
+        if not path.is_file():
+            missing.append(label)
+    payload = {
+        "backend": "integrated-agent-skills",
+        "integration_root": str(integration.resolve()),
+        "skill_files": skill_files,
+        "reference_files": reference_files,
+        "manifest_file": str(manifest.resolve()) if manifest.is_file() else "",
+        "adapter_file": str(adapter.resolve()) if adapter.is_file() else "",
+        "upstream_file": str(upstream.resolve()) if upstream.is_file() else "",
+        "network_access_required": False,
+        "external_skill_required": False,
+        "skills": list(AGENT_SKILLS_SKILL_NAMES),
+    }
+    if missing:
+        return {
+            **payload,
+            "status": "missing",
+            "missing": missing,
+            "message": "AutoFlow's integrated agent-skills overlay is incomplete. "
+            "Repair integrations/agent-skills.",
+        }
+    return {**payload, "status": "available"}
+
+
 def detect_engineering_quality_backend() -> dict[str, Any]:
     root = Path(__file__).resolve().parent.parent
     integration = root / "integrations" / "engineering-quality"
@@ -369,6 +492,7 @@ def detect_impeccable_backend() -> dict[str, Any]:
 def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "superpowers": detect_superpowers_backend(),
+        "agent_skills": detect_agent_skills_backend(),
         **(
             {"engineering_quality": detect_engineering_quality_backend()}
             if any(engineering_quality_skill_names(step) for step in steps)
@@ -396,6 +520,15 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
             "AutoFlow requires its integrated superpowers methodology subset for planning and verification. "
             "Repair integrations/superpowers before PLAN_STOP approval."
         )
+    if any(agent_skills_skill_names(step) for step in workflow.get("steps", [])):
+        agent_skills = (workflow.get("capabilities") or {}).get("agent_skills") or detect_agent_skills_backend()
+        skill_files = agent_skills.get("skill_files") or {}
+        skill_files_present = all(Path(str(path)).is_file() for path in skill_files.values())
+        if agent_skills.get("status") != "available" or not skill_files_present:
+            raise AutoFlowError(
+                "Agent-skills routing requires AutoFlow's integrated local overlay. "
+                "Repair integrations/agent-skills before PLAN_STOP approval."
+            )
     if any(engineering_quality_skill_names(step) for step in workflow.get("steps", [])):
         quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
         quality_files = quality.get("skill_files") or {}
@@ -746,6 +879,8 @@ def validate_workflow_definition(workflow: dict[str, Any]) -> None:
         outputs = step.get("outputs", [])
         if not all(isinstance(values, list) for values in (needs, inputs, outputs)):
             raise AutoFlowError(f"Step {step_id} needs/inputs/outputs must be arrays")
+        if "agent_skills" in step:
+            agent_skills_skill_names(step)
         for artifact_id in outputs:
             if artifact_id in produced:
                 raise AutoFlowError(
@@ -1635,6 +1770,7 @@ def route_for_workflow(
         selected = workflow.get("steps", [])
 
     superpowers = (workflow.get("capabilities") or {}).get("superpowers") or detect_superpowers_backend()
+    agent_skills = (workflow.get("capabilities") or {}).get("agent_skills") or detect_agent_skills_backend()
     engineering_quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
     base_names = ["brainstorming", "writing-plans", "verification-before-completion"]
     routed_steps: list[dict[str, Any]] = []
@@ -1651,6 +1787,8 @@ def route_for_workflow(
             names.append("executing-plans")
         if step.get("module") == "package":
             names.append("finishing-a-development-branch")
+        agent_names = agent_skills_skill_names(step, status)
+        names.extend(agent_names)
         quality_names = engineering_quality_skill_names(step, status)
         names.extend(quality_names)
         names = list(dict.fromkeys(names))
@@ -1664,9 +1802,12 @@ def route_for_workflow(
             capability_names.append("webapp_testing")
         if step.get("design_backend") == "integrated-impeccable":
             capability_names.append("impeccable")
+        if agent_names:
+            capability_names.append("agent_skills")
         if quality_names:
             capability_names.append("engineering_quality")
         impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
+        agent_files = agent_skills.get("skill_files", {})
         quality_files = engineering_quality.get("skill_files", {})
         routed_steps.append(
             {
@@ -1680,6 +1821,8 @@ def route_for_workflow(
                     (
                         impeccable.get("skill_file", "")
                         if name == "impeccable"
+                        else agent_files.get(name, "")
+                        if name in agent_files
                         else quality_files.get(name, "")
                         if name in quality_files
                         else superpowers.get("skill_files", {}).get(

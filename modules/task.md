@@ -31,6 +31,13 @@ library decisions in authoritative documentation. For multi-file builds and
 executions, follow incremental implementation and leave each slice runnable
 before starting the next one.
 
+The route also resolves the local `agent-skills` overlay. Research steps add
+interview, idea refinement, planning, and doubt-driven review; build steps add
+context engineering, interface design, planning, and commit discipline; UI
+builds add frontend architecture. Read the exact paths returned by the CLI.
+These are copied local Markdown files, not an invitation to call an uninstalled
+upstream plugin.
+
 ## Requirement-driven task selection
 
 Use `requirement_map.json` to decide whether a task step is real prerequisite work. Add `task.compute`, `task.execute`, or `task.build` only when one or more requirements need its output as evidence or as an upstream dependency. Do not invent a task for convenience-only document editing. Record the consuming requirement ids in the task plan/result so delivery review can trace the evidence.

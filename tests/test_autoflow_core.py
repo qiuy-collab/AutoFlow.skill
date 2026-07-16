@@ -11,7 +11,9 @@ sys.path.insert(0, str(SCRIPTS))
 
 from autoflow_core import (  # noqa: E402
     AutoFlowError,
+    agent_skills_skill_names,
     approve_gate,
+    detect_agent_skills_backend,
     detect_engineering_quality_backend,
     detect_ppt_backend,
     detect_impeccable_backend,
@@ -568,6 +570,31 @@ class AutoFlowTestCase(unittest.TestCase):
             self.assertTrue(Path(path).is_file())
         for path in backend["reference_files"].values():
             self.assertTrue(Path(path).is_file())
+
+    def test_agent_skills_overlay_is_local_and_deterministically_routed(self):
+        backend = detect_agent_skills_backend()
+        self.assertEqual(backend["status"], "available")
+        self.assertEqual(backend["backend"], "integrated-agent-skills")
+        self.assertFalse(backend["network_access_required"])
+        self.assertEqual(len(backend["skills"]), 15)
+        self.assertTrue(Path(backend["manifest_file"]).is_file())
+        self.assertTrue(all(Path(path).is_file() for path in backend["skill_files"].values()))
+        self.assertTrue(all(Path(path).is_file() for path in backend["reference_files"].values()))
+        research = agent_skills_skill_names({"module": "task", "action": "research"})
+        self.assertEqual(research[0], "using-agent-skills")
+        self.assertIn("interview-me", research)
+        self.assertIn("planning-and-task-breakdown", research)
+        build = agent_skills_skill_names({"module": "task", "action": "build", "design_backend": "integrated-impeccable"})
+        self.assertIn("api-and-interface-design", build)
+        self.assertIn("frontend-ui-engineering", build)
+
+    def test_missing_agent_skills_overlay_blocks_plan(self):
+        workflow = {
+            "steps": [{"module": "task", "action": "research"}],
+            "capabilities": {"superpowers": detect_superpowers_backend(), "agent_skills": {"status": "missing"}},
+        }
+        with self.assertRaises(AutoFlowError):
+            validate_capabilities(workflow)
 
     def test_auto_recipe_recommends_project_report_and_slides_transparently(self):
         selection = recommend_recipe("学生管理系统源码、论文和答辩PPT")

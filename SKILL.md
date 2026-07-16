@@ -57,6 +57,12 @@ quality guidance is added for task builds/execution, compute steps, and package
 assembly: use the returned local files for code review, security, performance,
 ADRs, and shipping checks.
 
+Every route also resolves the local `integrations/agent-skills` overlay. It
+adds `using-agent-skills` globally and selects planning, interface, frontend,
+browser, observability, migration, CI/CD, or debugging guidance by step type.
+Read the returned local paths; do not substitute a user-level or uninstalled
+upstream plugin.
+
 Frontend project steps may additionally resolve the integrated `impeccable`
 design language and offline detector. Use the returned local adapter; never
 fall back to `npx impeccable`, a remote URL scan, or an uninstalled plugin.

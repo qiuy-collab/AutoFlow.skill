@@ -25,6 +25,12 @@ and audited from external Skills or projects. It is not a runtime cache.
   and shipping checks. It is exposed
   through `scripts/engineering_quality_adapter.py` and never installs the
   upstream plugin runtime.
+- `agent-skills/`: MIT-licensed curated overlay from the same upstream, adding
+  interface design, planning, context engineering, frontend architecture,
+  browser DevTools verification, observability, migration, simplification,
+  CI/CD, and delivery workflows. It is file-only and routed by
+  `scripts/autoflow.py`; overlapping Skills remain in their existing canonical
+  integration directories.
 
 Optional capabilities such as `pptx`, `baseline-ui`, and `frontend-design` are
 resolved from user-level Skills or plugins. AutoFlow does not copy their

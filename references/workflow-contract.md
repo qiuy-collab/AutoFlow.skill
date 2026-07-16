@@ -46,6 +46,13 @@ and source guidance; `task.compute` resolves performance guidance; and
 `package.assemble` resolves shipping and ADR guidance. The resolved files are
 recorded in the CLI route output and must be read before the step runs.
 
+The local `agent-skills` overlay is resolved by the same route contract. It
+always supplies `using-agent-skills`, then adds step-specific planning,
+interface, frontend, browser, observability, migration, CI/CD, or debugging
+guidance. A step may provide an explicit `agent_skills` array, but every name
+must exist in the integrated manifest; AutoFlow never falls back to a remote or
+uninstalled copy.
+
 When `init --recipe auto` is used, `workflow.json.recipe_selection` records the
 selected recipe, matched request signals, selection mode, and reason. This is a
 transparent starting recommendation; it does not approve the plan or bypass
