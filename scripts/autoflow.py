@@ -9,6 +9,7 @@ from autoflow_core import (
     approve_gate,
     detect_engineering_quality_backend,
     detect_impeccable_backend,
+    detect_image_backend,
     detect_ppt_backend,
     detect_superpowers_backend,
     detect_video_backend,
@@ -97,6 +98,7 @@ def main() -> int:
                     "impeccable": detect_impeccable_backend(),
                     "ppt": detect_ppt_backend(),
                     "video": detect_video_backend(),
+                    "image": detect_image_backend(),
                 },
             }
             if args.json:

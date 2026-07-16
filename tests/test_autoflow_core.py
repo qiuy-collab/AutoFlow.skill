@@ -17,6 +17,7 @@ from autoflow_core import (  # noqa: E402
     detect_engineering_quality_backend,
     detect_ppt_backend,
     detect_impeccable_backend,
+    detect_image_backend,
     detect_superpowers_backend,
     detect_video_backend,
     detect_webapp_testing_backend,
@@ -515,6 +516,15 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertEqual(backend["backend"], "integrated-video-process")
         self.assertFalse(backend["external_skill_required"])
         self.assertTrue(Path(backend["script"]).is_file())
+
+    def test_image_backend_routes_actions_without_external_skill_fallback(self):
+        backend = detect_image_backend(["diagram", "chart"])
+        self.assertIn(backend["status"], {"available", "blocked", "missing"})
+        self.assertEqual(backend["backend"], "integrated-image-assets")
+        self.assertFalse(backend["external_skill_required"])
+        self.assertIn("diagram", backend["actions"])
+        self.assertIn("chart", backend["actions"])
+        self.assertTrue(all(Path(path).is_file() for path in backend["actions"]["diagram"]["files"]))
 
     def test_word_recipe_discovers_integrated_backend(self):
         backend = detect_word_backend()

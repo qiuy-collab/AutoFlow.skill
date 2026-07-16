@@ -356,6 +356,91 @@ def detect_video_backend() -> dict[str, Any]:
     }
 
 
+def _image_env_status(root: Path) -> tuple[bool, str]:
+    env_path = root / ".env"
+    if not env_path.is_file():
+        return False, ".env is missing"
+    values: dict[str, str] = {}
+    try:
+        for raw_line in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip().strip('"').strip("'")
+    except OSError as exc:
+        return False, f"Unable to read .env: {exc}"
+    missing = [key for key in ("BASEURL", "APIKEY") if not values.get(key)]
+    return (not missing, "configured" if not missing else "Missing " + ", ".join(missing))
+
+
+def _image_action_report(action: str, root: Path) -> dict[str, Any]:
+    files = {
+        "ai": [root / "scripts" / "generate_images.py", root / "scripts" / "validate_prompt.py"],
+        "capture": [root / "scripts" / "capture_frontend_screenshots.py"],
+        "diagram": [root / "scripts" / "generate_diagram_assets.py"],
+        "chart": [],
+    }
+    missing = [str(path.relative_to(root)) for path in files.get(action, []) if not path.is_file()]
+    report: dict[str, Any] = {
+        "action": action,
+        "backend": f"integrated-image-{action}",
+        "status": "missing" if missing else "available",
+        "files": [str(path.resolve()) for path in files.get(action, []) if path.is_file()],
+        "missing": missing,
+        "external_skill_required": False,
+        "network_access_required": action == "ai",
+    }
+    if missing:
+        report["message"] = "Image action files are incomplete."
+        return report
+    if action == "ai":
+        configured, detail = _image_env_status(root)
+        report["env_configured"] = configured
+        report["status"] = "available" if configured else "blocked"
+        report["missing"] = [] if configured else ["BASEURL", "APIKEY"]
+        report["message"] = detail
+    elif action == "capture":
+        browser = detect_webapp_testing_backend()
+        report["browser_backend"] = browser
+        report["status"] = browser.get("status", "blocked")
+        report["missing"] = list(browser.get("missing", []))
+        report["message"] = browser.get("message", "Browser capture capability is unavailable.")
+    elif action == "diagram":
+        renderers = {
+            "mermaid": shutil.which("mmdc") or shutil.which("mmdc.cmd"),
+            "d2": shutil.which("d2") or shutil.which("d2.exe"),
+            "plantuml": shutil.which("plantuml") or shutil.which("plantuml.cmd") or shutil.which("plantuml.bat"),
+        }
+        missing_renderers = [name for name, path in renderers.items() if not path]
+        report["renderers"] = renderers
+        report["status"] = "available" if not missing_renderers else "blocked"
+        report["missing"] = missing_renderers
+        report["message"] = "ready" if not missing_renderers else "Missing renderers: " + ", ".join(missing_renderers)
+    else:
+        report["message"] = "Charts consume approved task.compute data; no external renderer is required."
+    return report
+
+
+def detect_image_backend(actions: list[str] | None = None) -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    selected = actions or ["ai", "capture", "diagram", "chart"]
+    reports = {action: _image_action_report(action, root) for action in dict.fromkeys(selected)}
+    statuses = [item["status"] for item in reports.values()]
+    status = "available" if all(value == "available" for value in statuses) else "blocked"
+    if any(value == "missing" for value in statuses):
+        status = "missing"
+    return {
+        "status": status,
+        "backend": "integrated-image-assets",
+        "integration_root": str(root.resolve()),
+        "actions": reports,
+        "external_skill_required": False,
+        "network_access_required": any(action == "ai" for action in reports),
+        "message": "ready" if status == "available" else "One or more image actions are blocked.",
+    }
+
+
 def detect_word_backend() -> dict[str, Any]:
     root = Path(__file__).resolve().parent.parent
     integration = root / "integrations" / "minimax-docx"
@@ -700,6 +785,11 @@ def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in steps) else {}),
         **({"video": detect_video_backend()} if any(step.get("module") == "video" for step in steps) else {}),
+        **(
+            {"image": detect_image_backend([step.get("action", "") for step in steps if step.get("module") == "image"])}
+            if any(step.get("module") == "image" for step in steps)
+            else {}
+        ),
         **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in steps) else {}),
         **(
             {"webapp_testing": detect_webapp_testing_backend()}
@@ -757,6 +847,17 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
                 "Video workflow requires AutoFlow's integrated video_process.py and ffmpeg/ffprobe. "
                 "Install or expose the declared local runtime before PLAN_STOP approval."
             )
+    if any(step.get("module") == "image" for step in workflow.get("steps", [])):
+        image = (workflow.get("capabilities") or {}).get("image") or detect_image_backend()
+        for step in workflow.get("steps", []):
+            if step.get("module") != "image":
+                continue
+            action_report = (image.get("actions") or {}).get(step.get("action", ""), {})
+            if action_report.get("status") != "available":
+                raise AutoFlowError(
+                    f"Image action {step.get('id')} requires its local backend and runtime. "
+                    "Repair the reported capability before PLAN_STOP approval."
+                )
     if any(step.get("module") == "word" for step in workflow.get("steps", [])):
         word = (workflow.get("capabilities") or {}).get("word") or detect_word_backend()
         skill_file = Path(str(word.get("skill_file", "")))
@@ -1978,6 +2079,7 @@ def route_for_workflow(
     engineering_quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
     ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
     video = (workflow.get("capabilities") or {}).get("video") or detect_video_backend()
+    image = (workflow.get("capabilities") or {}).get("image") or detect_image_backend()
     base_names = ["using-superpowers", "brainstorming", "writing-plans", "verification-before-completion"]
     routed_steps: list[dict[str, Any]] = []
     for step in selected:
@@ -2014,6 +2116,8 @@ def route_for_workflow(
             capability_names.append("ppt")
         if step.get("module") == "video":
             capability_names.append("video")
+        if step.get("module") == "image":
+            capability_names.append("image")
         if step.get("capture_backend") == "integrated-webapp-testing":
             capability_names.append("webapp_testing")
         if step.get("design_backend") == "integrated-impeccable":
@@ -2038,6 +2142,16 @@ def route_for_workflow(
                 for key in ("script", "ffmpeg", "ffprobe")
                 if str(video.get(key, ""))
             ]
+        if step.get("module") == "image":
+            image_action = (image.get("actions") or {}).get(step.get("action", ""), {})
+            capability_files = list(image_action.get("files", []))
+            if step.get("action") == "capture":
+                browser = image_action.get("browser_backend", {})
+                capability_files.extend(
+                    str(browser.get(key, ""))
+                    for key in ("skill_file", "helper_script")
+                    if str(browser.get(key, ""))
+                )
         routed_steps.append(
             {
                 "id": step["id"],
