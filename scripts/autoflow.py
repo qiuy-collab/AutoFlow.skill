@@ -6,6 +6,7 @@ from pathlib import Path
 from autoflow_core import (
     AutoFlowError,
     approve_gate,
+    detect_impeccable_backend,
     detect_ppt_backend,
     detect_superpowers_backend,
     detect_webapp_testing_backend,
@@ -81,10 +82,11 @@ def main() -> int:
             payload = {
                 "$schema": "autoflow/capabilities/1.0",
                     "capabilities": {
-                        "word": detect_word_backend(),
-                        "webapp_testing": detect_webapp_testing_backend(),
-                        "superpowers": detect_superpowers_backend(),
-                        "ppt": detect_ppt_backend(),
+                    "word": detect_word_backend(),
+                    "webapp_testing": detect_webapp_testing_backend(),
+                    "superpowers": detect_superpowers_backend(),
+                    "impeccable": detect_impeccable_backend(),
+                    "ppt": detect_ppt_backend(),
                 },
             }
             if args.json:

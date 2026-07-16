@@ -230,9 +230,63 @@ def detect_superpowers_backend() -> dict[str, Any]:
     }
 
 
+def detect_impeccable_backend() -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    integration = root / "integrations" / "impeccable"
+    skill_file = integration / "SKILL.md"
+    detector = integration / "scripts" / "detect.mjs"
+    context = integration / "scripts" / "context.mjs"
+    signals = integration / "scripts" / "context-signals.mjs"
+    palette = integration / "scripts" / "palette.mjs"
+    metadata = integration / "scripts" / "command-metadata.json"
+    adapter = root / "scripts" / "impeccable_adapter.mjs"
+    node = shutil.which("node")
+    required_files = (skill_file, detector, context, signals, palette, metadata, adapter)
+    missing = [str(path) for path in required_files if not path.is_file()]
+    if not missing:
+        return {
+            "status": "available" if node else "blocked",
+            "backend": "integrated-impeccable",
+            "integration_root": str(integration.resolve()),
+            "skill_file": str(skill_file.resolve()),
+            "detector_script": str(detector.resolve()),
+            "context_script": str(context.resolve()),
+            "signals_script": str(signals.resolve()),
+            "palette_script": str(palette.resolve()),
+            "command_metadata": str(metadata.resolve()),
+            "adapter_file": str(adapter.resolve()),
+            "runtime": node or "",
+            "network_update_check": False,
+            "external_skill_required": False,
+            **({} if node else {"message": "The integrated Impeccable backend requires Node.js."}),
+        }
+    return {
+        "status": "missing",
+        "backend": "integrated-impeccable",
+        "integration_root": str(integration.resolve()),
+        "skill_file": str(skill_file.resolve()) if skill_file.is_file() else "",
+        "detector_script": str(detector.resolve()) if detector.is_file() else "",
+        "context_script": str(context.resolve()) if context.is_file() else "",
+        "signals_script": str(signals.resolve()) if signals.is_file() else "",
+        "palette_script": str(palette.resolve()) if palette.is_file() else "",
+        "command_metadata": str(metadata.resolve()) if metadata.is_file() else "",
+        "adapter_file": str(adapter.resolve()) if adapter.is_file() else "",
+        "runtime": node or "",
+        "network_update_check": False,
+        "external_skill_required": False,
+        "missing": missing,
+        "message": "AutoFlow's integrated Impeccable backend is incomplete. Repair integrations/impeccable.",
+    }
+
+
 def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "superpowers": detect_superpowers_backend(),
+        **(
+            {"impeccable": detect_impeccable_backend()}
+            if any(step.get("design_backend") == "integrated-impeccable" for step in steps)
+            else {}
+        ),
         **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in steps) else {}),
         **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in steps) else {}),
         **(
@@ -250,6 +304,13 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
             "AutoFlow requires its integrated superpowers methodology subset for planning and verification. "
             "Repair integrations/superpowers before PLAN_STOP approval."
         )
+    if any(step.get("design_backend") == "integrated-impeccable" for step in workflow.get("steps", [])):
+        impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
+        if impeccable.get("status") != "available":
+            raise AutoFlowError(
+                "Frontend design workflow requires AutoFlow's integrated Impeccable backend and Node.js. "
+                "Repair integrations/impeccable or install Node before PLAN_STOP approval."
+            )
     if any(step.get("module") == "ppt" for step in workflow.get("steps", [])):
         ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
         skill_file = Path(str(ppt.get("skill_file", "")))
@@ -1361,6 +1422,8 @@ def route_for_workflow(
         names = list(base_names)
         if step.get("module") == "task" and step.get("action") in {"build", "execute"}:
             names.extend(["test-driven-development", "requesting-code-review"])
+        if step.get("design_backend") == "integrated-impeccable":
+            names.append("impeccable")
         if status in {"blocked", "failed"}:
             names.append("systematic-debugging")
         if status in {"ready", "running", "blocked", "failed"}:
@@ -1376,6 +1439,9 @@ def route_for_workflow(
             capability_names.append("ppt")
         if step.get("capture_backend") == "integrated-webapp-testing":
             capability_names.append("webapp_testing")
+        if step.get("design_backend") == "integrated-impeccable":
+            capability_names.append("impeccable")
+        impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
         routed_steps.append(
             {
                 "id": step["id"],
@@ -1385,7 +1451,13 @@ def route_for_workflow(
                 "module_file": str((root / "modules" / f"{step['module']}.md").resolve()),
                 "skill_names": names,
                 "skill_files": [
-                    superpowers.get("skill_files", {}).get(name, str(root / "integrations" / "superpowers" / name / "SKILL.md"))
+                    (
+                        impeccable.get("skill_file", "")
+                        if name == "impeccable"
+                        else superpowers.get("skill_files", {}).get(
+                            name, str(root / "integrations" / "superpowers" / name / "SKILL.md")
+                        )
+                    )
                     for name in names
                 ],
                 "capability_names": capability_names,

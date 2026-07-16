@@ -51,6 +51,10 @@ capability adapters. `brainstorming`, `writing-plans`, and
 `verification-before-completion` are global; TDD, debugging, review, execution,
 and delivery-handoff guidance is selected by step type and state.
 
+Frontend project steps may additionally resolve the integrated `impeccable`
+design language and offline detector. Use the returned local adapter; never
+fall back to `npx impeccable`, a remote URL scan, or an uninstalled plugin.
+
 ## Start a run
 
 1. Inspect the request and all supplied files before asking discoverable questions.

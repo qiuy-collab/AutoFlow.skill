@@ -16,6 +16,9 @@ and audited from external Skills or projects. It is not a runtime cache.
 - `superpowers/`: MIT-licensed, file-only engineering methodology subset for
   brainstorming, planning, TDD, debugging, review, verification, execution,
   and delivery handoff. Its plugin bootstrap and telemetry are not copied.
+- `impeccable/`: Apache-2.0 frontend design language, command references, and
+  local anti-pattern detector. AutoFlow disables its update check and exposes
+  only the local adapter.
 
 Optional capabilities such as `pptx`, `baseline-ui`, and `frontend-design` are
 resolved from user-level Skills or plugins. AutoFlow does not copy their

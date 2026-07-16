@@ -17,6 +17,11 @@ Read only the route-specific guidance needed:
   `scripts/with_server.py --help` before using the helper, and use
   `capture_frontend_screenshots.py` for the declared capture plan. Verify the
   app is real and locally reachable first.
+- Frontend visual quality: when the step declares
+  `design_backend: integrated-impeccable`, use the local Impeccable command
+  reference and detector via `scripts/impeccable_adapter.mjs`. The adapter is
+  offline-only and scans local files; any visual findings become evidence or
+  remediation inputs, not an automatic approval.
 - Diagrams: `docs/prompts/diagram_asset_rules.md`, then use `generate_diagram_assets.py`.
 - Scientific schematics: use `generate_scientific_schematic.py` and validate with `validate_scientific_figure.py`.
 - Quality review: `docs/prompts/visual_review_rules.md` and `check_images.py`.

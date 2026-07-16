@@ -1,0 +1,18 @@
+{
+  "$schema": "autoflow/integration-manifest/1.0",
+  "name": "impeccable",
+  "upstream": "https://github.com/pbakaus/impeccable",
+  "revision": "8259c28209b92792005cec14dad573df39f68eaf",
+  "skill_version": "3.9.1",
+  "license": "Apache-2.0",
+  "network_update_check": false,
+  "remote_url_scans": false,
+  "plugin_hooks_copied": false,
+  "adapter": "scripts/impeccable_adapter.mjs",
+  "commands": [
+    "craft", "shape", "init", "document", "extract", "critique", "audit",
+    "polish", "bolder", "quieter", "distill", "harden", "onboard", "animate",
+    "colorize", "typeset", "layout", "delight", "overdrive", "clarify",
+    "adapt", "optimize", "live"
+  ]
+}

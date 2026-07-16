@@ -45,6 +45,11 @@ resolve a second external copy. If a required capability is unavailable, stop
 at PLAN instead of fabricating a call. Verify the real page in a browser before
 registering screenshots or project outputs.
 
+For frontend project builds, use the integrated `impeccable` route when the
+step declares `design_backend: integrated-impeccable`. Resolve its command
+reference and local detector through `scripts/impeccable_adapter.mjs`; do not
+run `npx impeccable`, URL scans, update checks, or plugin hooks.
+
 ## Source plan contract
 
 Candidate selection state:

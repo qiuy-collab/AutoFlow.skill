@@ -10,6 +10,34 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class BackendCliSmokeTests(unittest.TestCase):
+    def test_impeccable_adapter_check(self) -> None:
+        result = subprocess.run(
+            ["node", str(ROOT / "scripts" / "impeccable_adapter.mjs"), "check"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, msg=f"adapter check failed:\n{result.stdout}\n{result.stderr}")
+        self.assertIn("integrated-impeccable", result.stdout)
+
+    def test_impeccable_adapter_rejects_remote_url_scans(self) -> None:
+        result = subprocess.run(
+            ["node", str(ROOT / "scripts" / "impeccable_adapter.mjs"), "detect", "https://example.com"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("URL scans are disabled", result.stderr)
+
     def test_backend_help_commands(self) -> None:
         scripts = (
             "artifact_map.py",

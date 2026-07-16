@@ -30,6 +30,13 @@ Every step contains:
 }
 ```
 
+Backend selectors are explicit when a step needs an integrated capability:
+`capture_backend: integrated-webapp-testing` routes browser evidence to the
+bundled Playwright Skill; `design_backend: integrated-impeccable` routes
+frontend design context and local anti-pattern detection to the bundled
+Impeccable adapter. A selector is a capability requirement, not permission to
+silently substitute another external tool.
+
 `needs` controls execution order. `inputs` and `outputs` are artifact IDs. `request` is the only built-in input. Output IDs must be unique across the workflow.
 
 When the Agent changes a custom DAG before PLAN_STOP, run `autoflow.py sync --workflow ...`. Synchronization is rejected after any step has started.

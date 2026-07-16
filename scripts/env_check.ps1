@@ -63,6 +63,19 @@ if ((Test-Path $IntegratedWebAppSkill) -and (Test-Path $IntegratedWebAppHelper))
 } else {
     Fail "integrated capability incomplete: webapp-testing ($IntegratedWebAppSkill)"
 }
+$IntegratedImpeccableSkill = Join-Path $Root "integrations\impeccable\SKILL.md"
+$IntegratedImpeccableDetector = Join-Path $Root "integrations\impeccable\scripts\detect.mjs"
+$IntegratedImpeccableAdapter = Join-Path $Root "scripts\impeccable_adapter.mjs"
+if ((Test-Path $IntegratedImpeccableSkill) -and (Test-Path $IntegratedImpeccableDetector) -and (Test-Path $IntegratedImpeccableAdapter)) {
+    Ok "integrated capability found: impeccable ($IntegratedImpeccableSkill)"
+} else {
+    Fail "integrated capability incomplete: impeccable ($IntegratedImpeccableSkill)"
+}
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    Ok "node $(& node --version) for integrated impeccable"
+} else {
+    Warn "node not found; integrated impeccable workflows stop at PLAN"
+}
 $SkillNames = @("pptx", "baseline-ui", "frontend-design")
 foreach ($skillName in $SkillNames) {
     $candidates = @(

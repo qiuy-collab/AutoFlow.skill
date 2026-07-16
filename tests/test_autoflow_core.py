@@ -13,6 +13,7 @@ from autoflow_core import (  # noqa: E402
     AutoFlowError,
     approve_gate,
     detect_ppt_backend,
+    detect_impeccable_backend,
     detect_superpowers_backend,
     detect_webapp_testing_backend,
     detect_word_backend,
@@ -543,7 +544,17 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertTrue(route["module_file"].endswith("modules\\task.md"))
         self.assertIn("test-driven-development", route["skill_names"])
         self.assertIn("verification-before-completion", route["skill_names"])
+        self.assertIn("impeccable", route["skill_names"])
         self.assertTrue(all(Path(path).is_file() for path in route["skill_files"]))
+
+    def test_impeccable_is_an_integrated_offline_frontend_backend(self):
+        backend = detect_impeccable_backend()
+        self.assertEqual(backend["status"], "available")
+        self.assertEqual(backend["backend"], "integrated-impeccable")
+        self.assertFalse(backend["network_update_check"])
+        self.assertTrue(Path(backend["skill_file"]).is_file())
+        self.assertTrue(Path(backend["detector_script"]).is_file())
+        self.assertTrue(Path(backend["adapter_file"]).is_file())
 
 
 if __name__ == "__main__":

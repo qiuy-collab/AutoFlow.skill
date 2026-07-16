@@ -197,6 +197,7 @@ SKILL_NAMES = ["pptx", "baseline-ui", "frontend-design"]
 INTEGRATED_PATHS = {
     "minimax-docx": SKILL_ROOT / "integrations" / "minimax-docx" / "SKILL.md",
     "webapp-testing": SKILL_ROOT / "integrations" / "webapp-testing" / "SKILL.md",
+    "impeccable": SKILL_ROOT / "integrations" / "impeccable" / "SKILL.md",
 }
 
 
