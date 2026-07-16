@@ -77,6 +77,7 @@ AutoFlow 没有“一键执行全部”的 `run` 命令。Agent 根据 ready ste
 
 ```bash
 python scripts/autoflow.py next --workflow task_runs/my-run/workflow.json
+python scripts/autoflow.py integrations --json
 python scripts/autoflow.py route --workflow task_runs/my-run/workflow.json --step build --json
 python scripts/engineering_quality_adapter.py route --module task --action build --json
 node scripts/impeccable_adapter.mjs detect --json src/

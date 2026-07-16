@@ -112,6 +112,96 @@ def save_json(path: Path, data: dict[str, Any]) -> None:
     temp.replace(path)
 
 
+def integration_catalog() -> list[dict[str, Any]]:
+    """Discover and validate every checked-in integration manifest.
+
+    The catalog is intentionally filesystem-only. It tells the Agent which
+    external capability is actually present, where its provenance record is,
+    and whether its declared local files exist before a workflow route uses it.
+    """
+    root = Path(__file__).resolve().parent.parent
+    integration_root = root / "integrations"
+    entries: list[dict[str, Any]] = []
+    for directory in sorted((path for path in integration_root.iterdir() if path.is_dir()), key=lambda p: p.name):
+        manifest_path = directory / "integration_manifest.json"
+        entry: dict[str, Any] = {
+            "name": directory.name,
+            "root": str(directory.resolve()),
+            "manifest_file": str(manifest_path.resolve()) if manifest_path.is_file() else "",
+        }
+        if not manifest_path.is_file():
+            entries.append(
+                {
+                    **entry,
+                    "status": "missing_manifest",
+                    "missing": ["integration_manifest.json"],
+                    "message": "Add a manifest before routing this integration.",
+                }
+            )
+            continue
+        try:
+            manifest = load_json(manifest_path)
+        except AutoFlowError as exc:
+            entries.append({**entry, "status": "invalid_manifest", "missing": [], "message": str(exc)})
+            continue
+
+        errors: list[str] = []
+        if manifest.get("$schema") != "autoflow/integration-manifest/1.0":
+            errors.append("unsupported manifest schema")
+        if manifest.get("name") != directory.name:
+            errors.append("manifest name does not match directory")
+        for field in ("upstream", "revision", "license"):
+            if not str(manifest.get(field, "")).strip():
+                errors.append(f"missing {field}")
+        skills = manifest.get("skills", [])
+        references = manifest.get("references", [])
+        if not isinstance(skills, list) or not all(isinstance(name, str) for name in skills):
+            errors.append("skills must be an array of strings")
+            skills = []
+        if not isinstance(references, list) or not all(isinstance(name, str) for name in references):
+            errors.append("references must be an array of strings")
+            references = []
+        skill_paths = manifest.get("skill_paths", {})
+        if not isinstance(skill_paths, dict):
+            errors.append("skill_paths must be an object")
+            skill_paths = {}
+        missing: list[str] = []
+        for name in skills:
+            relative = str(skill_paths.get(name, f"{name}/SKILL.md"))
+            if not (directory / relative).is_file():
+                missing.append(relative)
+        for name in references:
+            relative = f"references/{name}"
+            if not (directory / relative).is_file():
+                missing.append(relative)
+        adapter_paths = manifest.get("adapter_paths", [])
+        if not isinstance(adapter_paths, list) or not all(isinstance(path, str) for path in adapter_paths):
+            errors.append("adapter_paths must be an array of strings")
+            adapter_paths = []
+        for relative in adapter_paths:
+            if not (root / relative).is_file():
+                missing.append(f"adapter:{relative}")
+        if missing:
+            errors.append("declared local files are missing")
+        entries.append(
+            {
+                **entry,
+                "status": "available" if not errors else "incomplete",
+                "upstream": manifest.get("upstream", ""),
+                "revision": manifest.get("revision", ""),
+                "license": manifest.get("license", ""),
+                "network_access_required": bool(manifest.get("network_access_required", False)),
+                "runtime_bootstrap_copied": bool(manifest.get("runtime_bootstrap_copied", False)),
+                "skills": skills,
+                "references": references,
+                "adapter_paths": adapter_paths,
+                "missing": missing,
+                "errors": errors,
+            }
+        )
+    return entries
+
+
 def workflow_paths(workflow_path: Path) -> dict[str, Path]:
     root = workflow_path.resolve().parent
     return {

@@ -22,6 +22,7 @@ from autoflow_core import (  # noqa: E402
     detect_word_backend,
     engineering_quality_skill_names,
     hash_path,
+    integration_catalog,
     initialize_run,
     load_json,
     load_run,
@@ -587,6 +588,26 @@ class AutoFlowTestCase(unittest.TestCase):
         build = agent_skills_skill_names({"module": "task", "action": "build", "design_backend": "integrated-impeccable"})
         self.assertIn("api-and-interface-design", build)
         self.assertIn("frontend-ui-engineering", build)
+
+    def test_integration_catalog_audits_every_checked_in_integration(self):
+        catalog = integration_catalog()
+        self.assertEqual(
+            {item["name"] for item in catalog},
+            {
+                "agent-skills",
+                "engineering-quality",
+                "impeccable",
+                "minimax-docx",
+                "nature-figure",
+                "superpowers",
+                "webapp-testing",
+            },
+        )
+        self.assertTrue(all(item["status"] == "available" for item in catalog))
+        minimax = next(item for item in catalog if item["name"] == "minimax-docx")
+        self.assertEqual(minimax["license"], "MIT")
+        self.assertEqual(minimax["revision"], "60aaae52bb2af8162732751a4332f62a5fef518b")
+        self.assertIn("scripts/word_engine.py", minimax["adapter_paths"])
 
     def test_missing_agent_skills_overlay_blocks_plan(self):
         workflow = {

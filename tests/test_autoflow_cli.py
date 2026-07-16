@@ -11,6 +11,19 @@ CLI = ROOT / "scripts" / "autoflow.py"
 
 
 class AutoFlowCliTests(unittest.TestCase):
+    def test_integrations_command_reports_audited_catalog(self):
+        completed = subprocess.run(
+            [sys.executable, str(CLI), "integrations", "--json"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["$schema"], "autoflow/integrations/1.0")
+        self.assertEqual(len(payload["integrations"]), 7)
+        self.assertTrue(all(item["status"] == "available" for item in payload["integrations"]))
+
     def test_capabilities_reports_integrated_backends(self):
         completed = subprocess.run(
             [sys.executable, str(CLI), "capabilities", "--json"],

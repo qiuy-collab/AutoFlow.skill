@@ -11,6 +11,9 @@
 - `plans/` contains module-specific plans such as `source_candidates.json` and `package.json`.
 - `workflow.json.capabilities` records the integrated methodology and backend
   paths resolved during initialization; route decisions must use those paths.
+- `autoflow.py integrations --json` is the repository-level catalog. It must
+  report every directory under `integrations/` with a valid manifest before a
+  new external capability is considered routable.
 
 ## Workflow step
 

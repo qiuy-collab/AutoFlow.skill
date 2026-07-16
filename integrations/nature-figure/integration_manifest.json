@@ -1,0 +1,19 @@
+{
+  "$schema": "autoflow/integration-manifest/1.0",
+  "name": "nature-figure",
+  "upstream": "https://github.com/Yuan1z0825/nature-skills/tree/main/skills/nature-figure",
+  "revision": "fb3bffa0b5d299b939fae959786e222bf699bd25",
+  "license": "Apache-2.0",
+  "runtime_bootstrap_copied": false,
+  "plugin_hooks_copied": false,
+  "network_access_required": false,
+  "mode": "provenance_and_contract",
+  "skills": [],
+  "references": [],
+  "adapter_paths": [
+    "scripts/scientific_figure_backend.py",
+    "scripts/generate_scientific_schematic.py",
+    "scripts/validate_scientific_figure.py"
+  ],
+  "notes": "The contract and attribution are local; generation uses AutoFlow's configured image upstream."
+}

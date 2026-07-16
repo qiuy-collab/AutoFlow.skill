@@ -7,6 +7,7 @@
   "runtime_bootstrap_copied": false,
   "plugin_hooks_copied": false,
   "network_access_required": false,
+  "adapter_paths": ["scripts/engineering_quality_adapter.py"],
   "skills": [
     "code-review-and-quality",
     "security-and-hardening",

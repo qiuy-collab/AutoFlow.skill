@@ -7,6 +7,7 @@
   "runtime_bootstrap_copied": false,
   "plugin_hooks_copied": false,
   "network_access_required": false,
+  "adapter_paths": ["integrations/agent-skills/AUTOFLOW_ADAPTER.md"],
   "skills": [
     "api-and-interface-design",
     "browser-testing-with-devtools",

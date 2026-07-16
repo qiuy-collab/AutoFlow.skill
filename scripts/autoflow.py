@@ -13,6 +13,7 @@ from autoflow_core import (
     detect_superpowers_backend,
     detect_webapp_testing_backend,
     detect_word_backend,
+    integration_catalog,
     initialize_run,
     load_run,
     parse_artifact_specs,
@@ -43,6 +44,9 @@ def parse_args():
 
     capabilities = subparsers.add_parser("capabilities", help="Inspect integrated and optional module backends")
     capabilities.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+
+    integrations = subparsers.add_parser("integrations", help="List and audit checked-in integrations")
+    integrations.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
 
     route = subparsers.add_parser("route", help="Resolve local module and methodology Skills for a workflow step")
     route.add_argument("--workflow", required=True)
@@ -99,6 +103,14 @@ def main() -> int:
                 for name, capability in payload["capabilities"].items():
                     backend = capability.get("backend") or "not configured"
                     print(f"{name}: {capability.get('status', 'unknown')} ({backend})")
+            return 0
+        if args.command == "integrations":
+            payload = {"$schema": "autoflow/integrations/1.0", "integrations": integration_catalog()}
+            if args.json:
+                emit(payload)
+            else:
+                for item in payload["integrations"]:
+                    print(f"{item['name']}: {item['status']} ({item.get('license', 'unknown')})")
             return 0
 
         workflow, state, manifest, paths = load_run(Path(args.workflow))

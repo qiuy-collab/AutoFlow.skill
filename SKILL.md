@@ -49,6 +49,17 @@ exact local instructions with the CLI instead of invoking an external plugin:
 python scripts/autoflow.py route --workflow <workflow.json> --step <step-id> --json
 ```
 
+To audit all checked-in external capabilities before planning, use:
+
+```bash
+python scripts/autoflow.py integrations --json
+```
+
+The command validates each integration manifest, declared Skill/reference
+files, provenance fields, and adapter paths. A workflow must use the local
+paths reported by `route`; a manifest or runtime marked unavailable is a hard
+capability signal, not permission to invent a tool call.
+
 The route includes the module file, relevant local methodology Skills, and
 capability adapters. `brainstorming`, `writing-plans`, and
 `verification-before-completion` are global; TDD, debugging, review, execution,

@@ -3,6 +3,10 @@
 This directory contains capabilities that AutoFlow has deliberately integrated
 and audited from external Skills or projects. It is not a runtime cache.
 
+Run `python scripts/autoflow.py integrations --json` to audit the complete
+catalog. Every integration carries a manifest with its upstream revision,
+license, local Skill/reference files, and adapter paths.
+
 ## Layout
 
 - `minimax-docx/`: the MIT-licensed OpenXML/DOCX kernel, its CLI, XSD rules,

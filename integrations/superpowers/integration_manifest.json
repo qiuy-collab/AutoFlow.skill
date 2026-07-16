@@ -7,6 +7,7 @@
   "license": "MIT",
   "runtime_bootstrap_copied": false,
   "telemetry_copied": false,
+  "adapter_paths": ["integrations/superpowers/AUTOFLOW_ADAPTER.md"],
   "skills": [
     "brainstorming",
     "writing-plans",
