@@ -51,6 +51,24 @@ class AutoFlowCliTests(unittest.TestCase):
             self.assertIn("test-driven-development", payload["skill_names"])
             self.assertIn("code-review-and-quality", payload["skill_names"])
 
+    def test_auto_init_records_a_compound_recipe_recommendation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            request = root / "request.md"
+            request.write_text("学生管理系统源码、论文和答辩PPT", encoding="utf-8")
+            run = root / "run"
+            initialized = subprocess.run(
+                [sys.executable, str(CLI), "init", "--request-file", str(request), "--output-dir", str(run), "--recipe", "auto"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            workflow = json.loads((run / "workflow.json").read_text(encoding="utf-8"))
+            self.assertEqual(workflow["recipe"], "project-report-and-slides")
+            self.assertEqual(workflow["recipe_selection"]["selected"], "project-report-and-slides")
+            self.assertEqual([step["id"] for step in workflow["steps"]], ["source", "build", "image", "word", "ppt", "package"])
+
     def test_init_status_and_legacy_error(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

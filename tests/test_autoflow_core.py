@@ -24,6 +24,7 @@ from autoflow_core import (  # noqa: E402
     load_json,
     load_run,
     refresh_ready,
+    recommend_recipe,
     save_json,
     save_run,
     set_gate_state,
@@ -567,6 +568,23 @@ class AutoFlowTestCase(unittest.TestCase):
             self.assertTrue(Path(path).is_file())
         for path in backend["reference_files"].values():
             self.assertTrue(Path(path).is_file())
+
+    def test_auto_recipe_recommends_project_report_and_slides_transparently(self):
+        selection = recommend_recipe("学生管理系统源码、论文和答辩PPT")
+        self.assertEqual(selection["selected"], "project-report-and-slides")
+        self.assertEqual(selection["mode"], "deterministic_recommendation")
+        self.assertTrue(selection["signals"]["project"])
+        self.assertTrue(selection["signals"]["document"])
+        self.assertTrue(selection["signals"]["slides"])
+
+    def test_auto_recipe_keeps_unknown_requests_custom(self):
+        selection = recommend_recipe("请帮我分析一段没有交付格式说明的材料")
+        self.assertEqual(selection["selected"], "custom")
+        self.assertIn("custom DAG", selection["reason"])
+
+    def test_auto_recipe_routes_video_to_verified_video_delivery(self):
+        selection = recommend_recipe("请制作一个真实演示录屏视频并提交可播放文件")
+        self.assertEqual(selection["selected"], "video-delivery")
 
     def test_missing_engineering_quality_blocks_code_plan(self):
         workflow = {

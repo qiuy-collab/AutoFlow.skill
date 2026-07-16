@@ -34,6 +34,9 @@ AutoFlow 3.1 重新纳入 AutoLab 已验证的课程交付约束：需求/评分
 | `lab-report` | task → image → word → package |
 | `report-and-slides` | task → image → word + ppt → package |
 | `project-delivery` | GitHub discovery → build → image → package |
+| `project-and-report` | GitHub discovery → build → image → word → package |
+| `project-report-and-slides` | GitHub discovery → build → image → word + ppt → package |
+| `video-delivery` | video → package |
 | `document` | 可选 task/image → word |
 | `presentation` | 可选 task/image → ppt |
 | `custom` | Agent 根据需求生成任意 DAG |
@@ -54,7 +57,7 @@ AutoFlow 3.1 重新纳入 AutoLab 已验证的课程交付约束：需求/评分
 ```text
 请使用 autoflow 完成这个任务。
 
-先读取 SKILL.md，根据需求选择 recipe 或生成 custom DAG。
+先读取 SKILL.md，根据需求选择 recipe 或使用 `recipe auto` 生成可解释的 recipe 推荐。
 生成 WORK_PLAN.md 后停下来让我确认；不要绕过源码、视觉和交付 STOP。
 ```
 

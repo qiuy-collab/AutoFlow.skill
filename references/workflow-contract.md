@@ -46,6 +46,11 @@ and source guidance; `task.compute` resolves performance guidance; and
 `package.assemble` resolves shipping and ADR guidance. The resolved files are
 recorded in the CLI route output and must be read before the step runs.
 
+When `init --recipe auto` is used, `workflow.json.recipe_selection` records the
+selected recipe, matched request signals, selection mode, and reason. This is a
+transparent starting recommendation; it does not approve the plan or bypass
+PLAN_STOP. The Agent may edit the steps and must run `sync` before approval.
+
 When the Agent changes a custom DAG before PLAN_STOP, run `autoflow.py sync --workflow ...`. Synchronization is rejected after any step has started.
 
 Allowed modules and actions:

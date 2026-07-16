@@ -1,0 +1,25 @@
+{
+  "name": "video-delivery",
+  "description": "Analyze, record, create, or process a verified video, review the visual result, and package the declared media.",
+  "steps": [
+    {
+      "id": "video",
+      "module": "video",
+      "action": "create",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["video.media", "video.validation"],
+      "validator": "video_acceptance",
+      "gate_after": "visual"
+    },
+    {
+      "id": "package",
+      "module": "package",
+      "action": "assemble",
+      "needs": ["video"],
+      "inputs": ["video.media", "video.validation"],
+      "outputs": ["package.bundle", "package.manifest"],
+      "validator": "package_acceptance"
+    }
+  ]
+}

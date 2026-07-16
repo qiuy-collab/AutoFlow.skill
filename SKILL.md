@@ -68,6 +68,9 @@ fall back to `npx impeccable`, a remote URL scan, or an uninstalled plugin.
    - `lab-report`: task → image → word → package
    - `report-and-slides`: task → image → word + ppt → package
    - `project-delivery`: GitHub discovery → build → image → package
+   - `project-and-report`: GitHub discovery → build → image → word → package
+   - `project-report-and-slides`: GitHub discovery → build → image → word + ppt → package
+   - `video-delivery`: video → package
    - `document`: optional task/image → word
    - `presentation`: optional task/image → ppt
    - `custom`: Agent-authored DAG
@@ -82,7 +85,7 @@ python scripts/autoflow.py init \
 ```
 
 5. Read the generated `workflow.json`, `run_state.json`, `artifact_manifest.json`, `requirement_map.json`, `delivery_review.json`, and `WORK_PLAN.md`.
-6. If `auto` produced the neutral `custom` recipe, replace its steps with the actual DAG before asking for approval.
+6. If `auto` was used, inspect `workflow.json.recipe_selection`, including its matched signals and reason. Keep the recommended recipe when it fits; if it selected `custom`, replace its steps with the actual DAG before asking for approval.
 7. Fill every `WORK_PLAN.md` section. Map each requirement or rubric item to declared evidence in `requirement_map.json`; record planned figures and real information substitutions rather than leaving these decisions implicit.
 8. After editing workflow steps, synchronize the still-unstarted state and validate the configuration:
 

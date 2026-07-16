@@ -452,6 +452,112 @@ def load_recipe(name: str) -> dict[str, Any]:
     return recipe
 
 
+def recommend_recipe(request_text: str) -> dict[str, Any]:
+    """Choose a transparent starting recipe from request language.
+
+    This is a recommendation, not approval. The Agent may edit a custom DAG
+    before PLAN_STOP, while the recorded signals make the initial choice
+    auditable and reproducible.
+    """
+    text = request_text.casefold()
+    signal_groups = {
+        "project": (
+            "源码",
+            "源代码",
+            "项目",
+            "系统",
+            "网站",
+            "应用",
+            "app",
+            "web",
+            "runnable",
+            "database",
+            "数据库",
+        ),
+        "document": (
+            "论文",
+            "实验报告",
+            "课程报告",
+            "报告",
+            "word",
+            "docx",
+            "thesis",
+            "paper",
+        ),
+        "slides": ("答辩", "ppt", "幻灯片", "演示文稿", "presentation", "slides"),
+        "video": ("视频", "录屏", "video", "screen recording"),
+    }
+    signals = {
+        group: [term for term in terms if term in text]
+        for group, terms in signal_groups.items()
+    }
+    matched = [group for group, terms in signals.items() if terms]
+
+    if "project" in matched and "document" in matched and "slides" in matched:
+        return {
+            "requested": "auto",
+            "selected": "project-report-and-slides",
+            "mode": "deterministic_recommendation",
+            "signals": signals,
+            "reason": "项目交付同时要求源码、文档报告和演示文稿，因此组合 GitHub discovery、build、image、word、ppt、package。",
+        }
+    if "project" in matched and "document" in matched:
+        return {
+            "requested": "auto",
+            "selected": "project-and-report",
+            "mode": "deterministic_recommendation",
+            "signals": signals,
+            "reason": "项目交付同时要求源码和文档报告，因此组合 GitHub discovery、build、image、word、package。",
+        }
+    if "project" in matched:
+        return {
+            "requested": "auto",
+            "selected": "project-delivery",
+            "mode": "deterministic_recommendation",
+            "signals": signals,
+            "reason": "请求包含可运行项目或源码交付，优先启用 GitHub-first discovery、build、evidence、package。",
+        }
+    if "document" in matched and "slides" in matched:
+        return {
+            "requested": "auto",
+            "selected": "report-and-slides",
+            "mode": "deterministic_recommendation",
+            "signals": signals,
+            "reason": "请求同时要求报告和演示文稿，复用共享 task/image 证据后并行生成 Word/PPT。",
+        }
+    if "slides" in matched:
+        return {
+            "requested": "auto",
+            "selected": "presentation",
+            "mode": "deterministic_recommendation",
+            "signals": signals,
+            "reason": "请求以演示文稿为主要交付物，启用 research/image/ppt 路径。",
+        }
+    if "document" in matched:
+        return {
+            "requested": "auto",
+            "selected": "document",
+            "mode": "deterministic_recommendation",
+            "signals": signals,
+            "reason": "请求以文档为主要交付物，启用 research/image/word 路径。",
+        }
+    if "video" in matched:
+        return {
+            "requested": "auto",
+            "selected": "video-delivery",
+            "mode": "deterministic_recommendation",
+            "signals": signals,
+            "reason": "请求包含视频交付，启用 video 验收、VISUAL_STOP 和 package 路径。",
+        }
+    return {
+        "requested": "auto",
+        "selected": "custom",
+        "mode": "deterministic_recommendation",
+        "signals": signals,
+        "reason": "未命中明确的交付类型，保留 custom DAG 供 Agent 根据需求规划。",
+    }
+
+
 def _new_gate(required: bool, active: bool, status: str) -> dict[str, Any]:
     return {
         "required": required,
@@ -472,7 +578,19 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
     if workflow_path.exists():
         raise AutoFlowError(f"Run already initialized: {workflow_path}")
 
-    recipe = load_recipe(recipe_name)
+    request_text = request_file.read_text(encoding="utf-8")
+    if recipe_name == "auto":
+        recipe_selection = recommend_recipe(request_text)
+        recipe = load_recipe(recipe_selection["selected"])
+    else:
+        recipe_selection = {
+            "requested": recipe_name,
+            "selected": recipe_name,
+            "mode": "explicit",
+            "signals": {},
+            "reason": "用户显式指定 recipe。",
+        }
+        recipe = load_recipe(recipe_name)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "plans").mkdir(exist_ok=True)
 
@@ -486,6 +604,7 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
         "output_dir": str(output_dir),
         "recipe": recipe["name"],
         "recipe_description": recipe.get("description", ""),
+        "recipe_selection": recipe_selection,
         "created_at": utc_now(),
         "steps": recipe["steps"],
         "capabilities": workflow_capabilities(recipe["steps"]),

@@ -1,0 +1,68 @@
+{
+  "name": "project-report-and-slides",
+  "description": "Search GitHub, adapt or build a runnable project, capture evidence, create a Word report and defense presentation, and package the declared outputs.",
+  "steps": [
+    {
+      "id": "source",
+      "module": "task",
+      "action": "research",
+      "source_policy": "github_first",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["source.plan"],
+      "validator": "source_plan",
+      "gate_after": "source"
+    },
+    {
+      "id": "build",
+      "module": "task",
+      "action": "build",
+      "source_policy": "github_first",
+      "design_backend": "integrated-impeccable",
+      "needs": ["source"],
+      "inputs": ["request", "source.plan"],
+      "outputs": ["project.source", "task.result"],
+      "validator": "artifacts_exist"
+    },
+    {
+      "id": "image",
+      "module": "image",
+      "action": "capture",
+      "capture_backend": "integrated-webapp-testing",
+      "design_backend": "integrated-impeccable",
+      "needs": ["build"],
+      "inputs": ["project.source", "task.result"],
+      "outputs": ["image.assets"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual"
+    },
+    {
+      "id": "word",
+      "module": "word",
+      "action": "create",
+      "needs": ["build", "image"],
+      "inputs": ["request", "project.source", "task.result", "image.assets"],
+      "outputs": ["word.document", "word.validation"],
+      "validator": "word_acceptance"
+    },
+    {
+      "id": "ppt",
+      "module": "ppt",
+      "action": "create",
+      "needs": ["build", "image"],
+      "inputs": ["request", "project.source", "task.result", "image.assets"],
+      "outputs": ["ppt.presentation"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual"
+    },
+    {
+      "id": "package",
+      "module": "package",
+      "action": "assemble",
+      "needs": ["build", "image", "word", "ppt"],
+      "inputs": ["project.source", "task.result", "image.assets", "word.document", "word.validation", "ppt.presentation"],
+      "outputs": ["package.bundle", "package.manifest"],
+      "validator": "package_acceptance"
+    }
+  ]
+}
