@@ -18,6 +18,23 @@ diagram_plan.json → generate_diagram_assets.py
 
 ## Renderer Mapping
 
+The mapping below is a set of convenience templates, not a whitelist. When a
+diagram needs a Mermaid, D2, or PlantUML feature that has no JSON template,
+use the arbitrary DSL route:
+
+```json
+{
+  "name": "custom_state_machine",
+  "kind": "state_machine",
+  "renderer": "mermaid",
+  "source": "stateDiagram-v2\n    [*] --> Draft\n    Draft --> Published\n    Published --> [*]"
+}
+```
+
+`renderer` must be `mermaid`, `d2`, or `plantuml`; `source` is passed through
+unchanged and is saved alongside the rendered PNG/SVG. This route supports any
+diagram type supported by the selected renderer.
+
 ```python
 RENDERER_MAP = {
     "flowchart": "mermaid",
@@ -46,7 +63,9 @@ Do NOT use it for:
 - command output screenshots
 - local frontend page screenshots
 - third-party product screenshots
-- AI-generated images (these must NOT be used for diagram types)
+- AI-generated images when a deterministic DSL or real capture is required.
+  AI scientific schematics are handled by the `image.ai` scientific-figure
+  route, not by this diagram plan.
 
 ## Planning order
 
@@ -56,7 +75,8 @@ Do NOT use it for:
 4. Decide which figures belong to `image.diagram`.
 5. For each diagram, define semantic structure (no absolute coordinates):
    - `name` (used as filename prefix)
-   - `kind` (flowchart / er_diagram / data_flow_diagram / function_diagram / architecture_diagram / uml_diagram)
+   - `kind` (a built-in semantic template, or any custom semantic label)
+   - `renderer` + `source` (required for arbitrary native DSL diagrams)
    - `title` (diagram caption)
    - `direction` (TD / LR — for flowcharts)
    - `nodes[]` (with id, label, shape)

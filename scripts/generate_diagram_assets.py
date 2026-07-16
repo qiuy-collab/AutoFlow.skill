@@ -45,6 +45,12 @@ EXECUTABLE_CANDIDATES = {
     "plantuml": ["plantuml", "plantuml.cmd", "plantuml.bat"],
 }
 
+SOURCE_EXTENSIONS = {
+    "mermaid": ".mmd",
+    "d2": ".d2",
+    "plantuml": ".puml",
+}
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate DSL-driven diagram assets for AutoFlow.")
@@ -52,8 +58,8 @@ def parse_args():
     parser.add_argument("--output-dir", help="Directory for rendered diagram assets")
     parser.add_argument("--check", action="store_true", help="Check whether required renderers are available.")
     args = parser.parse_args()
-    if not args.check and not args.workflow:
-        parser.error("--workflow is required unless --check is used")
+    if not args.check and (not args.config or not args.output_dir):
+        parser.error("--config and --output-dir are required unless --check is used")
     return args
 
 
@@ -618,47 +624,63 @@ def build_plantuml_generic(diagram: dict) -> str:
     raise SystemExit(f"diagram '{diagram.get('name', '<unnamed>')}' (uml_diagram) needs sequence/class/component style fields")
 
 
-def build_source(diagram: dict) -> tuple[str, str]:
+def build_source(diagram: dict) -> tuple[str, str, str]:
     kind = diagram.get("kind")
+    explicit_renderer = str(diagram.get("renderer", "")).strip().lower()
+    inline_source = diagram.get("source")
+
+    # Semantic templates remain convenient, but they are not a closed list.
+    # Any renderer's native DSL can be supplied directly for a new diagram
+    # type, including Mermaid features not represented by the JSON templates.
+    if inline_source is not None or kind not in RENDERER_MAP:
+        if explicit_renderer not in SOURCE_EXTENSIONS:
+            supported = ", ".join(sorted(SOURCE_EXTENSIONS))
+            raise SystemExit(
+                f"Custom diagram '{kind or '<unnamed>'}' requires renderer ({supported}) and inline source DSL"
+            )
+        if not isinstance(inline_source, str) or not inline_source.strip():
+            raise SystemExit("Custom diagram source must be a non-empty string")
+        return inline_source, SOURCE_EXTENSIONS[explicit_renderer], explicit_renderer
+
     if kind not in RENDERER_MAP:
         supported = ", ".join(sorted(RENDERER_MAP))
         raise SystemExit(f"Unsupported diagram kind: {kind}. Supported kinds: {supported}")
     renderer = RENDERER_MAP[kind]
     if renderer == "mermaid":
         if kind == "er_diagram":
-            return build_mermaid_er(diagram), ".mmd"
+            return build_mermaid_er(diagram), ".mmd", renderer
         if kind == "mindmap":
-            return build_mermaid_mindmap(diagram), ".mmd"
+            return build_mermaid_mindmap(diagram), ".mmd", renderer
         if kind == "timeline":
-            return build_mermaid_timeline(diagram), ".mmd"
+            return build_mermaid_timeline(diagram), ".mmd", renderer
         if kind == "gantt_chart":
-            return build_mermaid_gantt(diagram), ".mmd"
-        return build_mermaid_flowchart(diagram), ".mmd"
+            return build_mermaid_gantt(diagram), ".mmd", renderer
+        return build_mermaid_flowchart(diagram), ".mmd", renderer
     if renderer == "d2":
         if kind == "data_flow_diagram":
-            return build_d2_dfd(diagram), ".d2"
+            return build_d2_dfd(diagram), ".d2", renderer
         if kind == "database_schema_diagram":
-            return build_d2_database_schema(diagram), ".d2"
+            return build_d2_database_schema(diagram), ".d2", renderer
         if kind == "table_structure_diagram":
-            return build_d2_table_structure(diagram), ".d2"
+            return build_d2_table_structure(diagram), ".d2", renderer
         if kind in {"wbs_diagram", "file_tree_diagram"}:
-            return build_d2_tree_diagram(diagram), ".d2"
-        return build_d2_node_edge_diagram(diagram), ".d2"
+            return build_d2_tree_diagram(diagram), ".d2", renderer
+        return build_d2_node_edge_diagram(diagram), ".d2", renderer
     if kind == "use_case_diagram":
-        return build_plantuml_use_case(diagram), ".puml"
+        return build_plantuml_use_case(diagram), ".puml", renderer
     if kind == "class_diagram":
-        return build_plantuml_class(diagram), ".puml"
+        return build_plantuml_class(diagram), ".puml", renderer
     if kind == "sequence_diagram":
-        return build_plantuml_sequence(diagram), ".puml"
+        return build_plantuml_sequence(diagram), ".puml", renderer
     if kind == "activity_diagram":
-        return build_plantuml_activity(diagram), ".puml"
+        return build_plantuml_activity(diagram), ".puml", renderer
     if kind == "state_diagram":
-        return build_plantuml_state(diagram), ".puml"
+        return build_plantuml_state(diagram), ".puml", renderer
     if kind == "component_diagram":
-        return build_plantuml_component(diagram), ".puml"
+        return build_plantuml_component(diagram), ".puml", renderer
     if kind == "deployment_diagram":
-        return build_plantuml_deployment(diagram), ".puml"
-    return build_plantuml_generic(diagram), ".puml"
+        return build_plantuml_deployment(diagram), ".puml", renderer
+    return build_plantuml_generic(diagram), ".puml", renderer
 
 
 def resolve_executable(renderer: str) -> str | None:
@@ -755,11 +777,10 @@ def main():
         name = diagram.get("name")
         if not name:
             raise SystemExit("Each diagram entry must include a name")
-        source_text, extension = build_source(diagram)
+        source_text, extension, renderer = build_source(diagram)
         source_path = output_dir / f"{name}{extension}"
         svg_path = output_dir / f"{name}.svg"
         png_path = output_dir / f"{name}.png"
-        renderer = RENDERER_MAP[diagram["kind"]]
         write_text(source_path, source_text)
         render_source(renderer, source_path, svg_path, png_path)
         generated.append(
