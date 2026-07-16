@@ -546,7 +546,18 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertFalse(backend["network_access_required"])
         self.assertEqual(
             engineering_quality_skill_names({"module": "task", "action": "build"}),
-            ["code-review-and-quality", "security-and-hardening", "documentation-and-adrs"],
+            [
+                "spec-driven-development",
+                "source-driven-development",
+                "incremental-implementation",
+                "code-review-and-quality",
+                "security-and-hardening",
+                "documentation-and-adrs",
+            ],
+        )
+        self.assertEqual(
+            engineering_quality_skill_names({"module": "task", "action": "research"}),
+            ["spec-driven-development", "source-driven-development"],
         )
         self.assertEqual(
             engineering_quality_skill_names({"module": "task", "action": "compute"}),

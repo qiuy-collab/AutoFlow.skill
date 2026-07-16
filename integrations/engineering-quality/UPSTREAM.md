@@ -6,7 +6,9 @@
 - Integrated on: 2026-07-17
 - Source subset: `skills/code-review-and-quality`,
   `skills/security-and-hardening`, `skills/performance-optimization`,
-  `skills/shipping-and-launch`, and `skills/documentation-and-adrs`
+  `skills/shipping-and-launch`, `skills/documentation-and-adrs`,
+  `skills/source-driven-development`, `skills/spec-driven-development`, and
+  `skills/incremental-implementation`
 - Supporting references: the security, performance, accessibility, and
   definition-of-done checklists required by the selected subset
 

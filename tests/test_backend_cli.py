@@ -33,6 +33,8 @@ class BackendCliSmokeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=f"quality route failed:\n{result.stdout}\n{result.stderr}")
         self.assertIn("code-review-and-quality", result.stdout)
         self.assertIn("security-and-hardening", result.stdout)
+        self.assertIn("spec-driven-development", result.stdout)
+        self.assertIn("incremental-implementation", result.stdout)
         self.assertIn('"external_skill_required": false', result.stdout)
 
     def test_impeccable_adapter_check(self) -> None:

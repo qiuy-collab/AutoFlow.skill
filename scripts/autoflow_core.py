@@ -53,6 +53,9 @@ ENGINEERING_QUALITY_SKILL_NAMES = (
     "performance-optimization",
     "shipping-and-launch",
     "documentation-and-adrs",
+    "source-driven-development",
+    "spec-driven-development",
+    "incremental-implementation",
 )
 PLAN_REQUIRED_SECTIONS = (
     "## 目标",
@@ -242,8 +245,21 @@ def engineering_quality_skill_names(step: dict[str, Any], status: str = "pending
     del status  # reserved for future state-specific quality routes
     module = step.get("module")
     action = step.get("action")
-    if module == "task" and action in {"build", "execute"}:
+    if module == "task" and action == "research":
+        return ["spec-driven-development", "source-driven-development"]
+    if module == "task" and action == "build":
         return [
+            "spec-driven-development",
+            "source-driven-development",
+            "incremental-implementation",
+            "code-review-and-quality",
+            "security-and-hardening",
+            "documentation-and-adrs",
+        ]
+    if module == "task" and action == "execute":
+        return [
+            "source-driven-development",
+            "incremental-implementation",
             "code-review-and-quality",
             "security-and-hardening",
             "documentation-and-adrs",

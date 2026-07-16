@@ -41,7 +41,8 @@ silently substitute another external tool.
 
 The local engineering-quality route is selected by step type rather than by a
 network package selector: `task.build`/`task.execute` resolve code review,
-security, and ADR guidance; `task.compute` resolves performance guidance; and
+security, ADR, and incremental/source guidance; `task.research` resolves spec
+and source guidance; `task.compute` resolves performance guidance; and
 `package.assemble` resolves shipping and ADR guidance. The resolved files are
 recorded in the CLI route output and must be read before the step runs.
 

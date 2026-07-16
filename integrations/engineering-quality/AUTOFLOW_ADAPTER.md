@@ -9,6 +9,8 @@ bootstrap, remote update, or network call is performed at runtime.
 | `task.build` / `task.execute` | code review, security, ADRs | review the implementation across correctness, architecture, security, and maintainability before downstream artifacts consume it |
 | `task.compute` | performance optimization | measure the real bottleneck, then optimize and re-measure |
 | `package.assemble` | shipping and launch, ADRs | prepare a reversible, verifiable delivery handoff and record important decisions |
+| `task.research` | spec-driven and source-driven development | turn the request into a concrete specification and ground framework decisions in authoritative documentation before implementation |
+| multi-file task changes | incremental implementation | land thin, verified slices instead of one untestable batch |
 
 The deterministic entrypoint is:
 

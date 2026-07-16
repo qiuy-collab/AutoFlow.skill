@@ -12,7 +12,10 @@
     "security-and-hardening",
     "performance-optimization",
     "shipping-and-launch",
-    "documentation-and-adrs"
+    "documentation-and-adrs",
+    "source-driven-development",
+    "spec-driven-development",
+    "incremental-implementation"
   ],
   "references": [
     "security-checklist.md",

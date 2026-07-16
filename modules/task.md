@@ -25,6 +25,12 @@ architecture decision records. For `task.compute`, it adds performance
 optimization guidance. Read the returned files before acting and record the
 review, security, measurement, and decision evidence in the step plan.
 
+For `task.research`, read the spec-driven and source-driven guidance before
+searching GitHub: first make the request testable, then ground framework and
+library decisions in authoritative documentation. For multi-file builds and
+executions, follow incremental implementation and leave each slice runnable
+before starting the next one.
+
 ## Requirement-driven task selection
 
 Use `requirement_map.json` to decide whether a task step is real prerequisite work. Add `task.compute`, `task.execute`, or `task.build` only when one or more requirements need its output as evidence or as an upstream dependency. Do not invent a task for convenience-only document editing. Record the consuming requirement ids in the task plan/result so delivery review can trace the evidence.

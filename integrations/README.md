@@ -21,7 +21,8 @@ and audited from external Skills or projects. It is not a runtime cache.
   only the local adapter.
 - `engineering-quality/`: MIT-licensed engineering quality subset from
   `addyosmani/agent-skills`: five-axis code review, security hardening,
-  performance optimization, ADR guidance, and shipping checks. It is exposed
+  performance optimization, ADR/spec/source guidance, incremental delivery,
+  and shipping checks. It is exposed
   through `scripts/engineering_quality_adapter.py` and never installs the
   upstream plugin runtime.
 
