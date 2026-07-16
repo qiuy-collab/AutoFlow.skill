@@ -153,6 +153,8 @@ AutoFlow.skill/
     └── impeccable/           # 集成的前端设计规则、命令和离线质量检测器
 ```
 
+各目录职责和 `vendor/` 禁用策略见 `references/directory-layout.md`。
+
 ## 当前效果示例
 
 原 AutoLab 的报告能力现在是 `lab-report` recipe，用来验证 task/image/word/package 组合仍能完成真实交付。

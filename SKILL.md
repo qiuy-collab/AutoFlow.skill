@@ -7,6 +7,9 @@ description: "Orchestrate multi-step artifact workflows by composing task, image
 
 AutoFlow turns a request into an explicit artifact DAG. The Agent plans and performs module work; deterministic scripts validate dependencies, state transitions, approvals, and outputs.
 
+The repository layout and integration policy are documented in
+`references/directory-layout.md`. Read it when adding or routing a capability.
+
 Explicit invocation always wins: if the user asks for `autoflow`, use this workflow even for an unusual module combination.
 
 ## Core principles
