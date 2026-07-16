@@ -6,7 +6,7 @@ This document defines how `AutoFlow word.fill` should preserve a supplied templa
 
 - Preserve the template structure and styling intent.
 - Save to a new output file, never overwrite the source template.
-- For structural DOCX work, read and prefer `vendor/minimax-docx/SKILL.md` before writing scripts.
+- For structural DOCX work, read and prefer `integrations/minimax-docx/SKILL.md` before writing scripts.
 - Use `python-docx` only for simple paragraph/table fills, simple body cleanup, inspection, or when minimax-docx is unavailable; record the fallback reason.
 - Plan figures before writing report text.
 - Default target tier is `excellent`.

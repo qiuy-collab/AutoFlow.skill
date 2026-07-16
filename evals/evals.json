@@ -20,7 +20,7 @@
       "files": [],
       "assertions": [
         "Uses a DAG with Word and PPT branching from approved shared evidence",
-        "Invokes the external pptx Skill adapter rather than vendoring it",
+        "Invokes the external pptx Skill adapter without copying its proprietary files",
         "Declares a Word validation report and requirement-mapped package manifest",
         "Reopens VISUAL_STOP after the presentation is produced"
       ]

@@ -485,10 +485,12 @@ class AutoFlowTestCase(unittest.TestCase):
         workflow = load_json(workflow_path)
         self.assertEqual(workflow["capabilities"]["ppt"]["status"], "available")
 
-    def test_word_recipe_discovers_external_skill_backend(self):
+    def test_word_recipe_discovers_integrated_backend(self):
         backend = detect_word_backend()
         self.assertEqual(backend["status"], "available")
         self.assertTrue(Path(backend["skill_file"]).is_file())
+        self.assertEqual(backend["backend"], "integrated-minimax-docx-core")
+        self.assertNotIn("vendor", backend["skill_file"])
         workflow_path = initialize_run(self.request, self.root / "word", "document")
         workflow = load_json(workflow_path)
         self.assertEqual(workflow["capabilities"]["word"]["status"], "available")

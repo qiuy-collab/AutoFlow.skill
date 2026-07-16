@@ -193,12 +193,14 @@ def check_dsl_tools(dry_run: bool = False) -> dict:
 
 
 # ── phase 3: optional external Skill capabilities ────────────────────────────
-SKILL_NAMES = ["minimax-docx", "pptx", "baseline-ui", "frontend-design", "webapp-testing"]
+SKILL_NAMES = ["pptx", "baseline-ui", "frontend-design", "webapp-testing"]
+INTEGRATED_PATHS = {
+    "minimax-docx": SKILL_ROOT / "integrations" / "minimax-docx" / "SKILL.md",
+}
 
 
 def find_skill_file(name: str):
     candidates = [
-        SKILL_ROOT / "vendor" / name / "SKILL.md",
         Path.home() / ".codex" / "skills" / name / "SKILL.md",
         Path.home() / ".agents" / "skills" / name / "SKILL.md",
     ]
@@ -206,6 +208,11 @@ def find_skill_file(name: str):
 
 
 def check_skill_capabilities() -> bool:
+    for name, skill_file in INTEGRATED_PATHS.items():
+        if skill_file.is_file():
+            ok(f"integrated capability: {name} ({skill_file})")
+        else:
+            warn(f"integrated capability missing: {name}; dependent workflows will stop at PLAN")
     for name in SKILL_NAMES:
         skill_file = find_skill_file(name)
         if skill_file:

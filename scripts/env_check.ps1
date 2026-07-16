@@ -16,8 +16,6 @@ $EnvFile = Join-Path $Root ".env"
 $EnvExample = Join-Path $Root ".env.example"
 $LocalFfmpeg = Join-Path $env:USERPROFILE "Tools\ffmpeg\bin\ffmpeg.exe"
 $LocalFfprobe = Join-Path $env:USERPROFILE "Tools\ffmpeg\bin\ffprobe.exe"
-$VendorFfmpeg = Join-Path $Root "vendor\ffmpeg\bin\ffmpeg.exe"
-$VendorFfprobe = Join-Path $Root "vendor\ffmpeg\bin\ffprobe.exe"
 $BrowserCandidates = @(
     "C:\Program Files\Google\Chrome\Application\chrome.exe",
     "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -52,10 +50,15 @@ Write-Host "Root: $Root"
 Write-Host ""
 
 # Check optional Skill capabilities in the local cache or user-level directories.
-$SkillNames = @("minimax-docx", "pptx", "baseline-ui", "frontend-design", "webapp-testing")
+$IntegratedWordSkill = Join-Path $Root "integrations\minimax-docx\SKILL.md"
+if (Test-Path $IntegratedWordSkill) {
+    Ok "integrated capability found: minimax-docx ($IntegratedWordSkill)"
+} else {
+    Fail "integrated capability missing: minimax-docx ($IntegratedWordSkill)"
+}
+$SkillNames = @("pptx", "baseline-ui", "frontend-design", "webapp-testing")
 foreach ($skillName in $SkillNames) {
     $candidates = @(
-        (Join-Path $Root "vendor\$skillName\SKILL.md"),
         (Join-Path $HOME ".codex\skills\$skillName\SKILL.md"),
         (Join-Path $HOME ".agents\skills\$skillName\SKILL.md")
     )
@@ -129,20 +132,16 @@ if (Test-Path $LocalFfmpeg) {
     Ok "local ffmpeg available: $LocalFfmpeg"
 } elseif (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
     Ok "local ffmpeg available: $((Get-Command ffmpeg).Source)"
-} elseif (Test-Path $VendorFfmpeg) {
-    Ok "vendor ffmpeg available: $VendorFfmpeg"
 } else {
-    Warn "ffmpeg not found locally or in vendor; video fallback unavailable"
+    Warn "ffmpeg not found on PATH or in $env:USERPROFILE\Tools; video fallback unavailable"
 }
 
 if (Test-Path $LocalFfprobe) {
     Ok "local ffprobe available: $LocalFfprobe"
 } elseif (Get-Command ffprobe -ErrorAction SilentlyContinue) {
     Ok "local ffprobe available: $((Get-Command ffprobe).Source)"
-} elseif (Test-Path $VendorFfprobe) {
-    Ok "vendor ffprobe available: $VendorFfprobe"
 } else {
-    Warn "ffprobe not found locally or in vendor; metadata fallback unavailable"
+    Warn "ffprobe not found on PATH or in $env:USERPROFILE\Tools; metadata fallback unavailable"
 }
 
 $BrowserFound = $false

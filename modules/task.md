@@ -30,7 +30,7 @@ For code, websites, applications, systems, databases, or runnable project reques
 
 An unmodified clone is not a completed build.
 
-For frontend work, also locate and follow the available `baseline-ui`, `frontend-design`, and `webapp-testing` Skills. Treat them as external capabilities when the optional vendor cache is empty. Verify the real page in a browser before registering screenshots or project outputs.
+For frontend work, also locate and follow the available `baseline-ui`, `frontend-design`, and `webapp-testing` Skills from user-level or plugin locations. If a required capability is unavailable, stop at PLAN instead of fabricating a call. Verify the real page in a browser before registering screenshots or project outputs.
 
 ## Source plan contract
 

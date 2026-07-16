@@ -19,9 +19,6 @@ def find_tool(name: str):
     local = shutil.which(name)
     if local:
         return local
-    vendor = skill_root() / "vendor" / "ffmpeg" / "bin" / f"{name}.exe"
-    if vendor.exists():
-        return str(vendor)
     return None
 
 

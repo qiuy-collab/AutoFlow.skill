@@ -20,6 +20,6 @@
     "cover tables, title text, date text, TOC entry zone, and spacing",
     "level-1 and level-2 heading text"
   ],
-  "minimax_docx_policy": "Prefer vendor/minimax-docx for structural DOCX work. Use python-docx only for simple cleanup or documented fallback.",
+  "minimax_docx_policy": "Use the integrated integrations/minimax-docx core for structural DOCX work. Use python-docx only for simple cleanup or a documented fallback.",
   "fallback_reason": ""
 }

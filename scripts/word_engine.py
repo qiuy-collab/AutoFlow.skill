@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run AutoFlow's vendored minimax-docx OpenXML core without external Skill lookup."""
+"""Run AutoFlow's integrated minimax-docx OpenXML core without external Skill lookup."""
 
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ def skill_root() -> Path:
 
 
 def project_path() -> Path:
-    return skill_root() / "vendor" / "minimax-docx" / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "MiniMaxAIDocx.Cli.csproj"
+    return skill_root() / "integrations" / "minimax-docx" / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "MiniMaxAIDocx.Cli.csproj"
 
 
 def bundled_executable() -> Path:
-    return skill_root() / "vendor" / "minimax-docx" / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "bin" / "Debug" / "net8.0" / "MiniMaxAIDocx.Cli.exe"
+    return skill_root() / "integrations" / "minimax-docx" / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "bin" / "Debug" / "net8.0" / "MiniMaxAIDocx.Cli.exe"
 
 
 def sha256(path: Path) -> str:
@@ -40,7 +40,8 @@ def capability() -> dict:
     dotnet = shutil.which("dotnet")
     executable = bundled_executable()
     return {
-        "backend": "vendored-minimax-docx-core",
+        "backend": "integrated-minimax-docx-core",
+        "integration_root": str(project.parent.parent.parent.parent.resolve()),
         "status": "available" if project.is_file() and dotnet else "blocked",
         "project": str(project),
         "project_present": project.is_file(),
@@ -55,7 +56,7 @@ def run_core(arguments: list[str]) -> subprocess.CompletedProcess[str]:
     cap = capability()
     if cap["status"] != "available":
         raise SystemExit(
-            "Vendored Word core is present but cannot execute because the .NET 8 runtime/SDK "
+            "Integrated Word core is present but cannot execute because the .NET 8 runtime/SDK "
             "is unavailable. Install dotnet; no external Skill fallback was invoked."
         )
     if bundled_executable().is_file():
@@ -68,11 +69,11 @@ def run_core(arguments: list[str]) -> subprocess.CompletedProcess[str]:
 def parse_json_output(result: subprocess.CompletedProcess[str], step: str) -> dict:
     if result.returncode != 0:
         details = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
-        raise SystemExit(f"Vendored Word core {step} failed.\n{details}".rstrip())
+        raise SystemExit(f"Integrated Word core {step} failed.\n{details}".rstrip())
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise SystemExit(f"Vendored Word core {step} returned invalid JSON: {result.stdout}") from exc
+        raise SystemExit(f"Integrated Word core {step} returned invalid JSON: {result.stdout}") from exc
 
 
 def validate_document(args: argparse.Namespace) -> int:
@@ -86,7 +87,7 @@ def validate_document(args: argparse.Namespace) -> int:
     if source and (not source.is_file() or source.suffix.lower() != ".docx"):
         raise SystemExit(f"Source not found or not .docx: {source}")
 
-    xsd = skill_root() / "vendor" / "minimax-docx" / "assets" / "xsd" / "wml-subset.xsd"
+    xsd = skill_root() / "integrations" / "minimax-docx" / "assets" / "xsd" / "wml-subset.xsd"
     validation_args = ["validate", "--input", str(document), "--xsd", str(xsd), "--business", "--json"]
     if template:
         validation_args.extend(["--gate-check", str(template)])
@@ -94,7 +95,7 @@ def validate_document(args: argparse.Namespace) -> int:
 
     dry_merge = run_core(["merge-runs", "--input", str(document), "--dry-run"])
     if dry_merge.returncode != 0:
-        raise SystemExit(f"Vendored Word core merge-runs preflight failed.\n{dry_merge.stderr}")
+        raise SystemExit(f"Integrated Word core merge-runs preflight failed.\n{dry_merge.stderr}")
 
     diff = None
     baseline = source or template
@@ -128,7 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     check = sub.add_parser("check", help="Report whether the integrated backend can really execute.")
     check.add_argument("--json", action="store_true")
-    invoke = sub.add_parser("invoke", help="Pass arguments directly to the vendored minimax-docx CLI.")
+    invoke = sub.add_parser("invoke", help="Pass arguments directly to the integrated minimax-docx CLI.")
     invoke.add_argument("arguments", nargs=argparse.REMAINDER)
     validate = sub.add_parser("validate", help="Run XSD, business, template gate, and diff checks.")
     validate.add_argument("--document", type=Path, required=True)

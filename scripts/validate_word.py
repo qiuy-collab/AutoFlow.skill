@@ -75,7 +75,7 @@ def load_core_report(path: Path | None, document: Path) -> tuple[bool, str, dict
         and recorded.get("sha256") == sha256(document)
     )
     evidence = (
-        "Vendored minimax-docx XSD/business/template validation passed"
+        "Integrated minimax-docx XSD/business/template validation passed"
         if passed
         else "Integrated OpenXML report is failed, stale, or for a different document"
     )
@@ -211,7 +211,7 @@ def validate(document: Path, template: Path | None, plan: dict, core_report_path
 
     core_passed, core_evidence, core_report = load_core_report(core_report_path, document)
     if plan.get("require_core_validation", False) or core_report_path is not None:
-        checks.append(check("vendored_openxml_core", core_passed, core_evidence))
+        checks.append(check("integrated_openxml_core", core_passed, core_evidence))
 
     paragraphs = document_info["paragraphs"]
     image_indices: list[int] = []

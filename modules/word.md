@@ -8,7 +8,7 @@ Use this module whenever a `.docx` file is created, edited, or filled.
 - `edit`: revise an existing document while preserving unrelated content and structure.
 - `fill`: fill a supplied template without rebuilding its shell.
 
-Read the complete integrated Word backend Skill recorded in `workflow.json.capabilities.word.skill_file` before editing. AutoFlow routes Word work to the vendored minimax-docx core and `scripts/word_engine.py`; it does not silently call an external Word Skill. If the .NET runtime or the core binary/source is unavailable, report a blocked capability and stop.
+Read the complete integrated Word backend Skill recorded in `workflow.json.capabilities.word.skill_file` before editing. AutoFlow routes Word work to `integrations/minimax-docx` through `scripts/word_engine.py`; it does not silently call an external Word Skill. If the .NET runtime or the core source is unavailable, report a blocked capability and stop.
 
 The module accepts the original request plus any approved task and image artifacts. It must not consume images while `VISUAL_STOP` is pending or rejected. Read `references/acceptance-contracts.md` and write `plans/word.json` before editing.
 
@@ -35,4 +35,4 @@ For coursework/report templates, normally enable these Word-plan checks:
 - minimum image count matches `requirement_map.json.planned_figures`;
 - student voice and rendered-document review have recorded evidence.
 
-Run `word_engine.py validate` first for the vendored OpenXML checks, then run `validate_word.py --core-report ...` after the DOCX is final. Register the final `.docx` as `word.document` and the passed report as `word.validation`. AutoFlow compares both reports' hashes with the document and rejects stale or failed reports.
+Run `word_engine.py validate` first for the integrated OpenXML checks, then run `validate_word.py --core-report ...` after the DOCX is final. Register the final `.docx` as `word.document` and the passed report as `word.validation`. AutoFlow compares both reports' hashes with the document and rejects stale or failed reports.

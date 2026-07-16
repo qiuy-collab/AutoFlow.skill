@@ -125,14 +125,16 @@ def detect_ppt_backend() -> dict[str, Any]:
 
 def detect_word_backend() -> dict[str, Any]:
     root = Path(__file__).resolve().parent.parent
-    skill_file = root / "vendor" / "minimax-docx" / "SKILL.md"
-    project = root / "vendor" / "minimax-docx" / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "MiniMaxAIDocx.Cli.csproj"
+    integration = root / "integrations" / "minimax-docx"
+    skill_file = integration / "SKILL.md"
+    project = integration / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "MiniMaxAIDocx.Cli.csproj"
     engine_script = root / "scripts" / "word_engine.py"
     dotnet = shutil.which("dotnet")
     if skill_file.is_file() and project.is_file() and engine_script.is_file():
         return {
             "status": "available" if dotnet else "blocked",
-            "backend": "vendored-minimax-docx-core",
+            "backend": "integrated-minimax-docx-core",
+            "integration_root": str(integration.resolve()),
             "skill_file": str(skill_file.resolve()),
             "engine_script": str(engine_script.resolve()),
             "project": str(project.resolve()),
@@ -143,10 +145,11 @@ def detect_word_backend() -> dict[str, Any]:
     return {
         "status": "missing",
         "backend": "",
+        "integration_root": str((root / "integrations" / "minimax-docx").resolve()),
         "skill_file": "",
         "engine_script": "",
         "external_skill_required": False,
-        "message": "AutoFlow's vendored minimax-docx core is incomplete. Reinstall AutoFlow.",
+        "message": "AutoFlow's integrated minimax-docx core is incomplete. Repair the integrations/minimax-docx directory.",
     }
 
 
