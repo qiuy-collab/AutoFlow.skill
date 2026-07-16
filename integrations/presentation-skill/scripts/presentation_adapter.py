@@ -65,16 +65,20 @@ def capability_report() -> dict[str, Any]:
         "soffice": {"available": shutil.which("soffice") is not None},
         "pdftoppm": {"available": shutil.which("pdftoppm") is not None},
     }
-    missing = []
+    renderer_missing = []
     if not checks["node"]["available"]:
-        missing.append("Node.js")
+        renderer_missing.append("Node.js")
     if not node_ok:
-        missing.append("pptxgenjs")
+        renderer_missing.append("pptxgenjs")
+    qa_missing = []
     if not python_ok:
-        missing.append("python-pptx")
+        qa_missing.append("python-pptx")
+    missing = renderer_missing + qa_missing
     return {
         "backend": "integrated-presentation-skill",
         "status": "available" if not missing else "blocked",
+        "renderer_status": "available" if not renderer_missing else "blocked",
+        "qa_status": "available" if not qa_missing else "blocked",
         "root": str(ROOT),
         "skill_file": str(ROOT / "SKILL.md"),
         "renderer": str(RENDERER),
@@ -83,6 +87,20 @@ def capability_report() -> dict[str, Any]:
         "missing": missing,
         "message": "ready" if not missing else "Missing runtime: " + ", ".join(missing),
     }
+
+
+def _command_missing(report: dict[str, Any], command: str) -> list[str]:
+    requirements = {
+        "build": ("node", "pptxgenjs"),
+        "qa": ("python_pptx",),
+        "inventory": ("python_pptx",),
+        "extract": ("python_pptx",),
+    }
+    missing = []
+    for key in requirements.get(command, ()):
+        if not report.get("checks", {}).get(key, {}).get("available", False):
+            missing.append("Node.js" if key == "node" else key.replace("_", "-"))
+    return missing
 
 
 def _run(command: list[str]) -> int:
@@ -121,8 +139,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "check":
         print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else report["message"])
         return 0 if report["status"] == "available" else 2
-    if report["status"] != "available":
-        print(json.dumps(report, ensure_ascii=False, indent=2), file=sys.stderr)
+    command_missing = _command_missing(report, args.command)
+    if command_missing:
+        blocked = {**report, "command": args.command, "missing": command_missing}
+        print(json.dumps(blocked, ensure_ascii=False, indent=2), file=sys.stderr)
         return 2
 
     if args.command == "build":

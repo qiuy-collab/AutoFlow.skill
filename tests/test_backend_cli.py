@@ -99,6 +99,27 @@ class BackendCliSmokeTests(unittest.TestCase):
                     msg=f"{script} --help failed:\n{result.stdout}\n{result.stderr}",
                 )
 
+    def test_presentation_adapter_reports_scoped_runtime(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "integrations" / "presentation-skill" / "scripts" / "presentation_adapter.py"),
+                "check",
+                "--json",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+        self.assertIn(result.returncode, {0, 2})
+        self.assertIn("integrated-presentation-skill", result.stdout)
+        self.assertIn("renderer_status", result.stdout)
+        self.assertIn("qa_status", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
