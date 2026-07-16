@@ -9,6 +9,12 @@ Use this module for visual artifacts. Computation belongs to `task.compute`; thi
 - `diagram`: architecture, ER, UML, process, data-flow, and any other structured diagram. Prefer deterministic DSL renderers, but accept arbitrary Mermaid/D2/PlantUML source through the custom DSL route; the built-in semantic kinds are convenience templates, not a closed whitelist.
 - `chart`: plots derived from real task data and calculations.
 
+Before PLAN_STOP, read the `image` capability report in
+`workflow.json.capabilities.image`. It contains action-level status and local
+file paths for `ai`, `capture`, `diagram`, and `chart`; a missing upstream,
+browser runtime, or DSL renderer is a `blocked` capability, not a reason to
+call an unverified external Skill.
+
 Read only the route-specific guidance needed:
 
 - AI assets: `docs/prompts/image_prompt_rules.md`, then use `generate_images.py` and `validate_prompt.py`.

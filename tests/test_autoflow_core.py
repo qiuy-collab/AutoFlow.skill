@@ -526,6 +526,26 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertIn("chart", backend["actions"])
         self.assertTrue(all(Path(path).is_file() for path in backend["actions"]["diagram"]["files"]))
 
+    def test_image_diagram_route_exposes_local_renderer_files(self):
+        workflow_path = initialize_run(self.request, self.root / "diagram-route", "custom")
+        workflow, state, _, _ = load_run(workflow_path)
+        workflow["steps"] = [
+            {
+                "id": "diagram",
+                "module": "image",
+                "action": "diagram",
+                "needs": [],
+                "inputs": ["request"],
+                "outputs": ["image.assets"],
+                "validator": "artifacts_exist",
+                "gate_after": "visual",
+            }
+        ]
+        sync_planning_state(workflow, state)
+        route = route_for_workflow(workflow, state, "diagram")
+        self.assertIn("image", route["capability_names"])
+        self.assertTrue(all(Path(path).is_file() for path in route["capability_files"]))
+
     def test_word_recipe_discovers_integrated_backend(self):
         backend = detect_word_backend()
         self.assertEqual(backend["status"], "available")
