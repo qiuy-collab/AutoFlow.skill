@@ -87,6 +87,70 @@ class AutoFlowCliTests(unittest.TestCase):
             self.assertEqual(workflow["recipe_selection"]["selected"], "project-report-and-slides")
             self.assertEqual([step["id"] for step in workflow["steps"]], ["source", "build", "image", "word", "ppt", "package"])
 
+    def test_student_management_delivery_smoke_keeps_plan_stop_and_routes_every_step(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            request = root / "request.md"
+            request.write_text(
+                "学生管理系统：交付可运行源码、论文和答辩PPT；先搜索GitHub候选，用户选择后再改造。",
+                encoding="utf-8",
+            )
+            run = root / "run"
+            initialized = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "init",
+                    "--request-file",
+                    str(request),
+                    "--output-dir",
+                    str(run),
+                    "--recipe",
+                    "auto",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            workflow = json.loads((run / "workflow.json").read_text(encoding="utf-8"))
+            state = json.loads((run / "run_state.json").read_text(encoding="utf-8"))
+            self.assertEqual(workflow["recipe"], "project-report-and-slides")
+            self.assertTrue(state["gates"]["plan"]["active"])
+            self.assertEqual(state["gates"]["plan"]["status"], "pending")
+            self.assertEqual(state["gates"]["source"]["status"], "not_applicable")
+
+            for step in workflow["steps"]:
+                routed = subprocess.run(
+                    [
+                        sys.executable,
+                        str(CLI),
+                        "route",
+                        "--workflow",
+                        str(run / "workflow.json"),
+                        "--step",
+                        step["id"],
+                        "--json",
+                    ],
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(routed.returncode, 0, routed.stderr)
+                payload = json.loads(routed.stdout)
+                self.assertEqual(payload["step"]["id"], step["id"])
+                self.assertTrue(payload["skill_names"])
+                self.assertTrue(all(Path(path).is_file() for path in payload["skill_files"]))
+
+            next_state = subprocess.run(
+                [sys.executable, str(CLI), "next", "--workflow", str(run / "workflow.json")],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(next_state.returncode, 0, next_state.stderr)
+            self.assertEqual(json.loads(next_state.stdout)["ready_steps"], [])
+
     def test_init_status_and_legacy_error(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

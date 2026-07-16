@@ -182,6 +182,11 @@ python -m unittest discover -s tests -v
 python -m py_compile scripts/*.py tests/*.py
 ```
 
+The CLI regression suite includes a real “student management system + paper +
+defense slides” planning smoke. It verifies the compound recipe, keeps
+`PLAN_STOP` pending, routes every step to local Skill files, and does not fake
+SOURCE_STOP or user approval.
+
 测试覆盖 DAG 循环、状态转换、四类 STOP、GitHub 有/无候选、需求证据映射、Word 强验收、视频/包报告、敏感文件拒绝、视觉阻断、产物哈希、旧格式拒绝和 CLI 初始化。
 
 ## License
