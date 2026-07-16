@@ -33,21 +33,21 @@ public static class MergeRunsCommand
 
             var tempPath = Path.GetTempFileName();
             File.Copy(input, tempPath, true);
-
-            using var zip = ZipFile.Open(tempPath, ZipArchiveMode.Update);
-            var entry = zip.GetEntry("word/document.xml");
-            if (entry == null)
-            {
-                Console.Error.WriteLine("Not a valid DOCX: missing word/document.xml");
-                return;
-            }
-
-            XDocument doc;
-            using (var stream = entry.Open())
-                doc = XDocument.Load(stream);
-
             int originalCount = 0;
             int mergedCount = 0;
+
+            using (var zip = ZipFile.Open(tempPath, ZipArchiveMode.Update))
+            {
+                var entry = zip.GetEntry("word/document.xml");
+                if (entry == null)
+                {
+                    Console.Error.WriteLine("Not a valid DOCX: missing word/document.xml");
+                    return;
+                }
+
+                XDocument doc;
+                using (var stream = entry.Open())
+                    doc = XDocument.Load(stream);
 
             foreach (var p in doc.Descendants(W + "p"))
             {
@@ -93,21 +93,28 @@ public static class MergeRunsCommand
                 mergedCount += runs.Count;
             }
 
+                if (dryRun)
+                {
+                    Console.WriteLine($"Original runs: {originalCount}");
+                    Console.WriteLine($"After merge:   {mergedCount}");
+                    Console.WriteLine($"Reduction:     {(originalCount > 0 ? (originalCount - mergedCount) * 100.0 / originalCount : 0):F1}%");
+                }
+
+                if (!dryRun)
+                {
+                    entry.Delete();
+                    var newEntry = zip.CreateEntry("word/document.xml", CompressionLevel.Optimal);
+                    using (var stream = newEntry.Open())
+                        doc.Save(stream);
+                }
+            }
+
             if (dryRun)
             {
-                Console.WriteLine($"Original runs: {originalCount}");
-                Console.WriteLine($"After merge:   {mergedCount}");
-                Console.WriteLine($"Reduction:     {(originalCount > 0 ? (originalCount - mergedCount) * 100.0 / originalCount : 0):F1}%");
                 File.Delete(tempPath);
                 return;
             }
 
-            entry.Delete();
-            var newEntry = zip.CreateEntry("word/document.xml", CompressionLevel.Optimal);
-            using (var stream = newEntry.Open())
-                doc.Save(stream);
-
-            zip.Dispose();
             File.Copy(tempPath, output, true);
             File.Delete(tempPath);
 

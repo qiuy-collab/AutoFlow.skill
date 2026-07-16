@@ -11,6 +11,7 @@
   "preserve_section_settings": true,
   "preserve_table_structure": true,
   "require_toc_if_template_has_toc": true,
+  "require_core_validation": true,
   "require_student_voice": true,
   "require_visual_review": true,
   "student_voice_review": {

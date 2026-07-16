@@ -23,6 +23,10 @@ def project_path() -> Path:
     return skill_root() / "vendor" / "minimax-docx" / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "MiniMaxAIDocx.Cli.csproj"
 
 
+def bundled_executable() -> Path:
+    return skill_root() / "vendor" / "minimax-docx" / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "bin" / "Debug" / "net8.0" / "MiniMaxAIDocx.Cli.exe"
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -34,12 +38,15 @@ def sha256(path: Path) -> str:
 def capability() -> dict:
     project = project_path()
     dotnet = shutil.which("dotnet")
+    executable = bundled_executable()
     return {
         "backend": "vendored-minimax-docx-core",
         "status": "available" if project.is_file() and dotnet else "blocked",
         "project": str(project),
         "project_present": project.is_file(),
         "dotnet": dotnet or "",
+        "bundled_executable": str(executable),
+        "bundled_executable_present": executable.is_file(),
         "external_skill_required": False,
     }
 
@@ -51,7 +58,10 @@ def run_core(arguments: list[str]) -> subprocess.CompletedProcess[str]:
             "Vendored Word core is present but cannot execute because the .NET 8 runtime/SDK "
             "is unavailable. Install dotnet; no external Skill fallback was invoked."
         )
-    command = [cap["dotnet"], "run", "--project", str(project_path()), "--", *arguments]
+    if bundled_executable().is_file():
+        command = [str(bundled_executable()), *arguments]
+    else:
+        command = [cap["dotnet"], "run", "--project", str(project_path()), "--", *arguments]
     return subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 

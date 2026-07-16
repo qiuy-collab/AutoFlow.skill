@@ -26,6 +26,13 @@ public class XsdValidator
 
         var schemaSet = new XmlSchemaSet();
         schemaSet.Add(null, xsdPath);
+        // .NET does not provide the XML namespace schema automatically when a
+        // curated schema references xml:space. Add the bundled declaration
+        // explicitly so the validator works from a fresh checkout as well as
+        // from the CLI project directory.
+        var xmlSchemaPath = Path.Combine(Path.GetDirectoryName(xsdPath) ?? string.Empty, "xml.xsd");
+        if (File.Exists(xmlSchemaPath))
+            schemaSet.Add("http://www.w3.org/XML/1998/namespace", xmlSchemaPath);
         settings.Schemas = schemaSet;
         settings.ValidationType = ValidationType.Schema;
         settings.ValidationFlags |= XmlSchemaValidationFlags.ReportValidationWarnings;

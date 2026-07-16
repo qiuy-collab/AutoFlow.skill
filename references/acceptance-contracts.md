@@ -18,13 +18,23 @@ Before DELIVERY_STOP approval, set the map status to `verified` and every requir
 
 ## Word plan and report
 
-Write `plans/word.json` using schema `autoflow/word-plan/1.0`. For template-based coursework, enable preservation, caption pairing, student voice, and rendered review. Run:
+Write `plans/word.json` using schema `autoflow/word-plan/1.0`. For template-based coursework, enable preservation, caption pairing, student voice, and rendered review. Run the integrated OpenXML core first:
+
+```bash
+python scripts/word_engine.py validate \
+  --document <output.docx> \
+  --template <template.docx> \
+  --report <run>/artifacts/word_core_validation.json
+```
+
+Then run:
 
 ```bash
 python scripts/validate_word.py \
   --document <output.docx> \
   --template <template.docx> \
   --plan <run>/plans/word.json \
+  --core-report <run>/artifacts/word_core_validation.json \
   --report <run>/artifacts/word_validation.json
 ```
 
