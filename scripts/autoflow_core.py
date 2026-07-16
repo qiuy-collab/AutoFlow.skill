@@ -321,6 +321,41 @@ def detect_ppt_backend() -> dict[str, Any]:
     }
 
 
+def _find_video_tool(name: str) -> str:
+    local_root = Path.home() / "Tools" / "ffmpeg" / "bin"
+    for candidate in (local_root / f"{name}.exe", local_root / name):
+        if candidate.is_file():
+            return str(candidate.resolve())
+    return shutil.which(name) or ""
+
+
+def detect_video_backend() -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    script = root / "scripts" / "video_process.py"
+    ffmpeg = _find_video_tool("ffmpeg")
+    ffprobe = _find_video_tool("ffprobe")
+    missing_files = [] if script.is_file() else ["scripts/video_process.py"]
+    missing_runtime = []
+    if not ffmpeg:
+        missing_runtime.append("ffmpeg")
+    if not ffprobe:
+        missing_runtime.append("ffprobe")
+    missing = missing_files + missing_runtime
+    return {
+        "status": "available" if not missing else ("blocked" if not missing_files else "missing"),
+        "backend": "integrated-video-process",
+        "integration_root": str(root.resolve()),
+        "script": str(script.resolve()) if script.is_file() else "",
+        "ffmpeg": ffmpeg,
+        "ffprobe": ffprobe,
+        "runtime": {"ffmpeg": ffmpeg, "ffprobe": ffprobe},
+        "missing": missing,
+        "external_skill_required": False,
+        "network_access_required": False,
+        "message": "ready" if not missing else "Missing runtime: " + ", ".join(missing),
+    }
+
+
 def detect_word_backend() -> dict[str, Any]:
     root = Path(__file__).resolve().parent.parent
     integration = root / "integrations" / "minimax-docx"
@@ -664,6 +699,7 @@ def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
             else {}
         ),
         **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in steps) else {}),
+        **({"video": detect_video_backend()} if any(step.get("module") == "video" for step in steps) else {}),
         **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in steps) else {}),
         **(
             {"webapp_testing": detect_webapp_testing_backend()}
@@ -712,6 +748,14 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
             raise AutoFlowError(
                 "PPT workflow requires AutoFlow's integrated presentation-skill backend and its local runtime. "
                 "Install declared dependencies before PLAN_STOP approval; AutoFlow will not invoke a user-level fallback."
+            )
+    if any(step.get("module") == "video" for step in workflow.get("steps", [])):
+        video = (workflow.get("capabilities") or {}).get("video") or detect_video_backend()
+        script = Path(str(video.get("script", "")))
+        if video.get("status") != "available" or not script.is_file():
+            raise AutoFlowError(
+                "Video workflow requires AutoFlow's integrated video_process.py and ffmpeg/ffprobe. "
+                "Install or expose the declared local runtime before PLAN_STOP approval."
             )
     if any(step.get("module") == "word" for step in workflow.get("steps", [])):
         word = (workflow.get("capabilities") or {}).get("word") or detect_word_backend()
@@ -1933,6 +1977,7 @@ def route_for_workflow(
     agent_skills = (workflow.get("capabilities") or {}).get("agent_skills") or detect_agent_skills_backend()
     engineering_quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
     ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
+    video = (workflow.get("capabilities") or {}).get("video") or detect_video_backend()
     base_names = ["using-superpowers", "brainstorming", "writing-plans", "verification-before-completion"]
     routed_steps: list[dict[str, Any]] = []
     for step in selected:
@@ -1967,6 +2012,8 @@ def route_for_workflow(
             capability_names.append("word")
         if step.get("module") == "ppt":
             capability_names.append("ppt")
+        if step.get("module") == "video":
+            capability_names.append("video")
         if step.get("capture_backend") == "integrated-webapp-testing":
             capability_names.append("webapp_testing")
         if step.get("design_backend") == "integrated-impeccable":
@@ -1984,6 +2031,12 @@ def route_for_workflow(
                 str(ppt.get(key, ""))
                 for key in ("skill_file", "adapter", "renderer", "qa")
                 if str(ppt.get(key, ""))
+            ]
+        if step.get("module") == "video":
+            capability_files = [
+                str(video.get(key, ""))
+                for key in ("script", "ffmpeg", "ffprobe")
+                if str(video.get(key, ""))
             ]
         routed_steps.append(
             {

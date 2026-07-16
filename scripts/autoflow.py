@@ -11,6 +11,7 @@ from autoflow_core import (
     detect_impeccable_backend,
     detect_ppt_backend,
     detect_superpowers_backend,
+    detect_video_backend,
     detect_webapp_testing_backend,
     detect_word_backend,
     integration_catalog,
@@ -95,6 +96,7 @@ def main() -> int:
                     "engineering_quality": detect_engineering_quality_backend(),
                     "impeccable": detect_impeccable_backend(),
                     "ppt": detect_ppt_backend(),
+                    "video": detect_video_backend(),
                 },
             }
             if args.json:

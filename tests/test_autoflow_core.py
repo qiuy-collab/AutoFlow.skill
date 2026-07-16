@@ -18,6 +18,7 @@ from autoflow_core import (  # noqa: E402
     detect_ppt_backend,
     detect_impeccable_backend,
     detect_superpowers_backend,
+    detect_video_backend,
     detect_webapp_testing_backend,
     detect_word_backend,
     engineering_quality_skill_names,
@@ -507,6 +508,13 @@ class AutoFlowTestCase(unittest.TestCase):
         workflow_path = initialize_run(self.request, self.root / "slides", "presentation")
         workflow = load_json(workflow_path)
         self.assertEqual(workflow["capabilities"]["ppt"]["status"], backend["status"])
+
+    def test_video_backend_is_local_and_runtime_checked(self):
+        backend = detect_video_backend()
+        self.assertIn(backend["status"], {"available", "blocked", "missing"})
+        self.assertEqual(backend["backend"], "integrated-video-process")
+        self.assertFalse(backend["external_skill_required"])
+        self.assertTrue(Path(backend["script"]).is_file())
 
     def test_word_recipe_discovers_integrated_backend(self):
         backend = detect_word_backend()

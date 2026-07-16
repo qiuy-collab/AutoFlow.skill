@@ -42,6 +42,9 @@ class AutoFlowCliTests(unittest.TestCase):
         self.assertEqual(payload["capabilities"]["ppt"]["backend"], "integrated-presentation-skill")
         self.assertIn(payload["capabilities"]["ppt"]["status"], {"available", "blocked"})
         self.assertTrue(Path(payload["capabilities"]["ppt"]["skill_file"]).is_file())
+        self.assertEqual(payload["capabilities"]["video"]["backend"], "integrated-video-process")
+        self.assertIn(payload["capabilities"]["video"]["status"], {"available", "blocked", "missing"})
+        self.assertTrue(Path(payload["capabilities"]["video"]["script"]).is_file())
 
     def test_route_returns_local_skill_paths(self):
         with tempfile.TemporaryDirectory() as temp:
