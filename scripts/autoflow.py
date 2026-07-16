@@ -6,6 +6,7 @@ from pathlib import Path
 from autoflow_core import (
     AutoFlowError,
     approve_gate,
+    detect_engineering_quality_backend,
     detect_impeccable_backend,
     detect_ppt_backend,
     detect_superpowers_backend,
@@ -85,6 +86,7 @@ def main() -> int:
                     "word": detect_word_backend(),
                     "webapp_testing": detect_webapp_testing_backend(),
                     "superpowers": detect_superpowers_backend(),
+                    "engineering_quality": detect_engineering_quality_backend(),
                     "impeccable": detect_impeccable_backend(),
                     "ppt": detect_ppt_backend(),
                 },

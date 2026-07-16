@@ -23,6 +23,7 @@ class AutoFlowCliTests(unittest.TestCase):
         self.assertEqual(payload["$schema"], "autoflow/capabilities/1.0")
         self.assertEqual(payload["capabilities"]["webapp_testing"]["backend"], "integrated-webapp-testing")
         self.assertEqual(payload["capabilities"]["superpowers"]["backend"], "integrated-superpowers")
+        self.assertEqual(payload["capabilities"]["engineering_quality"]["backend"], "integrated-engineering-quality")
         self.assertEqual(payload["capabilities"]["impeccable"]["backend"], "integrated-impeccable")
 
     def test_route_returns_local_skill_paths(self):
@@ -48,6 +49,7 @@ class AutoFlowCliTests(unittest.TestCase):
             payload = json.loads(routed.stdout)
             self.assertEqual(payload["step"]["id"], "build")
             self.assertIn("test-driven-development", payload["skill_names"])
+            self.assertIn("code-review-and-quality", payload["skill_names"])
 
     def test_init_status_and_legacy_error(self):
         with tempfile.TemporaryDirectory() as temp:

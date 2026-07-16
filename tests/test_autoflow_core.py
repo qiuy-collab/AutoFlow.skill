@@ -12,11 +12,13 @@ sys.path.insert(0, str(SCRIPTS))
 from autoflow_core import (  # noqa: E402
     AutoFlowError,
     approve_gate,
+    detect_engineering_quality_backend,
     detect_ppt_backend,
     detect_impeccable_backend,
     detect_superpowers_backend,
     detect_webapp_testing_backend,
     detect_word_backend,
+    engineering_quality_skill_names,
     hash_path,
     initialize_run,
     load_json,
@@ -28,6 +30,7 @@ from autoflow_core import (  # noqa: E402
     sync_planning_state,
     transition_step,
     validate_run,
+    validate_capabilities,
     validate_package_acceptance,
     validate_video_acceptance,
     validate_workflow_definition,
@@ -536,6 +539,41 @@ class AutoFlowTestCase(unittest.TestCase):
         for path in backend["skill_files"].values():
             self.assertTrue(Path(path).is_file())
 
+    def test_engineering_quality_subset_is_local_and_step_routed(self):
+        backend = detect_engineering_quality_backend()
+        self.assertEqual(backend["status"], "available")
+        self.assertEqual(backend["backend"], "integrated-engineering-quality")
+        self.assertFalse(backend["network_access_required"])
+        self.assertEqual(
+            engineering_quality_skill_names({"module": "task", "action": "build"}),
+            ["code-review-and-quality", "security-and-hardening", "documentation-and-adrs"],
+        )
+        self.assertEqual(
+            engineering_quality_skill_names({"module": "task", "action": "compute"}),
+            ["performance-optimization"],
+        )
+        for path in backend["skill_files"].values():
+            self.assertTrue(Path(path).is_file())
+        for path in backend["reference_files"].values():
+            self.assertTrue(Path(path).is_file())
+
+    def test_missing_engineering_quality_blocks_code_plan(self):
+        workflow = {
+            "steps": [{"module": "task", "action": "build"}],
+            "capabilities": {
+                "superpowers": detect_superpowers_backend(),
+                "engineering_quality": {"status": "missing"},
+            },
+        }
+        with self.assertRaises(AutoFlowError):
+            validate_capabilities(workflow)
+        workflow["capabilities"]["engineering_quality"] = {
+            "status": "available",
+            "skill_files": {"code-review-and-quality": str(self.root / "missing-skill.md")},
+        }
+        with self.assertRaises(AutoFlowError):
+            validate_capabilities(workflow)
+
     def test_route_for_build_step_returns_local_governance_and_module_paths(self):
         workflow_path = initialize_run(self.request, self.root / "route", "project-delivery")
         workflow, state, _, _ = load_run(workflow_path)
@@ -545,6 +583,10 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertIn("test-driven-development", route["skill_names"])
         self.assertIn("verification-before-completion", route["skill_names"])
         self.assertIn("impeccable", route["skill_names"])
+        self.assertIn("code-review-and-quality", route["skill_names"])
+        self.assertIn("security-and-hardening", route["skill_names"])
+        self.assertIn("documentation-and-adrs", route["skill_names"])
+        self.assertIn("engineering_quality", route["capability_names"])
         self.assertTrue(all(Path(path).is_file() for path in route["skill_files"]))
 
     def test_impeccable_is_an_integrated_offline_frontend_backend(self):

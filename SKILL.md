@@ -52,7 +52,10 @@ python scripts/autoflow.py route --workflow <workflow.json> --step <step-id> --j
 The route includes the module file, relevant local methodology Skills, and
 capability adapters. `brainstorming`, `writing-plans`, and
 `verification-before-completion` are global; TDD, debugging, review, execution,
-and delivery-handoff guidance is selected by step type and state.
+and delivery-handoff guidance is selected by step type and state. Engineering
+quality guidance is added for task builds/execution, compute steps, and package
+assembly: use the returned local files for code review, security, performance,
+ADRs, and shipping checks.
 
 Frontend project steps may additionally resolve the integrated `impeccable`
 design language and offline detector. Use the returned local adapter; never

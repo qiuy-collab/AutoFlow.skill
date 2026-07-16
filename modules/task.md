@@ -19,6 +19,12 @@ and adds `systematic-debugging` before retrying a blocked or failed step. These
 are local files under `integrations/superpowers`; do not substitute a missing
 external plugin.
 
+For `task.build` and `task.execute`, the route also adds the local
+`engineering-quality` subset: multi-axis code review, security hardening, and
+architecture decision records. For `task.compute`, it adds performance
+optimization guidance. Read the returned files before acting and record the
+review, security, measurement, and decision evidence in the step plan.
+
 ## Requirement-driven task selection
 
 Use `requirement_map.json` to decide whether a task step is real prerequisite work. Add `task.compute`, `task.execute`, or `task.build` only when one or more requirements need its output as evidence or as an upstream dependency. Do not invent a task for convenience-only document editing. Record the consuming requirement ids in the task plan/result so delivery review can trace the evidence.

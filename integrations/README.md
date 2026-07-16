@@ -19,6 +19,11 @@ and audited from external Skills or projects. It is not a runtime cache.
 - `impeccable/`: Apache-2.0 frontend design language, command references, and
   local anti-pattern detector. AutoFlow disables its update check and exposes
   only the local adapter.
+- `engineering-quality/`: MIT-licensed engineering quality subset from
+  `addyosmani/agent-skills`: five-axis code review, security hardening,
+  performance optimization, ADR guidance, and shipping checks. It is exposed
+  through `scripts/engineering_quality_adapter.py` and never installs the
+  upstream plugin runtime.
 
 Optional capabilities such as `pptx`, `baseline-ui`, and `frontend-design` are
 resolved from user-level Skills or plugins. AutoFlow does not copy their

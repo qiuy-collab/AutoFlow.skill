@@ -75,6 +75,7 @@ AutoFlow 没有“一键执行全部”的 `run` 命令。Agent 根据 ready ste
 ```bash
 python scripts/autoflow.py next --workflow task_runs/my-run/workflow.json
 python scripts/autoflow.py route --workflow task_runs/my-run/workflow.json --step build --json
+python scripts/engineering_quality_adapter.py route --module task --action build --json
 node scripts/impeccable_adapter.mjs detect --json src/
 python scripts/autoflow.py transition --workflow task_runs/my-run/workflow.json --step task --to running
 python scripts/autoflow.py transition --workflow task_runs/my-run/workflow.json --step task --to completed --artifact task.result=C:/absolute/result.json
@@ -140,6 +141,7 @@ AutoFlow.skill/
 │   ├── capture_frontend_screenshots.py
 │   ├── generate_diagram_assets.py
 │   ├── video_process.py
+│   ├── engineering_quality_adapter.py
 │   ├── impeccable_adapter.mjs
 │   └── package_submission.py
 ├── tests/                    # 标准库单元与集成测试
@@ -150,7 +152,8 @@ AutoFlow.skill/
     ├── nature-figure/        # nature-figure 来源、许可证和适配说明
     ├── webapp-testing/       # 集成的 Playwright 网页测试与浏览器证据 Skill
     ├── superpowers/          # 集成的规划、TDD、调试、审查和验证方法 Skill
-    └── impeccable/           # 集成的前端设计规则、命令和离线质量检测器
+    ├── impeccable/           # 集成的前端设计规则、命令和离线质量检测器
+    └── engineering-quality/  # 集成的代码审查、安全、性能和发布质量 Skill
 ```
 
 各目录职责和 `vendor/` 禁用策略见 `references/directory-layout.md`。

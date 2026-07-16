@@ -10,6 +10,31 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class BackendCliSmokeTests(unittest.TestCase):
+    def test_engineering_quality_adapter_routes_locally(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "engineering_quality_adapter.py"),
+                "route",
+                "--module",
+                "task",
+                "--action",
+                "build",
+                "--json",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, msg=f"quality route failed:\n{result.stdout}\n{result.stderr}")
+        self.assertIn("code-review-and-quality", result.stdout)
+        self.assertIn("security-and-hardening", result.stdout)
+        self.assertIn('"external_skill_required": false', result.stdout)
+
     def test_impeccable_adapter_check(self) -> None:
         result = subprocess.run(
             ["node", str(ROOT / "scripts" / "impeccable_adapter.mjs"), "check"],
@@ -46,6 +71,7 @@ class BackendCliSmokeTests(unittest.TestCase):
             "check_images.py",
             "generate_diagram_assets.py",
             "generate_images.py",
+            "engineering_quality_adapter.py",
             "package_submission.py",
             "template_adapter.py",
             "validate_prompt.py",

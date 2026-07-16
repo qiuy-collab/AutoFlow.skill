@@ -47,6 +47,13 @@ SUPERPOWERS_SKILL_NAMES = (
     "executing-plans",
     "finishing-a-development-branch",
 )
+ENGINEERING_QUALITY_SKILL_NAMES = (
+    "code-review-and-quality",
+    "security-and-hardening",
+    "performance-optimization",
+    "shipping-and-launch",
+    "documentation-and-adrs",
+)
 PLAN_REQUIRED_SECTIONS = (
     "## 目标",
     "## 需求与证据",
@@ -230,6 +237,70 @@ def detect_superpowers_backend() -> dict[str, Any]:
     }
 
 
+def engineering_quality_skill_names(step: dict[str, Any], status: str = "pending") -> list[str]:
+    """Return the quality guidance appropriate for one workflow step."""
+    del status  # reserved for future state-specific quality routes
+    module = step.get("module")
+    action = step.get("action")
+    if module == "task" and action in {"build", "execute"}:
+        return [
+            "code-review-and-quality",
+            "security-and-hardening",
+            "documentation-and-adrs",
+        ]
+    if module == "task" and action == "compute":
+        return ["performance-optimization"]
+    if module == "package" and action == "assemble":
+        return ["shipping-and-launch", "documentation-and-adrs"]
+    return []
+
+
+def detect_engineering_quality_backend() -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    integration = root / "integrations" / "engineering-quality"
+    skill_files = {
+        name: str((integration / name / "SKILL.md").resolve())
+        for name in ENGINEERING_QUALITY_SKILL_NAMES
+    }
+    reference_names = (
+        "security-checklist.md",
+        "performance-checklist.md",
+        "accessibility-checklist.md",
+        "definition-of-done.md",
+    )
+    reference_files = {
+        name: str((integration / "references" / name).resolve())
+        for name in reference_names
+    }
+    adapter = root / "scripts" / "engineering_quality_adapter.py"
+    manifest = integration / "integration_manifest.json"
+    missing = [name for name, path in skill_files.items() if not Path(path).is_file()]
+    missing.extend(name for name, path in reference_files.items() if not Path(path).is_file())
+    if not adapter.is_file():
+        missing.append("scripts/engineering_quality_adapter.py")
+    if not manifest.is_file():
+        missing.append("integration_manifest.json")
+    payload = {
+        "backend": "integrated-engineering-quality",
+        "integration_root": str(integration.resolve()),
+        "skill_files": skill_files,
+        "reference_files": reference_files,
+        "adapter_file": str(adapter.resolve()) if adapter.is_file() else "",
+        "manifest_file": str(manifest.resolve()) if manifest.is_file() else "",
+        "network_access_required": False,
+        "external_skill_required": False,
+    }
+    if missing:
+        return {
+            **payload,
+            "status": "missing",
+            "missing": missing,
+            "message": "AutoFlow's integrated engineering-quality subset is incomplete. "
+            "Repair integrations/engineering-quality.",
+        }
+    return {**payload, "status": "available", "skills": list(ENGINEERING_QUALITY_SKILL_NAMES)}
+
+
 def detect_impeccable_backend() -> dict[str, Any]:
     root = Path(__file__).resolve().parent.parent
     integration = root / "integrations" / "impeccable"
@@ -283,6 +354,11 @@ def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "superpowers": detect_superpowers_backend(),
         **(
+            {"engineering_quality": detect_engineering_quality_backend()}
+            if any(engineering_quality_skill_names(step) for step in steps)
+            else {}
+        ),
+        **(
             {"impeccable": detect_impeccable_backend()}
             if any(step.get("design_backend") == "integrated-impeccable" for step in steps)
             else {}
@@ -304,6 +380,15 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
             "AutoFlow requires its integrated superpowers methodology subset for planning and verification. "
             "Repair integrations/superpowers before PLAN_STOP approval."
         )
+    if any(engineering_quality_skill_names(step) for step in workflow.get("steps", [])):
+        quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
+        quality_files = quality.get("skill_files") or {}
+        quality_files_present = all(Path(str(path)).is_file() for path in quality_files.values())
+        if quality.get("status") != "available" or not quality_files_present:
+            raise AutoFlowError(
+                "Engineering-quality routing requires AutoFlow's integrated quality subset. "
+                "Repair integrations/engineering-quality before PLAN_STOP approval."
+            )
     if any(step.get("design_backend") == "integrated-impeccable" for step in workflow.get("steps", [])):
         impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
         if impeccable.get("status") != "available":
@@ -1415,6 +1500,7 @@ def route_for_workflow(
         selected = workflow.get("steps", [])
 
     superpowers = (workflow.get("capabilities") or {}).get("superpowers") or detect_superpowers_backend()
+    engineering_quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
     base_names = ["brainstorming", "writing-plans", "verification-before-completion"]
     routed_steps: list[dict[str, Any]] = []
     for step in selected:
@@ -1430,6 +1516,8 @@ def route_for_workflow(
             names.append("executing-plans")
         if step.get("module") == "package":
             names.append("finishing-a-development-branch")
+        quality_names = engineering_quality_skill_names(step, status)
+        names.extend(quality_names)
         names = list(dict.fromkeys(names))
 
         capability_names: list[str] = []
@@ -1441,7 +1529,10 @@ def route_for_workflow(
             capability_names.append("webapp_testing")
         if step.get("design_backend") == "integrated-impeccable":
             capability_names.append("impeccable")
+        if quality_names:
+            capability_names.append("engineering_quality")
         impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
+        quality_files = engineering_quality.get("skill_files", {})
         routed_steps.append(
             {
                 "id": step["id"],
@@ -1454,6 +1545,8 @@ def route_for_workflow(
                     (
                         impeccable.get("skill_file", "")
                         if name == "impeccable"
+                        else quality_files.get(name, "")
+                        if name in quality_files
                         else superpowers.get("skill_files", {}).get(
                             name, str(root / "integrations" / "superpowers" / name / "SKILL.md")
                         )

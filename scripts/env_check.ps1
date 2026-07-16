@@ -76,6 +76,14 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
 } else {
     Warn "node not found; integrated impeccable workflows stop at PLAN"
 }
+$IntegratedQualitySkill = Join-Path $Root "integrations\engineering-quality\code-review-and-quality\SKILL.md"
+$IntegratedQualityAdapter = Join-Path $Root "scripts\engineering_quality_adapter.py"
+$IntegratedQualityManifest = Join-Path $Root "integrations\engineering-quality\integration_manifest.json"
+if ((Test-Path $IntegratedQualitySkill) -and (Test-Path $IntegratedQualityAdapter) -and (Test-Path $IntegratedQualityManifest)) {
+    Ok "integrated capability found: engineering-quality ($IntegratedQualitySkill)"
+} else {
+    Fail "integrated capability incomplete: engineering-quality ($IntegratedQualitySkill)"
+}
 $SkillNames = @("pptx", "baseline-ui", "frontend-design")
 foreach ($skillName in $SkillNames) {
     $candidates = @(

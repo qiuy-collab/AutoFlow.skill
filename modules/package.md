@@ -13,3 +13,7 @@ Write `plans/package.json` with `source_root`, `include_paths`, `exclude_globs`,
 At PLAN_STOP, run `package_submission.py --config plans/package.json --validate-plan`. This checks path containment and requirement mappings without requiring source artifacts that downstream steps have not produced yet.
 
 Reject missing files, duplicate archive paths, secrets, caches, temporary outputs, nested copies of the package itself, and names that violate the request.
+
+The route for `package.assemble` also includes the local engineering-quality
+shipping checklist and ADR guidance. Use them to make the handoff reproducible,
+reversible where applicable, and explicit about what was verified.
