@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import shutil
+import subprocess
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -226,33 +227,97 @@ def _recipe_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "recipes"
 
 
-def detect_ppt_backend() -> dict[str, Any]:
-    candidates: list[tuple[str, Path]] = []
-    configured = os.environ.get("AUTOFLOW_PPTX_SKILL", "").strip()
-    if configured:
-        configured_path = Path(configured).expanduser()
-        candidates.append(("pptx", configured_path / "SKILL.md" if configured_path.is_dir() else configured_path))
+def _node_module_status(module: str, root: Path) -> tuple[bool, str]:
+    node = shutil.which("node")
+    if not node:
+        return False, "Node.js executable not found"
+    configured = os.environ.get("PPTX_NODE_MODULES", "").strip()
+    candidates = [Path(configured).expanduser()] if configured else []
     candidates.extend(
         [
-            ("pptx", Path.home() / ".codex" / "skills" / "pptx" / "SKILL.md"),
-            ("pptx", Path.home() / ".agents" / "skills" / "pptx" / "SKILL.md"),
-            ("pptx", Path.home() / ".newmax" / "skills" / "pptx" / "SKILL.md"),
+            root / "node_modules",
+            Path.cwd() / "node_modules",
+            Path.home() / "codex" / "CascadeProjects" / "pptx_ab_comparison" / "node_modules",
         ]
     )
-    plugin_root = Path.home() / ".codex" / "plugins" / "cache" / "openai-primary-runtime" / "presentations"
-    if plugin_root.exists():
-        candidates.extend(
-            ("presentations", path)
-            for path in plugin_root.glob("*/skills/presentations/SKILL.md")
+    paths = [str(path) for path in dict.fromkeys(candidates) if path.is_dir()]
+    env = os.environ.copy()
+    existing = env.get("NODE_PATH", "").strip()
+    env["NODE_PATH"] = os.pathsep.join([*paths, existing]) if paths or existing else ""
+    try:
+        result = subprocess.run(
+            [node, "-e", f"require.resolve({module!r})"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
         )
-    for name, path in candidates:
-        if path.is_file():
-            return {"status": "available", "backend": name, "skill_file": str(path.resolve())}
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"Unable to probe Node module {module}: {exc}"
+    if result.returncode:
+        return False, f'Node module "{module}" is not resolvable'
+    return True, result.stdout.strip()
+
+
+def detect_ppt_backend() -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    integration = root / "integrations" / "presentation-skill"
+    skill_file = integration / "SKILL.md"
+    adapter = integration / "scripts" / "presentation_adapter.py"
+    renderer = integration / "scripts" / "build_deck_pptxgenjs.js"
+    qa = integration / "scripts" / "qa_gate.py"
+    missing_files = [
+        str(path.relative_to(root))
+        for path in (skill_file, adapter, renderer, qa)
+        if not path.is_file()
+    ]
+    if missing_files:
+        return {
+            "status": "missing",
+            "backend": "integrated-presentation-skill",
+            "integration_root": str(integration.resolve()),
+            "skill_file": str(skill_file.resolve()) if skill_file.is_file() else "",
+            "adapter": str(adapter.resolve()) if adapter.is_file() else "",
+            "renderer": str(renderer.resolve()) if renderer.is_file() else "",
+            "qa": str(qa.resolve()) if qa.is_file() else "",
+            "external_skill_required": False,
+            "network_access_required": False,
+            "missing": missing_files,
+            "message": "AutoFlow's integrated presentation-skill files are incomplete.",
+        }
+    node_ok, node_detail = _node_module_status("pptxgenjs", integration)
+    python_pptx_ok = importlib.util.find_spec("pptx") is not None
+    missing_runtime: list[str] = []
+    if not node_ok:
+        missing_runtime.append("pptxgenjs")
+    if not python_pptx_ok:
+        missing_runtime.append("python-pptx")
+    optional_missing = [
+        module
+        for module in ("react", "react-dom/server", "react-icons", "sharp")
+        if not _node_module_status(module, integration)[0]
+    ]
     return {
-        "status": "missing",
-        "backend": "",
-        "skill_file": "",
-        "message": "Install the pptx or presentations Skill, or set AUTOFLOW_PPTX_SKILL.",
+        "status": "available" if not missing_runtime else "blocked",
+        "backend": "integrated-presentation-skill",
+        "integration_root": str(integration.resolve()),
+        "skill_file": str(skill_file.resolve()),
+        "adapter": str(adapter.resolve()),
+        "renderer": str(renderer.resolve()),
+        "qa": str(qa.resolve()),
+        "runtime": {
+            "node": shutil.which("node") or "",
+            "pptxgenjs": node_detail,
+            "python_pptx": python_pptx_ok,
+            "soffice": shutil.which("soffice") or "",
+            "pdftoppm": shutil.which("pdftoppm") or "",
+        },
+        "optional_missing": optional_missing,
+        "external_skill_required": False,
+        "network_access_required": False,
+        "missing": missing_runtime,
+        "message": "ready" if not missing_runtime else "Missing runtime: " + ", ".join(missing_runtime),
     }
 
 
@@ -645,8 +710,8 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
         skill_file = Path(str(ppt.get("skill_file", "")))
         if ppt.get("status") != "available" or not skill_file.is_file():
             raise AutoFlowError(
-                "PPT workflow requires an installed pptx/presentations Skill. "
-                "Set AUTOFLOW_PPTX_SKILL or install a supported backend before PLAN_STOP approval."
+                "PPT workflow requires AutoFlow's integrated presentation-skill backend and its local runtime. "
+                "Install declared dependencies before PLAN_STOP approval; AutoFlow will not invoke a user-level fallback."
             )
     if any(step.get("module") == "word" for step in workflow.get("steps", [])):
         word = (workflow.get("capabilities") or {}).get("word") or detect_word_backend()
@@ -1867,6 +1932,7 @@ def route_for_workflow(
     superpowers = (workflow.get("capabilities") or {}).get("superpowers") or detect_superpowers_backend()
     agent_skills = (workflow.get("capabilities") or {}).get("agent_skills") or detect_agent_skills_backend()
     engineering_quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
+    ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
     base_names = ["using-superpowers", "brainstorming", "writing-plans", "verification-before-completion"]
     routed_steps: list[dict[str, Any]] = []
     for step in selected:
@@ -1912,6 +1978,13 @@ def route_for_workflow(
         impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
         agent_files = agent_skills.get("skill_files", {})
         quality_files = engineering_quality.get("skill_files", {})
+        capability_files: list[str] = []
+        if step.get("module") == "ppt":
+            capability_files = [
+                str(ppt.get(key, ""))
+                for key in ("skill_file", "adapter", "renderer", "qa")
+                if str(ppt.get(key, ""))
+            ]
         routed_steps.append(
             {
                 "id": step["id"],
@@ -1934,6 +2007,7 @@ def route_for_workflow(
                     )
                     for name in names
                 ],
+                "capability_files": capability_files,
                 "capability_names": capability_names,
                 "capabilities": {
                     name: (workflow.get("capabilities") or {}).get(name, {})

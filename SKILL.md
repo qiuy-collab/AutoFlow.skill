@@ -37,7 +37,7 @@ Then read only the modules selected for this run:
 | task | `modules/task.md` | Research, GitHub-first builds, computation, execution |
 | image | `modules/image.md` | Capture, AI assets, diagrams, charts |
 | word | `modules/word.md` | DOCX creation, editing, template filling |
-| ppt | `modules/ppt.md` | PPTX creation/editing through the external pptx adapter |
+| ppt | `modules/ppt.md` | PPTX creation/editing through the local audited presentation-skill integration |
 | video | `modules/video.md` | Analysis, recording, creation, processing |
 | package | `modules/package.md` | Requirement-driven delivery assembly |
 
@@ -233,7 +233,7 @@ python scripts/autoflow.py validate --workflow <workflow.json>
 - Never hand-edit `run_state.json` or `artifact_manifest.json` to bypass a gate.
 - If the user rejects a STOP, record it with `autoflow.py gate --to rejected`, revise the affected plan/artifact, and create a new run when terminal steps must be redone.
 - If an artifact changes after registration, validation fails because its hash no longer matches. Re-run the producing step in a revised run.
-- If a required external Skill such as `pptx` is missing, stop with a capability report rather than silently substituting a lower-quality backend.
+- If the integrated presentation runtime is missing, stop with a capability report rather than silently substituting a user-level or lower-quality backend.
 
 ## Definition of done
 

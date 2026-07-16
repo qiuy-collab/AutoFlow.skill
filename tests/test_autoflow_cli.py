@@ -21,7 +21,7 @@ class AutoFlowCliTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["$schema"], "autoflow/integrations/1.0")
-        self.assertEqual(len(payload["integrations"]), 7)
+        self.assertEqual(len(payload["integrations"]), 8)
         self.assertTrue(all(item["status"] == "available" for item in payload["integrations"]))
 
     def test_capabilities_reports_integrated_backends(self):
@@ -39,6 +39,9 @@ class AutoFlowCliTests(unittest.TestCase):
         self.assertEqual(payload["capabilities"]["agent_skills"]["backend"], "integrated-agent-skills")
         self.assertEqual(payload["capabilities"]["engineering_quality"]["backend"], "integrated-engineering-quality")
         self.assertEqual(payload["capabilities"]["impeccable"]["backend"], "integrated-impeccable")
+        self.assertEqual(payload["capabilities"]["ppt"]["backend"], "integrated-presentation-skill")
+        self.assertIn(payload["capabilities"]["ppt"]["status"], {"available", "blocked"})
+        self.assertTrue(Path(payload["capabilities"]["ppt"]["skill_file"]).is_file())
 
     def test_route_returns_local_skill_paths(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -68,6 +71,41 @@ class AutoFlowCliTests(unittest.TestCase):
             self.assertIn("frontend-ui-engineering", payload["skill_names"])
             self.assertIn("agent_skills", payload["capability_names"])
             self.assertTrue(all(Path(path).is_file() for path in payload["skill_files"]))
+
+    def test_ppt_route_returns_integrated_local_capability_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            request = root / "request.md"
+            request.write_text("Create a defense presentation.", encoding="utf-8")
+            run = root / "run"
+            initialized = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "init",
+                    "--request-file",
+                    str(request),
+                    "--output-dir",
+                    str(run),
+                    "--recipe",
+                    "presentation",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            routed = subprocess.run(
+                [sys.executable, str(CLI), "route", "--workflow", str(run / "workflow.json"), "--step", "ppt", "--json"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(routed.returncode, 0, routed.stderr)
+            payload = json.loads(routed.stdout)
+            self.assertIn("ppt", payload["capability_names"])
+            self.assertEqual(payload["capabilities"]["ppt"]["backend"], "integrated-presentation-skill")
+            self.assertTrue(all(Path(path).is_file() for path in payload["capability_files"]))
 
     def test_auto_init_records_a_compound_recipe_recommendation(self):
         with tempfile.TemporaryDirectory() as temp:

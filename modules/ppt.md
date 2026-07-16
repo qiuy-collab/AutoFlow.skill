@@ -7,12 +7,13 @@ Use this module whenever a `.pptx` file is created or edited.
 - `create`: create a presentation from the request and approved upstream artifacts.
 - `edit`: revise an existing presentation or template.
 
-AutoFlow v3 uses an external Skill adapter for presentation production:
+AutoFlow v3 uses its audited local `presentation-skill` integration for
+presentation production:
 
-1. Locate the installed `pptx` Skill and read its complete `SKILL.md` before touching a presentation.
-2. If it is unavailable, try the bundled `presentations` capability exposed by the environment.
-3. If neither backend exists, stop at PLAN/INIT with a clear missing-capability report. Do not silently generate a low-quality substitute.
-4. Do not duplicate proprietary `pptx` Skill files inside AutoFlow; resolve the installed user-level or plugin backend and record its path in `workflow.json.capabilities.ppt`.
+1. Read `workflow.json.capabilities.ppt.skill_file` and the returned local capability files before touching a presentation.
+2. Use `integrations/presentation-skill/scripts/presentation_adapter.py` for `check`, `build`, `qa`, `inventory`, and `extract`.
+3. If Node/pptxgenjs or Python/python-pptx is unavailable, stop with a clear `blocked` capability report. Do not silently call a user-level or plugin backend.
+4. Never install dependencies or download assets during a deck task; the integration manifest records the exact upstream revision and license.
 
 Consume approved task and image artifacts. Create a slide outline, visual system, and source mapping before generation. Render or thumbnail the deck and inspect every slide for overflow, overlap, clipping, unreadable text, broken media, and visual inconsistency.
 

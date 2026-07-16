@@ -125,6 +125,8 @@ def main() -> int:
                     print(f"  skills: {', '.join(item['skill_names'])}")
                     for path in item["skill_files"]:
                         print(f"    - {path}")
+                    for path in item.get("capability_files", []):
+                        print(f"  capability: {path}")
             return 0
         if args.command == "validate":
             errors = validate_run(workflow, state, manifest, paths)

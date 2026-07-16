@@ -479,7 +479,7 @@ class AutoFlowTestCase(unittest.TestCase):
         ]
         sync_planning_state(workflow, state)
         self.assertEqual(workflow["capabilities"]["word"]["status"], "available")
-        self.assertEqual(workflow["capabilities"]["ppt"]["status"], "available")
+        self.assertEqual(workflow["capabilities"]["ppt"]["status"], detect_ppt_backend()["status"])
 
     def test_legacy_workflow_is_rejected(self):
         run = self.root / "legacy"
@@ -497,13 +497,16 @@ class AutoFlowTestCase(unittest.TestCase):
         errors = validate_run(workflow, state, manifest, paths)
         self.assertTrue(any("changed after validation" in error for error in errors))
 
-    def test_ppt_recipe_discovers_external_skill_backend(self):
+    def test_ppt_recipe_discovers_integrated_skill_backend(self):
         backend = detect_ppt_backend()
-        self.assertEqual(backend["status"], "available")
+        self.assertIn(backend["status"], {"available", "blocked"})
+        self.assertEqual(backend["backend"], "integrated-presentation-skill")
         self.assertTrue(Path(backend["skill_file"]).is_file())
+        self.assertTrue(Path(backend["adapter"]).is_file())
+        self.assertFalse(backend["external_skill_required"])
         workflow_path = initialize_run(self.request, self.root / "slides", "presentation")
         workflow = load_json(workflow_path)
-        self.assertEqual(workflow["capabilities"]["ppt"]["status"], "available")
+        self.assertEqual(workflow["capabilities"]["ppt"]["status"], backend["status"])
 
     def test_word_recipe_discovers_integrated_backend(self):
         backend = detect_word_backend()
@@ -635,6 +638,7 @@ class AutoFlowTestCase(unittest.TestCase):
                 "impeccable",
                 "minimax-docx",
                 "nature-figure",
+                "presentation-skill",
                 "superpowers",
                 "webapp-testing",
             },

@@ -158,7 +158,8 @@ AutoFlow.skill/
     ├── superpowers/          # 集成的规划、TDD、调试、审查和验证方法 Skill
     ├── impeccable/           # 集成的前端设计规则、命令和离线质量检测器
     ├── engineering-quality/  # 集成的代码审查、安全、性能和发布质量 Skill
-    └── agent-skills/         # 集成的规划、接口、前端、调试、观测和交付增强 Skill
+    ├── agent-skills/         # 集成的规划、接口、前端、调试、观测和交付增强 Skill
+    └── presentation-skill/   # 集成的 PPTX renderer、模板和几何/视觉 QA
 ```
 
 各目录职责和外部能力集成策略见 `references/directory-layout.md`。

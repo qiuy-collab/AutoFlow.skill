@@ -26,8 +26,8 @@ carry its upstream/license record and expose an AutoFlow adapter when its
 upstream entrypoint is not already deterministic.
 
 Current integrated capability families are `minimax-docx`, `nature-figure`,
-`webapp-testing`, `superpowers`, `impeccable`, `engineering-quality`, and the
-file-only `agent-skills` overlay. The latter keeps its 15 non-overlapping
+`webapp-testing`, `superpowers`, `impeccable`, `engineering-quality`,
+`presentation-skill`, and the file-only `agent-skills` overlay. The latter keeps its 15 non-overlapping
 workflow Skills and seven checklists under one manifest; overlapping routes
 remain in their original integration to avoid duplicate canonical paths.
 
