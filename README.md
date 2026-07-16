@@ -161,7 +161,7 @@ AutoFlow.skill/
     └── agent-skills/         # 集成的规划、接口、前端、调试、观测和交付增强 Skill
 ```
 
-各目录职责和 `vendor/` 禁用策略见 `references/directory-layout.md`。
+各目录职责和外部能力集成策略见 `references/directory-layout.md`。
 
 ## 当前效果示例
 

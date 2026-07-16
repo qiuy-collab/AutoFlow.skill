@@ -13,8 +13,7 @@ generated_images/
 conversations/
 .probe_cache/
 test_output/
-# External capabilities belong under integrations/, never in a legacy vendor tree.
-vendor/
+# External capabilities belong under integrations/.
 integrations/minimax-docx/**/bin/
 integrations/minimax-docx/**/obj/
 integrations/minimax-docx/.setup.log

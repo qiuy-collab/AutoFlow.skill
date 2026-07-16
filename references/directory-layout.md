@@ -31,11 +31,10 @@ file-only `agent-skills` overlay. The latter keeps its 15 non-overlapping
 workflow Skills and seven checklists under one manifest; overlapping routes
 remain in their original integration to avoid duplicate canonical paths.
 
-There is intentionally no `vendor/` directory. The old AutoLab vendor layout
-was retired after its useful capabilities were moved to `integrations/` or
-replaced by a local adapter. User-level Skills and plugins may still be
-detected as optional adapters, but AutoFlow never treats an uninstalled or
-unverified external package as available.
+External capabilities live under `integrations/` after review and provenance
+recording. User-level Skills and plugins may still be detected as optional
+adapters, but AutoFlow never treats an uninstalled or unverified external
+package as available.
 
 ## Runtime data
 
