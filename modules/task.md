@@ -65,12 +65,13 @@ For code, websites, applications, systems, databases, or runnable project reques
 
 An unmodified clone is not a completed build.
 
-For frontend work, locate and follow the optional user-level `baseline-ui` and
-`frontend-design` Skills when present. Browser testing and screenshot evidence
-use AutoFlow's integrated `integrations/webapp-testing` capability; do not
-resolve a second external copy. If a required capability is unavailable, stop
-at PLAN instead of fabricating a call. Verify the real page in a browser before
-registering screenshots or project outputs.
+For frontend work, use the local `integrated-impeccable` design route and the
+local `agent-skills` frontend guidance when the step declares them. Browser
+testing and screenshot evidence use AutoFlow's integrated
+`integrations/webapp-testing` capability; do not resolve a second external
+copy. If a required capability is unavailable, stop at PLAN instead of
+fabricating a call. Verify the real page in a browser before registering
+screenshots or project outputs.
 
 For frontend project builds, use the integrated `impeccable` route when the
 step declares `design_backend: integrated-impeccable`. Resolve its command

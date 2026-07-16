@@ -30,6 +30,9 @@ license, local Skill/reference files, and adapter paths.
   and shipping checks. It is exposed
   through `scripts/engineering_quality_adapter.py` and never installs the
   upstream plugin runtime.
+- `presentation-skill/`: MIT-licensed source-first PPTX renderer, editable
+  templates, and geometry/design/visual QA. Its adapter separates renderer and
+  QA dependencies and never installs `node_modules` during a run.
 - `agent-skills/`: MIT-licensed curated overlay from the same upstream, adding
   interface design, planning, context engineering, frontend architecture,
   browser DevTools verification, observability, migration, simplification,
@@ -37,7 +40,8 @@ license, local Skill/reference files, and adapter paths.
   `scripts/autoflow.py`; overlapping Skills remain in their existing canonical
   integration directories.
 
-Optional capabilities such as `pptx`, `baseline-ui`, and `frontend-design` are
-resolved from user-level Skills or plugins. AutoFlow does not copy their
-proprietary files into this repository. The integrated `webapp-testing` route
-is self-contained and is not resolved from an external Skill at runtime.
+User-level Skills and plugins are not runtime dependencies of the integrated
+routes. If a local integration or its declared runtime is unavailable, the
+corresponding capability is reported as `blocked`; AutoFlow never treats an
+unverified external package as available. The integrated `webapp-testing`
+route is self-contained and is not resolved from an external Skill at runtime.
