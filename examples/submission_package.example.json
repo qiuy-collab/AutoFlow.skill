@@ -7,11 +7,13 @@
   "include_paths": [
     {
       "path": "artifacts/result.docx",
-      "archive_root": ""
+      "archive_root": "",
+      "requirement_ids": ["R2"]
     },
     {
       "path": "artifacts/images",
-      "archive_root": "images"
+      "archive_root": "images",
+      "requirement_ids": ["R1"]
     }
   ],
   "exclude_globs": [

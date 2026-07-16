@@ -18,4 +18,8 @@ Read only the route-specific guidance needed:
 
 Group a coherent review batch into one image step. Complete it with the generated directory or manifest as its artifact. A step with `gate_after: visual` activates `VISUAL_STOP`; downstream modules cannot consume the visuals until the user approves them.
 
+Before PLAN_STOP, record every planned visual in `requirement_map.json.planned_figures` with a stable id, requirement ids, route, purpose, and expected caption. The number of generated visuals must satisfy this plan. Do not add decorative figures that prove no requirement.
+
+After generation, preserve the route-specific report, source files for diagrams/charts, real capture URL or command where applicable, and any img2img fixup history. A fix creates a new artifact hash and reopens `VISUAL_STOP`.
+
 Reject blurry text, mosaics, malformed UI, inconsistent scene identity, unreadable diagrams, deceptive screenshots, and charts without labels or data provenance.

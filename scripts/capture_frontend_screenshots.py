@@ -6,9 +6,6 @@ import time
 import urllib.request
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
-
-
 BROWSER_CANDIDATES = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -160,6 +157,14 @@ def run_action(page, action, plan):
 
 
 def capture_screenshots(images_dir: Path, plan):
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise SystemExit(
+            "Browser capture requires Playwright. Install the optional browser backend "
+            "before executing capture_frontend_screenshots.py."
+        ) from exc
+
     images_dir.mkdir(parents=True, exist_ok=True)
     executable = choose_browser_executable()
     with sync_playwright() as p:

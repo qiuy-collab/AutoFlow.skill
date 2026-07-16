@@ -5,7 +5,7 @@
 **让 Agent 把多个步骤、多个 Skills 和多个交付物组织成一条可验证的工作流。**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-3.0-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-3.1-blue.svg)](#)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
 </div>
@@ -24,6 +24,8 @@ AutoFlow 不再是一条固定的实验报告流水线。它把复杂任务拆�
 - `package`：按需求整理交付目录和压缩包
 
 Agent 负责理解任务和调用工具，Python 核心负责检查 DAG、步骤状态、STOP 和真实产物。这样既能灵活组合 Skills，也不会把关键选择藏在一段长对话里。
+
+AutoFlow 3.1 重新纳入 AutoLab 已验证的课程交付约束：需求/评分项必须映射到证据，Word 模板填写必须生成结构验收报告，视频必须记录媒体探测结果，打包文件必须映射需求并通过敏感文件扫描，最终交付必须逐项填写机器可检查的审查记录。
 
 ## 典型组合
 
@@ -83,8 +85,10 @@ task_runs/my-run/
 ├── workflow.json            # AutoFlow Schema 1.0 DAG
 ├── run_state.json           # 步骤和 STOP 状态
 ├── artifact_manifest.json   # 路径、生产者、消费者和 SHA-256
+├── requirement_map.json     # 需求/评分项、验收条件、证据和计划图表
+├── delivery_review.json     # 每项需求和每个产物的最终正确性审查
 ├── WORK_PLAN.md             # 用户确认的工作计划
-└── plans/                   # GitHub、图片、Word、PPT、打包等模块计划
+└── plans/                   # GitHub、图片、Word、PPT、视频、打包等模块计划
 ```
 
 旧版 AutoLab `workflow.json` 不兼容，需要重新初始化。
@@ -106,6 +110,18 @@ python scripts/env_setup.py --route ai
 
 AI 图片需要 `.env` 中的 `BASEURL` 和 `APIKEY`。Word 模块检测已安装的 `minimax-docx`/`documents` Skill，PPT 模块检测 `pptx`/`presentations` Skill；AutoFlow 不复制其专有实现。
 
+Word 生成完成后必须运行内置验证器：
+
+```bash
+python scripts/validate_word.py \
+  --document task_runs/my-run/artifacts/report.docx \
+  --template template.docx \
+  --plan task_runs/my-run/plans/word.json \
+  --report task_runs/my-run/artifacts/word_validation.json
+```
+
+Word 步骤只有同时提交 `word.document` 和通过的 `word.validation` 才能完成。
+
 ## 项目结构
 
 ```text
@@ -117,6 +133,7 @@ AutoFlow.skill/
 ├── scripts/
 │   ├── autoflow.py           # 状态与校验 CLI
 │   ├── autoflow_core.py      # DAG、Gate、artifact 核心
+│   ├── validate_word.py      # DOCX 模板、TOC、题注、口吻和结构验收
 │   ├── generate_images.py
 │   ├── capture_frontend_screenshots.py
 │   ├── generate_diagram_assets.py
@@ -147,7 +164,7 @@ python -m unittest discover -s tests -v
 python -m py_compile scripts/*.py tests/*.py
 ```
 
-测试覆盖 DAG 循环、状态转换、四类 STOP、GitHub 有/无候选、视觉阻断、产物哈希、旧格式拒绝和 CLI 初始化。
+测试覆盖 DAG 循环、状态转换、四类 STOP、GitHub 有/无候选、需求证据映射、Word 强验收、视频/包报告、敏感文件拒绝、视觉阻断、产物哈希、旧格式拒绝和 CLI 初始化。
 
 ## License
 

@@ -1,0 +1,32 @@
+{
+  "$schema": "autoflow/delivery-review/1.0",
+  "workflow_id": "af-example",
+  "review_completed": true,
+  "requirement_results": [
+    {
+      "id": "R1",
+      "present": true,
+      "correct": true,
+      "evidence_artifacts": ["project.source", "task.result", "image.assets"],
+      "notes": "启动与 CRUD 冒烟测试通过，截图已获用户批准。"
+    },
+    {
+      "id": "R2",
+      "present": true,
+      "correct": true,
+      "evidence_artifacts": ["word.document", "word.validation"],
+      "notes": "Word 验证和渲染检查通过。"
+    }
+  ],
+  "artifact_results": [
+    {"id": "project.source", "present": true, "correct": true, "notes": "可运行项目"},
+    {"id": "task.result", "present": true, "correct": true, "notes": "验证记录"},
+    {"id": "image.assets", "present": true, "correct": true, "notes": "已批准截图"},
+    {"id": "word.document", "present": true, "correct": true, "notes": "最终报告"},
+    {"id": "word.validation", "present": true, "correct": true, "notes": "报告验收记录"}
+  ],
+  "issues_found": [],
+  "overall_pass": true,
+  "reviewer_notes": "全部要求和产物已逐项检查。",
+  "updated_at": "2026-07-17T00:00:00+00:00"
+}

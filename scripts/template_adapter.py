@@ -10,14 +10,16 @@ Provides reusable functions for common DOCX operations:
 This reduces the need to write task-specific scripts from scratch.
 Use this as a library in task_scripts/fill_template.py, insert_images.py, etc.
 """
+from __future__ import annotations
+
 import json
 import re
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from docx import Document
-from docx.shared import Inches, Pt
+if TYPE_CHECKING:
+    from docx.document import Document as DocumentType
 
 
 PLACEHOLDER_RE = re.compile(r"\{\{(img_\d{2,3})\}\}")
@@ -27,7 +29,7 @@ def load_insert_config(config_path: str) -> dict:
     return json.loads(Path(config_path).read_text(encoding="utf-8"))
 
 
-def find_placeholders(doc: Document) -> list[str]:
+def find_placeholders(doc: DocumentType) -> list[str]:
     """Find all {{img_NN}} or {{img_NNN}} placeholders in document paragraphs."""
     found = []
     for para in doc.paragraphs:
@@ -36,7 +38,7 @@ def find_placeholders(doc: Document) -> list[str]:
     return sorted(set(found))
 
 
-def find_paragraph_with_placeholder(doc: Document, key: str) -> Optional[int]:
+def find_paragraph_with_placeholder(doc: DocumentType, key: str) -> Optional[int]:
     """Return the paragraph index that contains the placeholder, or None."""
     marker = "{{" + key + "}}"
     for idx, para in enumerate(doc.paragraphs):
@@ -45,7 +47,7 @@ def find_paragraph_with_placeholder(doc: Document, key: str) -> Optional[int]:
     return None
 
 
-def replace_placeholder_text(doc: Document, key: str, replacement: str):
+def replace_placeholder_text(doc: DocumentType, key: str, replacement: str):
     """Replace {{key}} placeholder text in all paragraphs."""
     marker = "{{" + key + "}}"
     for para in doc.paragraphs:
@@ -54,18 +56,23 @@ def replace_placeholder_text(doc: Document, key: str, replacement: str):
 
 
 def insert_image_after_paragraph(
-    doc: Document,
+    doc: DocumentType,
     para_index: int,
     image_path: str,
     width_inches: float = 6.0,
 ):
     """Insert an image after the specified paragraph."""
+    try:
+        from docx.shared import Inches
+    except ImportError as exc:
+        raise RuntimeError("DOCX operations require the optional python-docx backend.") from exc
+
     para = doc.paragraphs[para_index]
     run = para.add_run()
     run.add_picture(image_path, width=Inches(width_inches))
 
 
-def remove_template_instructions(doc: Document, patterns: list[str] = None):
+def remove_template_instructions(doc: DocumentType, patterns: list[str] = None):
     """Remove paragraphs matching template instruction patterns."""
     if patterns is None:
         patterns = [
@@ -96,6 +103,11 @@ def remove_template_instructions(doc: Document, patterns: list[str] = None):
 
 def validate_output(docx_path: str, insert_config_path: str) -> dict:
     """Validate that the filled template has all expected images and no leftover placeholders."""
+    try:
+        from docx import Document
+    except ImportError as exc:
+        raise RuntimeError("DOCX operations require the optional python-docx backend.") from exc
+
     doc = Document(docx_path)
     config = load_insert_config(insert_config_path)
     expected_images = set(config.get("images", {}).keys())
@@ -128,6 +140,12 @@ def write_fill_script(
     4. Removes template instruction text
     5. Saves the output
     """
+    try:
+        from docx import Document
+        from docx.shared import Inches
+    except ImportError as exc:
+        raise RuntimeError("DOCX operations require the optional python-docx backend.") from exc
+
     doc = Document(template_path)
     insert_config = load_insert_config(insert_config_path)
     images = insert_config.get("images", {})

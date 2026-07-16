@@ -21,6 +21,7 @@ class BackendCliSmokeTests(unittest.TestCase):
             "package_submission.py",
             "template_adapter.py",
             "validate_prompt.py",
+            "validate_word.py",
             "video_process.py",
         )
 

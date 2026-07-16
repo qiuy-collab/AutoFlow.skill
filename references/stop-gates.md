@@ -4,7 +4,7 @@ STOP gates protect decisions that should not be inferred from silence.
 
 ## PLAN_STOP
 
-Always active after initialization. Fill all sections of `WORK_PLAN.md`, align `workflow.json` to the actual request, show the plan to the user, and wait. Approve only after an explicit response.
+Always active after initialization. Fill all sections of `WORK_PLAN.md`, align `workflow.json` to the actual request, and complete `requirement_map.json` with requirement-to-evidence and planned-figure mappings. Show the plan to the user and wait. Approve only after an explicit response.
 
 ## SOURCE_STOP
 
@@ -16,7 +16,7 @@ Activated by a completed step with `gate_after: visual`. Show every new image/de
 
 ## DELIVERY_STOP
 
-Activated after every workflow step is completed or skipped and no earlier STOP remains. Show the artifact list, paths, validation results, and package contents. Approving it marks the run completed.
+Activated after every workflow step is completed or skipped and no earlier STOP remains. Verify `requirement_map.json`, complete `delivery_review.json`, and show the artifact list, paths, validation results, and package contents. Approval is rejected unless every required requirement and registered artifact is present and correct. Approving it marks the run completed.
 
 ## Approval integrity
 

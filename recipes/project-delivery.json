@@ -39,8 +39,8 @@
       "action": "assemble",
       "needs": ["build", "image"],
       "inputs": ["project.source", "task.result", "image.assets"],
-      "outputs": ["package.bundle"],
-      "validator": "artifacts_exist"
+      "outputs": ["package.bundle", "package.manifest"],
+      "validator": "package_acceptance"
     }
   ]
 }

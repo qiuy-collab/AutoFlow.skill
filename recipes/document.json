@@ -29,8 +29,8 @@
       "action": "create",
       "needs": [],
       "inputs": ["request"],
-      "outputs": ["word.document"],
-      "validator": "artifacts_exist"
+      "outputs": ["word.document", "word.validation"],
+      "validator": "word_acceptance"
     }
   ]
 }

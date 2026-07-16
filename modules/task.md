@@ -11,6 +11,10 @@ Use this module for work that creates the factual or executable foundation consu
 
 Every completed step must produce the artifact IDs declared in `workflow.json`. Register them through `autoflow.py transition --to completed --artifact ID=PATH`.
 
+## Requirement-driven task selection
+
+Use `requirement_map.json` to decide whether a task step is real prerequisite work. Add `task.compute`, `task.execute`, or `task.build` only when one or more requirements need its output as evidence or as an upstream dependency. Do not invent a task for convenience-only document editing. Record the consuming requirement ids in the task plan/result so delivery review can trace the evidence.
+
 ## GitHub-first project flow
 
 For code, websites, applications, systems, databases, or runnable project requests, create separate `task.research` and `task.build` steps. Do not merge them because `SOURCE_STOP` sits between discovery and modification.

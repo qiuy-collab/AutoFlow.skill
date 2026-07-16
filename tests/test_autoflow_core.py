@@ -13,6 +13,7 @@ from autoflow_core import (  # noqa: E402
     approve_gate,
     detect_ppt_backend,
     detect_word_backend,
+    hash_path,
     initialize_run,
     load_json,
     load_run,
@@ -23,6 +24,8 @@ from autoflow_core import (  # noqa: E402
     sync_planning_state,
     transition_step,
     validate_run,
+    validate_package_acceptance,
+    validate_video_acceptance,
     validate_workflow_definition,
 )
 
@@ -32,14 +35,23 @@ COMPLETE_PLAN = """# Work Plan
 ## 目标
 完成用户要求的真实产物，并用可复现验证证明结果满足要求。这里补充足够的目标说明，避免模板被误认为已经完成。
 
+## 需求与证据
+把每项需求映射到 workflow 声明的真实产物，并在 requirement_map.json 中记录验收条件、证据和状态。
+
 ## 工作流
 先执行任务模块，再生成或捕获证据，然后装配目标文档或交付包。所有依赖、STOP 和验证都记录在 AutoFlow 状态文件中。
 
 ## 产物
 产出 workflow 声明的全部文件、目录或压缩包；每个产物都有绝对路径、生产步骤、消费者和 SHA-256。
 
+## 信息替换
+本测试没有模板身份信息替换项，明确记录为无，不猜测或制造用户信息。
+
 ## 范围与约束
 不制造虚假证据，不跳过用户批准，不把未声明的缓存或敏感文件装入交付包，所有测试只在临时目录运行。
+
+## 验收策略
+逐步检查声明产物、哈希、模块验证报告、需求证据映射和最终 delivery_review.json，再请求用户签收。
 """
 
 
@@ -57,6 +69,33 @@ class AutoFlowTestCase(unittest.TestCase):
         workflow_path = initialize_run(self.request, self.root / "run", recipe)
         workflow, state, manifest, paths = load_run(workflow_path)
         paths["work_plan"].write_text(COMPLETE_PLAN, encoding="utf-8")
+        evidence = [
+            artifact_id
+            for step in workflow["steps"]
+            if not step.get("optional", False)
+            for artifact_id in step.get("outputs", [])
+        ]
+        save_json(
+            paths["requirement_map"],
+            {
+                "$schema": "autoflow/requirement-map/1.0",
+                "workflow_id": workflow["workflow_id"],
+                "status": "planning",
+                "target_tier": "tests-complete",
+                "source_files": [str(self.request)],
+                "requirements": [
+                    {
+                        "id": "R1",
+                        "description": "Complete the declared workflow outputs",
+                        "required": True,
+                        "acceptance": ["Declared outputs exist and validate"],
+                        "evidence_artifacts": evidence,
+                        "validation": {"status": "pending", "evidence": ""},
+                    }
+                ],
+                "planned_figures": [],
+            },
+        )
         approve_gate(workflow, state, manifest, paths, "plan", "User approved the complete work plan")
         save_run(state, manifest, paths)
         return workflow_path, workflow, state, manifest, paths
@@ -72,17 +111,136 @@ class AutoFlowTestCase(unittest.TestCase):
         transition_step(workflow, state, manifest, paths, step_id, "running", "started", {})
         transition_step(workflow, state, manifest, paths, step_id, "completed", "verified", artifacts)
 
+    def make_word_artifacts(self):
+        document = self.make_artifact("result.docx", "minimal test document")
+        report = self.root / "word-validation.json"
+        save_json(
+            report,
+            {
+                "$schema": "autoflow/word-validation/1.0",
+                "document": {
+                    "path": str(document.resolve()),
+                    "sha256": hash_path(document),
+                    "size": document.stat().st_size,
+                },
+                "checks": [{"name": "test_validation", "status": "passed", "evidence": "fixture"}],
+                "overall_pass": True,
+            },
+        )
+        return {"word.document": document, "word.validation": report}
+
+    def prepare_delivery_review(self, workflow, manifest, paths):
+        requirement_map = load_json(paths["requirement_map"])
+        requirement_map["status"] = "verified"
+        for item in requirement_map["requirements"]:
+            item["validation"] = {"status": "passed", "evidence": "Automated test evidence passed"}
+        save_json(paths["requirement_map"], requirement_map)
+        save_json(
+            paths["delivery_review"],
+            {
+                "$schema": "autoflow/delivery-review/1.0",
+                "workflow_id": workflow["workflow_id"],
+                "review_completed": True,
+                "requirement_results": [
+                    {
+                        "id": item["id"],
+                        "present": True,
+                        "correct": True,
+                        "evidence_artifacts": item["evidence_artifacts"],
+                        "notes": "verified",
+                    }
+                    for item in requirement_map["requirements"]
+                    if item["required"]
+                ],
+                "artifact_results": [
+                    {"id": item["id"], "present": True, "correct": True, "notes": "verified"}
+                    for item in manifest["artifacts"]
+                ],
+                "issues_found": [],
+                "overall_pass": True,
+                "reviewer_notes": "test review",
+            },
+        )
+
     def test_word_only_recipe_can_finish_and_requires_delivery_stop(self):
         _, workflow, state, manifest, paths = self.init("document")
         refresh_ready(workflow, state)
         transition_step(workflow, state, manifest, paths, "task", "skipped", "Not needed", {})
         transition_step(workflow, state, manifest, paths, "image", "skipped", "Not needed", {})
-        docx = self.make_artifact("result.docx")
-        self.complete_step(workflow, state, manifest, paths, "word", {"word.document": docx})
+        self.complete_step(workflow, state, manifest, paths, "word", self.make_word_artifacts())
         self.assertTrue(state["gates"]["delivery"]["active"])
         self.assertEqual(state["gates"]["delivery"]["status"], "pending")
+        with self.assertRaisesRegex(AutoFlowError, "not marked passed|delivery_review"):
+            approve_gate(workflow, state, manifest, paths, "delivery", "User accepted the Word delivery")
+        self.prepare_delivery_review(workflow, manifest, paths)
         approve_gate(workflow, state, manifest, paths, "delivery", "User accepted the Word delivery")
         self.assertEqual(state["status"], "completed")
+
+    def test_plan_stop_requires_requirement_evidence_map(self):
+        workflow_path = initialize_run(self.request, self.root / "unmapped", "custom")
+        workflow, state, manifest, paths = load_run(workflow_path)
+        paths["work_plan"].write_text(COMPLETE_PLAN, encoding="utf-8")
+        with self.assertRaisesRegex(AutoFlowError, "at least one requirement"):
+            approve_gate(workflow, state, manifest, paths, "plan", "User approved the plan")
+
+    def test_word_acceptance_rejects_stale_validation_report(self):
+        _, workflow, state, manifest, paths = self.init("document")
+        transition_step(workflow, state, manifest, paths, "task", "skipped", "Not needed", {})
+        transition_step(workflow, state, manifest, paths, "image", "skipped", "Not needed", {})
+        artifacts = self.make_word_artifacts()
+        artifacts["word.document"].write_text("changed after validation", encoding="utf-8")
+        refresh_ready(workflow, state)
+        transition_step(workflow, state, manifest, paths, "word", "running", "started", {})
+        with self.assertRaisesRegex(AutoFlowError, "SHA-256"):
+            transition_step(workflow, state, manifest, paths, "word", "completed", "done", artifacts)
+
+    def test_video_acceptance_requires_matching_metadata_and_hash(self):
+        media = self.make_artifact("demo.mp4", "video-bytes")
+        report = self.root / "video-validation.json"
+        save_json(
+            report,
+            {
+                "$schema": "autoflow/video-validation/1.0",
+                "file": str(media.resolve()),
+                "sha256": hash_path(media),
+                "metadata": {"duration_seconds": 3.0, "width": 1280, "height": 720, "codec": "h264"},
+                "checks": [{"name": "probe", "status": "passed", "evidence": "fixture"}],
+                "overall_pass": True,
+            },
+        )
+        validate_video_acceptance({"video.media": media, "video.validation": report})
+        media.write_text("changed", encoding="utf-8")
+        with self.assertRaisesRegex(AutoFlowError, "SHA-256"):
+            validate_video_acceptance({"video.media": media, "video.validation": report})
+
+    def test_package_acceptance_requires_manifest_checks_and_requirement_ids(self):
+        bundle = self.make_artifact("submit.zip", "archive")
+        manifest_path = self.root / "submit_manifest.json"
+        save_json(
+            manifest_path,
+            {
+                "$schema": "autoflow/package-manifest/1.0",
+                "output_zip": str(bundle.resolve()),
+                "output_folder": str((self.root / "submit").resolve()),
+                "files": [
+                    {
+                        "source": str(bundle),
+                        "archive_path": "report.docx",
+                        "size": 7,
+                        "sha256": "abc",
+                        "requirement_ids": ["R1"],
+                    }
+                ],
+                "checks": [{"name": "listing", "status": "passed", "evidence": "fixture"}],
+                "overall_pass": True,
+            },
+        )
+        validate_package_acceptance({"package.bundle": bundle, "package.manifest": manifest_path})
+        data = load_json(manifest_path)
+        data["files"][0]["requirement_ids"] = []
+        save_json(manifest_path, data)
+        with self.assertRaisesRegex(AutoFlowError, "requirement_ids"):
+            validate_package_acceptance({"package.bundle": bundle, "package.manifest": manifest_path})
 
     def test_visual_stop_blocks_word_until_user_approval(self):
         _, workflow, state, manifest, paths = self.init("lab-report")
@@ -243,13 +401,34 @@ class AutoFlowTestCase(unittest.TestCase):
                 "action": "assemble",
                 "needs": ["task"],
                 "inputs": ["task.result"],
-                "outputs": ["package.bundle"],
-                "validator": "artifacts_exist",
+                "outputs": ["package.bundle", "package.manifest"],
+                "validator": "package_acceptance",
             }
         )
         sync_planning_state(workflow, state)
         self.assertEqual(set(state["steps"]), {"task", "package"})
         paths["work_plan"].write_text(COMPLETE_PLAN, encoding="utf-8")
+        save_json(
+            paths["requirement_map"],
+            {
+                "$schema": "autoflow/requirement-map/1.0",
+                "workflow_id": workflow["workflow_id"],
+                "status": "planning",
+                "target_tier": "tests-complete",
+                "source_files": [str(self.request)],
+                "requirements": [
+                    {
+                        "id": "R1",
+                        "description": "Create the custom package output",
+                        "required": True,
+                        "acceptance": "Package exists",
+                        "evidence_artifacts": ["package.bundle", "package.manifest"],
+                        "validation": {"status": "pending", "evidence": ""},
+                    }
+                ],
+                "planned_figures": [],
+            },
+        )
         approve_gate(workflow, state, manifest, paths, "plan", "User approved the custom DAG")
         with self.assertRaises(AutoFlowError):
             sync_planning_state(workflow, state)
@@ -264,8 +443,8 @@ class AutoFlowTestCase(unittest.TestCase):
                 "action": "create",
                 "needs": [],
                 "inputs": ["request"],
-                "outputs": ["word.document"],
-                "validator": "artifacts_exist",
+                "outputs": ["word.document", "word.validation"],
+                "validator": "word_acceptance",
             },
             {
                 "id": "ppt",

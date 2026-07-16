@@ -27,6 +27,18 @@ class AutoFlowCliTests(unittest.TestCase):
             payload = json.loads(completed.stdout)
             self.assertEqual(payload["status"], "initialized")
 
+            unplanned = subprocess.run(
+                [sys.executable, str(CLI), "validate", "--workflow", str(run / "workflow.json")],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(unplanned.returncode, 1)
+            validation_payload = json.loads(unplanned.stdout)
+            self.assertEqual(validation_payload["status"], "invalid")
+            self.assertTrue(any("WORK_PLAN.md" in error for error in validation_payload["errors"]))
+            self.assertTrue(any("requirement_map.json" in error for error in validation_payload["errors"]))
+
             status = subprocess.run(
                 [sys.executable, str(CLI), "status", "--workflow", str(run / "workflow.json")],
                 text=True,

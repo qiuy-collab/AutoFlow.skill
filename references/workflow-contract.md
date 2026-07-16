@@ -5,6 +5,8 @@
 - `workflow.json` is the declarative DAG. It changes only when the user approves a revised plan.
 - `run_state.json` is mutable execution state for steps and STOP gates.
 - `artifact_manifest.json` records verified outputs and their hashes.
+- `requirement_map.json` maps requirements and scoring items to declared evidence.
+- `delivery_review.json` records final correctness for every requirement and artifact.
 - `WORK_PLAN.md` is the human-readable plan reviewed at `PLAN_STOP`.
 - `plans/` contains module-specific plans such as `source_candidates.json` and `package.json`.
 
@@ -38,6 +40,8 @@ Allowed modules and actions:
 - ppt: create, edit
 - video: analyze, record, create, process
 - package: assemble
+
+Word steps use `word_acceptance` with `word.document` and `word.validation`. Video steps use `video_acceptance` with `video.media` and `video.validation`. Package steps use `package_acceptance` with `package.bundle` and `package.manifest`. Other steps use `artifacts_exist` unless their module contract defines a stricter report validator.
 
 ## State transitions
 

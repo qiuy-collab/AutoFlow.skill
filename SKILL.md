@@ -25,6 +25,7 @@ Always read:
 
 1. `references/workflow-contract.md`
 2. `references/stop-gates.md`
+3. `references/acceptance-contracts.md`
 
 Then read only the modules selected for this run:
 
@@ -57,9 +58,9 @@ python scripts/autoflow.py init \
   --recipe <recipe-or-auto>
 ```
 
-5. Read the generated `workflow.json`, `run_state.json`, `artifact_manifest.json`, and `WORK_PLAN.md`.
+5. Read the generated `workflow.json`, `run_state.json`, `artifact_manifest.json`, `requirement_map.json`, `delivery_review.json`, and `WORK_PLAN.md`.
 6. If `auto` produced the neutral `custom` recipe, replace its steps with the actual DAG before asking for approval.
-7. Fill every `WORK_PLAN.md` section with the goal, workflow, outputs, scope, constraints, STOP points, and validation strategy.
+7. Fill every `WORK_PLAN.md` section. Map each requirement or rubric item to declared evidence in `requirement_map.json`; record planned figures and real information substitutions rather than leaving these decisions implicit.
 8. After editing workflow steps, synchronize the still-unstarted state and validate the configuration:
 
 ```bash
@@ -93,6 +94,8 @@ For each ready step:
 3. Perform the actual work.
 4. Validate every declared output.
 5. Complete it with exactly one artifact mapping for each declared output.
+
+Word steps must register both `word.document` and the matching `word.validation` report produced by `validate_word.py`. Follow the same report-first principle for video and package outputs described in `references/acceptance-contracts.md`.
 
 ```bash
 python scripts/autoflow.py transition \
@@ -148,6 +151,8 @@ A later PPT or image batch reopens the same gate because it has not been reviewe
 When all steps complete, AutoFlow activates DELIVERY_STOP. Before asking for approval:
 
 - Run `validate` and resolve every error.
+- Set `requirement_map.json.status` to `verified`, with every required item marked passed and backed by registered artifacts.
+- Complete `delivery_review.json` with one result per required requirement and one result per registered artifact.
 - Show final artifact paths and what requirement each satisfies.
 - Inspect Word/PPT/media visually where applicable.
 - List archive contents rather than assuming packaging succeeded.
@@ -183,5 +188,6 @@ python scripts/autoflow.py validate --workflow <workflow.json>
 - Every completed step has all declared artifacts.
 - Artifact paths exist and hashes validate.
 - Module-specific quality checks pass.
+- Every required requirement maps to present, correct evidence in `requirement_map.json` and `delivery_review.json`.
 - `autoflow.py validate` returns `valid`.
 - DELIVERY_STOP is explicitly approved.

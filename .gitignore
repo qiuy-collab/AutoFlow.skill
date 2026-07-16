@@ -15,3 +15,10 @@ conversations/
 test_output/
 vendor/*/**
 !vendor/**/.gitkeep
+!vendor/minimax-docx/
+!vendor/minimax-docx/**
+!vendor/nature-figure/
+!vendor/nature-figure/**
+vendor/minimax-docx/**/bin/
+vendor/minimax-docx/**/obj/
+vendor/minimax-docx/.setup.log

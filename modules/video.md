@@ -9,6 +9,8 @@ Use this module for video analysis, screen recording, creation, and processing.
 - `create`: assemble approved images, narration, audio, and transitions into a video.
 - `process`: trim, transcode, compress, merge, or extract evidence.
 
-Use `video_process.py` for analysis and screen recording. Use the available FFmpeg/video skills for more complex production. Record the exact command, input paths, output path, duration, dimensions, codec, and verification result.
+Write `plans/video.json` with requirement ids, action, real/simulated evidence policy, inputs, output, target duration/dimensions, sampling plan, and validation commands. Use `video_process.py` for analysis and screen recording. Use the available FFmpeg/video skills for more complex production. Record the exact command, input paths, output path, duration, dimensions, codec, and verification result.
 
-Do not fabricate a demonstration when the request requires real operation evidence. Inspect the final video with `ffprobe` or an equivalent backend and sample frames before registering it as an artifact.
+Do not fabricate a demonstration when the request requires real operation evidence. Run `video_process.py analyze` after production and retain its `autoflow/video-validation/1.0` report. Inspect sampled frames before registering the video; zero duration, unknown dimensions, unknown codec, or missing requested samples fail acceptance.
+
+Use `gate_after: visual` for recordings, demonstrations, and produced videos. Show sampled frames and the playable result at `VISUAL_STOP`; approval applies to the current media hash and must precede packaging.

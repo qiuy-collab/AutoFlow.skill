@@ -27,8 +27,8 @@
       "action": "fill",
       "needs": ["task", "image"],
       "inputs": ["request", "task.result", "image.assets"],
-      "outputs": ["word.document"],
-      "validator": "artifacts_exist"
+      "outputs": ["word.document", "word.validation"],
+      "validator": "word_acceptance"
     },
     {
       "id": "package",
@@ -36,8 +36,8 @@
       "action": "assemble",
       "needs": ["word"],
       "inputs": ["word.document"],
-      "outputs": ["package.bundle"],
-      "validator": "artifacts_exist"
+      "outputs": ["package.bundle", "package.manifest"],
+      "validator": "package_acceptance"
     }
   ]
 }

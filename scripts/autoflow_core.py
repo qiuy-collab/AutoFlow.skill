@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,10 +12,21 @@ from typing import Any
 
 SCHEMA_ID = "autoflow/1.0"
 SCHEMA_VERSION = "1.0"
+REQUIREMENT_MAP_SCHEMA = "autoflow/requirement-map/1.0"
+DELIVERY_REVIEW_SCHEMA = "autoflow/delivery-review/1.0"
+WORD_VALIDATION_SCHEMA = "autoflow/word-validation/1.0"
+VIDEO_VALIDATION_SCHEMA = "autoflow/video-validation/1.0"
+PACKAGE_MANIFEST_SCHEMA = "autoflow/package-manifest/1.0"
 STEP_STATUSES = {"pending", "ready", "running", "blocked", "completed", "failed", "skipped"}
 GATE_STATUSES = {"pending", "approved", "rejected", "not_applicable"}
 GATE_NAMES = ("plan", "source", "visual", "delivery")
-VALIDATORS = {"artifacts_exist", "source_plan"}
+VALIDATORS = {
+    "artifacts_exist",
+    "source_plan",
+    "word_acceptance",
+    "video_acceptance",
+    "package_acceptance",
+}
 MODULE_ACTIONS = {
     "task": {"research", "build", "compute", "execute"},
     "image": {"capture", "ai", "diagram", "chart"},
@@ -23,8 +35,16 @@ MODULE_ACTIONS = {
     "video": {"analyze", "record", "create", "process"},
     "package": {"assemble"},
 }
-VISUAL_MODULES = {"image", "ppt"}
-PLAN_REQUIRED_SECTIONS = ("## 目标", "## 工作流", "## 产物", "## 范围与约束")
+VISUAL_MODULES = {"image", "ppt", "video"}
+PLAN_REQUIRED_SECTIONS = (
+    "## 目标",
+    "## 需求与证据",
+    "## 工作流",
+    "## 产物",
+    "## 信息替换",
+    "## 范围与约束",
+    "## 验收策略",
+)
 
 
 class AutoFlowError(RuntimeError):
@@ -62,6 +82,8 @@ def workflow_paths(workflow_path: Path) -> dict[str, Path]:
         "state": root / "run_state.json",
         "manifest": root / "artifact_manifest.json",
         "work_plan": root / "WORK_PLAN.md",
+        "requirement_map": root / "requirement_map.json",
+        "delivery_review": root / "delivery_review.json",
         "plans": root / "plans",
         "source_plan": root / "plans" / "source_candidates.json",
     }
@@ -102,22 +124,29 @@ def detect_ppt_backend() -> dict[str, Any]:
 
 
 def detect_word_backend() -> dict[str, Any]:
-    candidates: list[tuple[str, Path]] = [
-        ("minimax-docx", Path(__file__).resolve().parent.parent / "vendor" / "minimax-docx" / "SKILL.md"),
-        ("minimax-docx", Path.home() / ".codex" / "skills" / "minimax-docx" / "SKILL.md"),
-        ("minimax-docx", Path.home() / ".agents" / "skills" / "minimax-docx" / "SKILL.md"),
-    ]
-    plugin_root = Path.home() / ".codex" / "plugins" / "cache" / "openai-primary-runtime" / "documents"
-    if plugin_root.exists():
-        candidates.extend(("documents", path) for path in plugin_root.glob("*/skills/documents/SKILL.md"))
-    for name, path in candidates:
-        if path.is_file():
-            return {"status": "available", "backend": name, "skill_file": str(path.resolve())}
+    root = Path(__file__).resolve().parent.parent
+    skill_file = root / "vendor" / "minimax-docx" / "SKILL.md"
+    project = root / "vendor" / "minimax-docx" / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "MiniMaxAIDocx.Cli.csproj"
+    engine_script = root / "scripts" / "word_engine.py"
+    dotnet = shutil.which("dotnet")
+    if skill_file.is_file() and project.is_file() and engine_script.is_file():
+        return {
+            "status": "available" if dotnet else "blocked",
+            "backend": "vendored-minimax-docx-core",
+            "skill_file": str(skill_file.resolve()),
+            "engine_script": str(engine_script.resolve()),
+            "project": str(project.resolve()),
+            "runtime": dotnet or "",
+            "external_skill_required": False,
+            **({} if dotnet else {"message": "The integrated Word core requires the .NET runtime/SDK."}),
+        }
     return {
         "status": "missing",
         "backend": "",
         "skill_file": "",
-        "message": "Install minimax-docx/documents before running a Word workflow.",
+        "engine_script": "",
+        "external_skill_required": False,
+        "message": "AutoFlow's vendored minimax-docx core is incomplete. Reinstall AutoFlow.",
     }
 
 
@@ -135,8 +164,9 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
         skill_file = Path(str(word.get("skill_file", "")))
         if word.get("status") != "available" or not skill_file.is_file():
             raise AutoFlowError(
-                "Word workflow requires an installed minimax-docx/documents Skill. "
-                "Install a supported backend before PLAN_STOP approval."
+                "Word workflow requires AutoFlow's integrated minimax-docx core and .NET runtime. "
+                "Repair the bundled backend or install dotnet before PLAN_STOP approval; "
+                "AutoFlow will not pretend an external Skill was invoked."
             )
 
 
@@ -222,6 +252,27 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
         "updated_at": utc_now(),
         "artifacts": [],
     }
+    requirement_map = {
+        "$schema": REQUIREMENT_MAP_SCHEMA,
+        "workflow_id": workflow_id,
+        "status": "planning",
+        "target_tier": "requirements-complete",
+        "source_files": [str(request_file)],
+        "requirements": [],
+        "planned_figures": [],
+        "updated_at": utc_now(),
+    }
+    delivery_review = {
+        "$schema": DELIVERY_REVIEW_SCHEMA,
+        "workflow_id": workflow_id,
+        "review_completed": False,
+        "requirement_results": [],
+        "artifact_results": [],
+        "issues_found": [],
+        "overall_pass": False,
+        "reviewer_notes": "",
+        "updated_at": utc_now(),
+    }
     work_plan = f"""# AutoFlow Work Plan — {output_dir.name}
 
 > Recipe: `{recipe['name']}`
@@ -231,6 +282,10 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
 
 待填写：说明用户最终要得到什么，以及成功标准。
 
+## 需求与证据
+
+待填写：逐项映射需求、评分项、验收条件、证据产物和计划图表，并同步到 `requirement_map.json`。
+
 ## 工作流
 
 待填写：说明采用的模块、执行顺序、STOP 和每步验证方式。
@@ -239,14 +294,24 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
 
 待填写：列出最终产物及其预期路径或类型。
 
+## 信息替换
+
+待填写：记录模板占位符、身份信息、主题、数据和其他待替换内容的真实值；没有替换项时明确写“无”。
+
 ## 范围与约束
 
 待填写：说明模板、技术栈、禁止项、外部依赖和不在范围内的事项。
+
+## 验收策略
+
+待填写：说明每类产物的结构检查、视觉检查、运行验证、打包检查和最终签收方法。
 """
 
     save_json(workflow_path, workflow)
     save_json(output_dir / "run_state.json", state)
     save_json(output_dir / "artifact_manifest.json", manifest)
+    save_json(output_dir / "requirement_map.json", requirement_map)
+    save_json(output_dir / "delivery_review.json", delivery_review)
     (output_dir / "WORK_PLAN.md").write_text(work_plan, encoding="utf-8")
     return workflow_path
 
@@ -307,12 +372,42 @@ def validate_workflow_definition(workflow: dict[str, Any]) -> None:
         validator = step.get("validator")
         if validator not in VALIDATORS:
             raise AutoFlowError(f"Step {step_id} has unsupported validator '{validator}'")
+        if module == "word":
+            if validator != "word_acceptance":
+                raise AutoFlowError(f"Word step {step_id} must use the word_acceptance validator")
+            required_word_outputs = {"word.document", "word.validation"}
+            if not required_word_outputs.issubset(outputs):
+                raise AutoFlowError(
+                    f"Word step {step_id} must declare outputs: {', '.join(sorted(required_word_outputs))}"
+                )
+        elif validator == "word_acceptance":
+            raise AutoFlowError(f"Only word steps may use the word_acceptance validator: {step_id}")
+        if module == "video":
+            if validator != "video_acceptance":
+                raise AutoFlowError(f"Video step {step_id} must use the video_acceptance validator")
+            required_video_outputs = {"video.media", "video.validation"}
+            if not required_video_outputs.issubset(outputs):
+                raise AutoFlowError(
+                    f"Video step {step_id} must declare outputs: {', '.join(sorted(required_video_outputs))}"
+                )
+        elif validator == "video_acceptance":
+            raise AutoFlowError(f"Only video steps may use the video_acceptance validator: {step_id}")
+        if module == "package":
+            if validator != "package_acceptance":
+                raise AutoFlowError(f"Package step {step_id} must use the package_acceptance validator")
+            required_package_outputs = {"package.bundle", "package.manifest"}
+            if not required_package_outputs.issubset(outputs):
+                raise AutoFlowError(
+                    f"Package step {step_id} must declare outputs: {', '.join(sorted(required_package_outputs))}"
+                )
+        elif validator == "package_acceptance":
+            raise AutoFlowError(f"Only package steps may use the package_acceptance validator: {step_id}")
         if gate_after == "source" and not (
             module == "task" and action == "research" and step.get("source_policy") == "github_first"
         ):
             raise AutoFlowError(f"Step {step_id} may use SOURCE_STOP only for task.research with github_first")
         if gate_after == "visual" and module not in VISUAL_MODULES:
-            raise AutoFlowError(f"Step {step_id} may use VISUAL_STOP only for image or ppt modules")
+            raise AutoFlowError(f"Step {step_id} may use VISUAL_STOP only for image, ppt, or video modules")
         ids.append(step_id)
 
     known = set(ids)
@@ -357,6 +452,162 @@ def validate_work_plan(path: Path) -> None:
         raise AutoFlowError("WORK_PLAN.md is still a template; complete it before PLAN_STOP approval")
 
 
+def _declared_artifact_ids(workflow: dict[str, Any]) -> set[str]:
+    return {
+        artifact_id
+        for step in workflow.get("steps", [])
+        for artifact_id in step.get("outputs", [])
+    }
+
+
+def validate_requirement_map(
+    path: Path,
+    workflow: dict[str, Any],
+    manifest: dict[str, Any] | None = None,
+    for_delivery: bool = False,
+) -> dict[str, Any]:
+    data = load_json(path)
+    if data.get("$schema") != REQUIREMENT_MAP_SCHEMA:
+        raise AutoFlowError(f"requirement_map.json must use {REQUIREMENT_MAP_SCHEMA}")
+    if data.get("workflow_id") != workflow.get("workflow_id"):
+        raise AutoFlowError("requirement_map.json workflow_id does not match workflow.json")
+    if data.get("status") not in {"planning", "verified"}:
+        raise AutoFlowError("requirement_map.json.status must be planning or verified")
+    if not str(data.get("target_tier", "")).strip():
+        raise AutoFlowError("requirement_map.json.target_tier must describe the intended completion tier")
+    source_files = data.get("source_files")
+    if not isinstance(source_files, list) or not any(str(item).strip() for item in source_files):
+        raise AutoFlowError("requirement_map.json must record at least one source requirement file")
+
+    requirements = data.get("requirements")
+    if not isinstance(requirements, list) or not requirements:
+        raise AutoFlowError("requirement_map.json must contain at least one requirement")
+    declared = _declared_artifact_ids(workflow) | {"request"}
+    seen: set[str] = set()
+    for index, requirement in enumerate(requirements, start=1):
+        if not isinstance(requirement, dict):
+            raise AutoFlowError(f"Requirement {index} must be an object")
+        requirement_id = str(requirement.get("id", "")).strip()
+        if not requirement_id or requirement_id in seen:
+            raise AutoFlowError(f"Requirement {index} has a missing or duplicate id: {requirement_id}")
+        seen.add(requirement_id)
+        if not str(requirement.get("description", "")).strip():
+            raise AutoFlowError(f"Requirement {requirement_id} is missing description")
+        acceptance = requirement.get("acceptance")
+        if isinstance(acceptance, str):
+            acceptance_ok = bool(acceptance.strip())
+        else:
+            acceptance_ok = isinstance(acceptance, list) and any(str(item).strip() for item in acceptance)
+        if not acceptance_ok:
+            raise AutoFlowError(f"Requirement {requirement_id} is missing acceptance criteria")
+        if not isinstance(requirement.get("required"), bool):
+            raise AutoFlowError(f"Requirement {requirement_id}.required must be true or false")
+        evidence = requirement.get("evidence_artifacts")
+        if not isinstance(evidence, list):
+            raise AutoFlowError(f"Requirement {requirement_id}.evidence_artifacts must be an array")
+        if requirement["required"] and not evidence:
+            raise AutoFlowError(f"Required requirement {requirement_id} must map to at least one evidence artifact")
+        unknown = sorted(set(evidence) - declared)
+        if unknown:
+            raise AutoFlowError(
+                f"Requirement {requirement_id} references undeclared evidence artifacts: {', '.join(unknown)}"
+            )
+        validation = requirement.get("validation") or {}
+        if validation.get("status") not in {"pending", "passed", "failed", "not_applicable"}:
+            raise AutoFlowError(
+                f"Requirement {requirement_id}.validation.status must be pending, passed, failed, or not_applicable"
+            )
+        if for_delivery and requirement["required"] and validation.get("status") != "passed":
+            raise AutoFlowError(f"Required requirement {requirement_id} is not marked passed")
+
+    figures = data.get("planned_figures", [])
+    if not isinstance(figures, list):
+        raise AutoFlowError("requirement_map.json.planned_figures must be an array")
+    figure_ids: set[str] = set()
+    for index, figure in enumerate(figures, start=1):
+        if not isinstance(figure, dict):
+            raise AutoFlowError(f"Planned figure {index} must be an object")
+        figure_id = str(figure.get("id", "")).strip()
+        if not figure_id or figure_id in figure_ids:
+            raise AutoFlowError(f"Planned figure {index} has a missing or duplicate id: {figure_id}")
+        figure_ids.add(figure_id)
+        if figure.get("route") not in {"capture", "ai", "diagram", "chart"}:
+            raise AutoFlowError(f"Planned figure {figure_id} has an invalid image route")
+        mapped = figure.get("requirement_ids")
+        if not isinstance(mapped, list) or not mapped or not set(mapped).issubset(seen):
+            raise AutoFlowError(f"Planned figure {figure_id} must map to known requirement_ids")
+
+    if for_delivery:
+        if data.get("status") != "verified":
+            raise AutoFlowError("requirement_map.json.status must be verified before DELIVERY_STOP approval")
+        manifest_ids = set(_manifest_map(manifest or {}))
+        for requirement in requirements:
+            if not requirement["required"]:
+                continue
+            missing = sorted(set(requirement["evidence_artifacts"]) - {"request"} - manifest_ids)
+            if missing:
+                raise AutoFlowError(
+                    f"Requirement {requirement['id']} is missing registered evidence: {', '.join(missing)}"
+                )
+    return data
+
+
+def validate_delivery_review(
+    path: Path,
+    workflow: dict[str, Any],
+    manifest: dict[str, Any],
+    requirement_map: dict[str, Any],
+) -> dict[str, Any]:
+    data = load_json(path)
+    if data.get("$schema") != DELIVERY_REVIEW_SCHEMA:
+        raise AutoFlowError(f"delivery_review.json must use {DELIVERY_REVIEW_SCHEMA}")
+    if data.get("workflow_id") != workflow.get("workflow_id"):
+        raise AutoFlowError("delivery_review.json workflow_id does not match workflow.json")
+    if data.get("review_completed") is not True or data.get("overall_pass") is not True:
+        raise AutoFlowError("delivery_review.json must be completed with overall_pass=true")
+    issues = data.get("issues_found")
+    if not isinstance(issues, list) or issues:
+        raise AutoFlowError("delivery_review.json.issues_found must be an empty array before approval")
+
+    required_ids = {
+        item["id"] for item in requirement_map["requirements"] if item.get("required") is True
+    }
+    results = data.get("requirement_results")
+    if not isinstance(results, list):
+        raise AutoFlowError("delivery_review.json.requirement_results must be an array")
+    by_requirement = {str(item.get("id", "")): item for item in results if isinstance(item, dict)}
+    if set(by_requirement) != required_ids:
+        missing = sorted(required_ids - set(by_requirement))
+        extra = sorted(set(by_requirement) - required_ids)
+        raise AutoFlowError(
+            "delivery_review.json requirement ids do not match required requirements: "
+            f"missing={','.join(missing) or '-'}; extra={','.join(extra) or '-'}"
+        )
+    manifest_ids = set(_manifest_map(manifest))
+    for requirement_id, result in by_requirement.items():
+        if result.get("present") is not True or result.get("correct") is not True:
+            raise AutoFlowError(f"Delivery review requirement {requirement_id} is not present and correct")
+        evidence = result.get("evidence_artifacts")
+        if not isinstance(evidence, list) or not evidence:
+            raise AutoFlowError(f"Delivery review requirement {requirement_id} has no evidence artifacts")
+        unknown = sorted(set(evidence) - {"request"} - manifest_ids)
+        if unknown:
+            raise AutoFlowError(
+                f"Delivery review requirement {requirement_id} references missing artifacts: {', '.join(unknown)}"
+            )
+
+    artifact_results = data.get("artifact_results")
+    if not isinstance(artifact_results, list):
+        raise AutoFlowError("delivery_review.json.artifact_results must be an array")
+    reviewed_artifacts = {str(item.get("id", "")) for item in artifact_results if isinstance(item, dict)}
+    if reviewed_artifacts != manifest_ids:
+        raise AutoFlowError("delivery_review.json must review every registered artifact exactly once")
+    for item in artifact_results:
+        if item.get("present") is not True or item.get("correct") is not True:
+            raise AutoFlowError(f"Delivery artifact {item.get('id')} is not present and correct")
+    return data
+
+
 def _hash_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -396,6 +647,91 @@ def _artifact_type(path: Path) -> str:
         ".json": "data",
         ".csv": "data",
     }.get(suffix, "file")
+
+
+def validate_word_acceptance(artifacts: dict[str, Path]) -> None:
+    document = artifacts.get("word.document")
+    report_path = artifacts.get("word.validation")
+    if not document or not document.is_file() or document.suffix.lower() != ".docx":
+        raise AutoFlowError("word_acceptance requires word.document as an existing .docx file")
+    if not report_path or not report_path.is_file():
+        raise AutoFlowError("word_acceptance requires word.validation as an existing JSON report")
+    report = load_json(report_path)
+    if report.get("$schema") != WORD_VALIDATION_SCHEMA:
+        raise AutoFlowError(f"word.validation must use {WORD_VALIDATION_SCHEMA}")
+    if report.get("overall_pass") is not True:
+        raise AutoFlowError("word.validation.overall_pass must be true")
+    recorded = report.get("document") or {}
+    recorded_path = Path(str(recorded.get("path", ""))).expanduser().resolve()
+    if recorded_path != document.resolve():
+        raise AutoFlowError("word.validation document path does not match word.document")
+    actual_hash = hash_path(document)
+    if recorded.get("sha256") != actual_hash:
+        raise AutoFlowError("word.validation document SHA-256 does not match word.document")
+    checks = report.get("checks")
+    if not isinstance(checks, list) or not checks:
+        raise AutoFlowError("word.validation must contain non-empty checks")
+    failed = [
+        str(item.get("name", "unnamed"))
+        for item in checks
+        if not isinstance(item, dict) or item.get("status") != "passed"
+    ]
+    if failed:
+        raise AutoFlowError("word.validation has failed or incomplete checks: " + ", ".join(failed))
+
+
+def validate_video_acceptance(artifacts: dict[str, Path]) -> None:
+    media = artifacts.get("video.media")
+    report_path = artifacts.get("video.validation")
+    if not media or not media.is_file():
+        raise AutoFlowError("video_acceptance requires video.media as an existing file")
+    if not report_path or not report_path.is_file():
+        raise AutoFlowError("video_acceptance requires video.validation as an existing JSON report")
+    report = load_json(report_path)
+    if report.get("$schema") != VIDEO_VALIDATION_SCHEMA or report.get("overall_pass") is not True:
+        raise AutoFlowError(f"video.validation must use {VIDEO_VALIDATION_SCHEMA} with overall_pass=true")
+    if Path(str(report.get("file", ""))).expanduser().resolve() != media.resolve():
+        raise AutoFlowError("video.validation file path does not match video.media")
+    if report.get("sha256") != hash_path(media):
+        raise AutoFlowError("video.validation SHA-256 does not match video.media")
+    metadata = report.get("metadata") or {}
+    if not (
+        isinstance(metadata.get("duration_seconds"), (int, float))
+        and metadata["duration_seconds"] > 0
+        and isinstance(metadata.get("width"), int)
+        and metadata["width"] > 0
+        and isinstance(metadata.get("height"), int)
+        and metadata["height"] > 0
+        and str(metadata.get("codec", "")).strip()
+    ):
+        raise AutoFlowError("video.validation metadata must record positive duration/dimensions and a codec")
+
+
+def validate_package_acceptance(artifacts: dict[str, Path]) -> None:
+    bundle = artifacts.get("package.bundle")
+    manifest_path = artifacts.get("package.manifest")
+    if not bundle or not bundle.exists():
+        raise AutoFlowError("package_acceptance requires package.bundle as an existing folder or archive")
+    if not manifest_path or not manifest_path.is_file():
+        raise AutoFlowError("package_acceptance requires package.manifest as an existing JSON report")
+    report = load_json(manifest_path)
+    if report.get("$schema") != PACKAGE_MANIFEST_SCHEMA or report.get("overall_pass") is not True:
+        raise AutoFlowError(f"package.manifest must use {PACKAGE_MANIFEST_SCHEMA} with overall_pass=true")
+    output_zip = Path(str(report.get("output_zip", ""))).expanduser().resolve()
+    output_folder = Path(str(report.get("output_folder", ""))).expanduser().resolve()
+    if bundle.resolve() not in {output_zip, output_folder}:
+        raise AutoFlowError("package.manifest output paths do not include package.bundle")
+    files = report.get("files")
+    if not isinstance(files, list) or not files:
+        raise AutoFlowError("package.manifest must contain at least one packaged file")
+    if any(
+        not isinstance(item, dict) or not item.get("requirement_ids") or not item.get("sha256")
+        for item in files
+    ):
+        raise AutoFlowError("Every package.manifest file must record requirement_ids and SHA-256")
+    checks = report.get("checks")
+    if not isinstance(checks, list) or not checks or any(item.get("status") != "passed" for item in checks):
+        raise AutoFlowError("package.manifest checks must all pass")
 
 
 def parse_artifact_specs(specs: list[str]) -> dict[str, Path]:
@@ -686,6 +1022,12 @@ def transition_step(
     if target == "completed":
         if step.get("module") == "task" and step.get("action") == "build":
             validate_build_completion(artifacts, paths["source_plan"])
+        if step.get("validator") == "word_acceptance":
+            validate_word_acceptance(artifacts)
+        if step.get("validator") == "video_acceptance":
+            validate_video_acceptance(artifacts)
+        if step.get("validator") == "package_acceptance":
+            validate_package_acceptance(artifacts)
         register_step_artifacts(workflow, manifest, step, artifacts)
     elif artifacts:
         raise AutoFlowError("--artifact may only be used when completing a step")
@@ -760,6 +1102,7 @@ def approve_gate(
         validate_work_plan(paths["work_plan"])
         validate_workflow_definition(workflow)
         validate_capabilities(workflow)
+        validate_requirement_map(paths["requirement_map"], workflow)
     elif gate_name == "source":
         validate_source_plan(paths["source_plan"], for_approval=True)
         _refresh_manifest_artifact(manifest, "source.plan")
@@ -782,6 +1125,10 @@ def approve_gate(
         artifact_errors = _validate_artifacts(manifest)
         if artifact_errors:
             raise AutoFlowError("Delivery artifact validation failed: " + "; ".join(artifact_errors))
+        requirement_map = validate_requirement_map(
+            paths["requirement_map"], workflow, manifest=manifest, for_delivery=True
+        )
+        validate_delivery_review(paths["delivery_review"], workflow, manifest, requirement_map)
 
     _set_gate(state, gate_name, "approved", note.strip(), False)
     if gate_name == "delivery":
@@ -858,11 +1205,14 @@ def validate_run(workflow: dict[str, Any], state: dict[str, Any], manifest: dict
             missing = set(by_id[step_id].get("outputs", [])) - manifest_ids
             if missing:
                 errors.append(f"Completed step {step_id} is missing artifacts: {', '.join(sorted(missing))}")
-    if state.get("gates", {}).get("plan", {}).get("status") == "approved":
-        try:
-            validate_work_plan(paths["work_plan"])
-        except AutoFlowError as exc:
-            errors.append(str(exc))
+    try:
+        validate_work_plan(paths["work_plan"])
+    except AutoFlowError as exc:
+        errors.append(str(exc))
+    try:
+        validate_requirement_map(paths["requirement_map"], workflow)
+    except AutoFlowError as exc:
+        errors.append(str(exc))
     source_gate = state.get("gates", {}).get("source", {})
     if source_gate.get("status") == "approved":
         try:
@@ -871,6 +1221,14 @@ def validate_run(workflow: dict[str, Any], state: dict[str, Any], manifest: dict
             errors.append(str(exc))
     if state.get("status") == "completed" and state.get("gates", {}).get("delivery", {}).get("status") != "approved":
         errors.append("A completed run must have an approved DELIVERY_STOP")
+    if state.get("gates", {}).get("delivery", {}).get("status") == "approved":
+        try:
+            requirement_map = validate_requirement_map(
+                paths["requirement_map"], workflow, manifest=manifest, for_delivery=True
+            )
+            validate_delivery_review(paths["delivery_review"], workflow, manifest, requirement_map)
+        except AutoFlowError as exc:
+            errors.append(str(exc))
     return errors
 
 
