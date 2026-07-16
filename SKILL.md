@@ -74,6 +74,11 @@ browser, observability, migration, CI/CD, or debugging guidance by step type.
 Read the returned local paths; do not substitute a user-level or uninstalled
 upstream plugin.
 
+For independent build slices, set explicit step flags such as
+`parallelizable`, `subagent_mode`, `git_worktree`, or `review_feedback`; the
+route will add the corresponding local Superpowers collaboration guidance.
+These flags never override DAG dependencies or STOP gates.
+
 Frontend project steps may additionally resolve the integrated `impeccable`
 design language and offline detector. Use the returned local adapter; never
 fall back to `npx impeccable`, a remote URL scan, or an uninstalled plugin.

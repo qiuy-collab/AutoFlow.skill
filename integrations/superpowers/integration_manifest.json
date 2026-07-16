@@ -16,6 +16,11 @@
     "verification-before-completion",
     "requesting-code-review",
     "executing-plans",
-    "finishing-a-development-branch"
+    "finishing-a-development-branch",
+    "dispatching-parallel-agents",
+    "subagent-driven-development",
+    "using-git-worktrees",
+    "receiving-code-review",
+    "using-superpowers"
   ]
 }

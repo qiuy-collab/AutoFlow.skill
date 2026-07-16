@@ -19,7 +19,8 @@ license, local Skill/reference files, and adapter paths.
   reconnaissance, server lifecycle, browser logs, and screenshot evidence.
 - `superpowers/`: MIT-licensed, file-only engineering methodology subset for
   brainstorming, planning, TDD, debugging, review, verification, execution,
-  and delivery handoff. Its plugin bootstrap and telemetry are not copied.
+  delivery handoff, parallel agents, subagent execution, worktree isolation,
+  and review reception. Its plugin bootstrap and telemetry are not copied.
 - `impeccable/`: Apache-2.0 frontend design language, command references, and
   local anti-pattern detector. AutoFlow disables its update check and exposes
   only the local adapter.

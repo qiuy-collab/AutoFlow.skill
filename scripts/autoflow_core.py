@@ -46,6 +46,11 @@ SUPERPOWERS_SKILL_NAMES = (
     "requesting-code-review",
     "executing-plans",
     "finishing-a-development-branch",
+    "dispatching-parallel-agents",
+    "subagent-driven-development",
+    "using-git-worktrees",
+    "receiving-code-review",
+    "using-superpowers",
 )
 ENGINEERING_QUALITY_SKILL_NAMES = (
     "code-review-and-quality",
@@ -1862,13 +1867,21 @@ def route_for_workflow(
     superpowers = (workflow.get("capabilities") or {}).get("superpowers") or detect_superpowers_backend()
     agent_skills = (workflow.get("capabilities") or {}).get("agent_skills") or detect_agent_skills_backend()
     engineering_quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
-    base_names = ["brainstorming", "writing-plans", "verification-before-completion"]
+    base_names = ["using-superpowers", "brainstorming", "writing-plans", "verification-before-completion"]
     routed_steps: list[dict[str, Any]] = []
     for step in selected:
         status = (state.get("steps", {}).get(step["id"]) or {}).get("status", "pending")
         names = list(base_names)
         if step.get("module") == "task" and step.get("action") in {"build", "execute"}:
             names.extend(["test-driven-development", "requesting-code-review"])
+            if step.get("parallelizable") or step.get("independent_tasks"):
+                names.append("dispatching-parallel-agents")
+            if step.get("subagent_mode") or step.get("independent_tasks"):
+                names.append("subagent-driven-development")
+            if step.get("git_worktree"):
+                names.append("using-git-worktrees")
+        if step.get("review_feedback"):
+            names.append("receiving-code-review")
         if step.get("design_backend") == "integrated-impeccable":
             names.append("impeccable")
         if status in {"blocked", "failed"}:

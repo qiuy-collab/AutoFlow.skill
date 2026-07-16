@@ -56,6 +56,12 @@ guidance. A step may provide an explicit `agent_skills` array, but every name
 must exist in the integrated manifest; AutoFlow never falls back to a remote or
 uninstalled copy.
 
+Superpowers collaboration routes are opt-in step fields: `parallelizable` or
+`independent_tasks` adds parallel/subagent guidance, `git_worktree` adds
+worktree isolation guidance, and `review_feedback` adds review-reception
+guidance. The flags are recorded in `workflow.json` and resolved to local
+files by `autoflow.py route`.
+
 When `init --recipe auto` is used, `workflow.json.recipe_selection` records the
 selected recipe, matched request signals, selection mode, and reason. This is a
 transparent starting recommendation; it does not approve the plan or bypass

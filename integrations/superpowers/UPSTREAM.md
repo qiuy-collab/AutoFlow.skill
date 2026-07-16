@@ -11,7 +11,9 @@ AutoFlow integrates a curated, file-only subset of `obra/superpowers`.
 Included sub-skills are `brainstorming`, `writing-plans`,
 `test-driven-development`, `systematic-debugging`,
 `verification-before-completion`, `requesting-code-review`,
-`executing-plans`, and `finishing-a-development-branch`.
+`executing-plans`, `finishing-a-development-branch`,
+`dispatching-parallel-agents`, `subagent-driven-development`,
+`using-git-worktrees`, `receiving-code-review`, and `using-superpowers`.
 
 AutoFlow intentionally does not copy the upstream plugin bootstrap, hooks,
 telemetry, package metadata, or agent-specific installation files. The

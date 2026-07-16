@@ -539,9 +539,44 @@ class AutoFlowTestCase(unittest.TestCase):
             "requesting-code-review",
             "executing-plans",
             "finishing-a-development-branch",
+            "dispatching-parallel-agents",
+            "subagent-driven-development",
+            "using-git-worktrees",
+            "receiving-code-review",
+            "using-superpowers",
         })
         for path in backend["skill_files"].values():
             self.assertTrue(Path(path).is_file())
+
+    def test_superpowers_collaboration_routes_are_explicit_and_local(self):
+        workflow_path = initialize_run(self.request, self.root / "parallel-route", "custom")
+        workflow, state, _, _ = load_run(workflow_path)
+        workflow["steps"] = [
+            {
+                "id": "build",
+                "module": "task",
+                "action": "build",
+                "needs": [],
+                "inputs": ["request"],
+                "outputs": ["task.result"],
+                "validator": "artifacts_exist",
+                "parallelizable": True,
+                "subagent_mode": True,
+                "git_worktree": True,
+                "review_feedback": True,
+            }
+        ]
+        sync_planning_state(workflow, state)
+        route = route_for_workflow(workflow, state, "build")
+        for name in (
+            "dispatching-parallel-agents",
+            "subagent-driven-development",
+            "using-git-worktrees",
+            "receiving-code-review",
+            "using-superpowers",
+        ):
+            self.assertIn(name, route["skill_names"])
+        self.assertTrue(all(Path(path).is_file() for path in route["skill_files"]))
 
     def test_engineering_quality_subset_is_local_and_step_routed(self):
         backend = detect_engineering_quality_backend()

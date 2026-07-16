@@ -31,6 +31,14 @@ library decisions in authoritative documentation. For multi-file builds and
 executions, follow incremental implementation and leave each slice runnable
 before starting the next one.
 
+For independent implementation work, the step may declare
+`parallelizable: true` or `independent_tasks: true` to route the local
+`dispatching-parallel-agents` and `subagent-driven-development` Skills. Use
+`git_worktree: true` when the step needs an isolated branch/worktree, and
+`review_feedback: true` when the step is responding to review comments. These
+flags are routing declarations, not permission to skip DAG dependencies or
+verification.
+
 The route also resolves the local `agent-skills` overlay. Research steps add
 interview, idea refinement, planning, and doubt-driven review; build steps add
 context engineering, interface design, planning, and commit discipline; UI
