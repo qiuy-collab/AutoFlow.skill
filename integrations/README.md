@@ -11,7 +11,10 @@ and audited from external Skills or projects. It is not a runtime cache.
 - `nature-figure/`: Apache-2.0 provenance and adaptation notes for the
   scientific-figure validator and backend. Image generation itself stays in
   AutoFlow's `scripts/` and uses the configured `.env` upstream.
+- `webapp-testing/`: Apache-2.0 Playwright skill for local webapp
+  reconnaissance, server lifecycle, browser logs, and screenshot evidence.
 
-Optional capabilities such as `pptx`, `baseline-ui`, `frontend-design`, and
-`webapp-testing` are resolved from user-level Skills or plugins. AutoFlow does
-not copy their proprietary files into this repository.
+Optional capabilities such as `pptx`, `baseline-ui`, and `frontend-design` are
+resolved from user-level Skills or plugins. AutoFlow does not copy their
+proprietary files into this repository. The integrated `webapp-testing` route
+is self-contained and is not resolved from an external Skill at runtime.

@@ -11,6 +11,18 @@ CLI = ROOT / "scripts" / "autoflow.py"
 
 
 class AutoFlowCliTests(unittest.TestCase):
+    def test_capabilities_reports_integrated_backends(self):
+        completed = subprocess.run(
+            [sys.executable, str(CLI), "capabilities", "--json"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["$schema"], "autoflow/capabilities/1.0")
+        self.assertEqual(payload["capabilities"]["webapp_testing"]["backend"], "integrated-webapp-testing")
+
     def test_init_status_and_legacy_error(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

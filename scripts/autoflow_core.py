@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -153,6 +154,49 @@ def detect_word_backend() -> dict[str, Any]:
     }
 
 
+def detect_webapp_testing_backend() -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    integration = root / "integrations" / "webapp-testing"
+    skill_file = integration / "SKILL.md"
+    helper = integration / "scripts" / "with_server.py"
+    playwright_available = importlib.util.find_spec("playwright") is not None
+    if skill_file.is_file() and helper.is_file():
+        return {
+            "status": "available" if playwright_available else "blocked",
+            "backend": "integrated-webapp-testing",
+            "integration_root": str(integration.resolve()),
+            "skill_file": str(skill_file.resolve()),
+            "helper_script": str(helper.resolve()),
+            "playwright_available": playwright_available,
+            **(
+                {}
+                if playwright_available
+                else {"message": "The integrated webapp-testing route requires the Playwright Python package."}
+            ),
+        }
+    return {
+        "status": "missing",
+        "backend": "",
+        "integration_root": str(integration.resolve()),
+        "skill_file": "",
+        "helper_script": "",
+        "playwright_available": playwright_available,
+        "message": "AutoFlow's integrated webapp-testing capability is incomplete. Repair integrations/webapp-testing.",
+    }
+
+
+def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in steps) else {}),
+        **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in steps) else {}),
+        **(
+            {"webapp_testing": detect_webapp_testing_backend()}
+            if any(step.get("capture_backend") == "integrated-webapp-testing" for step in steps)
+            else {}
+        ),
+    }
+
+
 def validate_capabilities(workflow: dict[str, Any]) -> None:
     if any(step.get("module") == "ppt" for step in workflow.get("steps", [])):
         ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
@@ -170,6 +214,15 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
                 "Word workflow requires AutoFlow's integrated minimax-docx core and .NET runtime. "
                 "Repair the bundled backend or install dotnet before PLAN_STOP approval; "
                 "AutoFlow will not pretend an external Skill was invoked."
+            )
+    if any(step.get("capture_backend") == "integrated-webapp-testing" for step in workflow.get("steps", [])):
+        capture = (workflow.get("capabilities") or {}).get("webapp_testing") or detect_webapp_testing_backend()
+        skill_file = Path(str(capture.get("skill_file", "")))
+        helper = Path(str(capture.get("helper_script", "")))
+        if capture.get("status") != "available" or not skill_file.is_file() or not helper.is_file():
+            raise AutoFlowError(
+                "Frontend capture workflow requires AutoFlow's integrated webapp-testing capability and Playwright. "
+                "Repair integrations/webapp-testing or install Playwright before PLAN_STOP approval."
             )
 
 
@@ -221,10 +274,7 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
         "recipe_description": recipe.get("description", ""),
         "created_at": utc_now(),
         "steps": recipe["steps"],
-        "capabilities": {
-            **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in recipe["steps"]) else {}),
-            **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in recipe["steps"]) else {}),
-        },
+        "capabilities": workflow_capabilities(recipe["steps"]),
     }
     validate_workflow_definition(workflow)
 
@@ -764,10 +814,7 @@ def sync_planning_state(workflow: dict[str, Any], state: dict[str, Any]) -> None
     for item in state.get("steps", {}).values():
         if item.get("attempts", 0) or item.get("status") not in {"pending", "ready"}:
             raise AutoFlowError("Cannot synchronize a workflow after step execution has started")
-    workflow["capabilities"] = {
-        **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in workflow["steps"]) else {}),
-        **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in workflow["steps"]) else {}),
-    }
+    workflow["capabilities"] = workflow_capabilities(workflow["steps"])
     state["steps"] = {
         step["id"]: {
             "status": "pending",

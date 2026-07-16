@@ -27,6 +27,7 @@
       "id": "image",
       "module": "image",
       "action": "capture",
+      "capture_backend": "integrated-webapp-testing",
       "needs": ["build"],
       "inputs": ["project.source", "task.result"],
       "outputs": ["image.assets"],

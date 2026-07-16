@@ -6,6 +6,9 @@ from pathlib import Path
 from autoflow_core import (
     AutoFlowError,
     approve_gate,
+    detect_ppt_backend,
+    detect_webapp_testing_backend,
+    detect_word_backend,
     initialize_run,
     load_run,
     parse_artifact_specs,
@@ -32,6 +35,9 @@ def parse_args():
     for name in ("validate", "status", "next", "sync"):
         sub = subparsers.add_parser(name)
         sub.add_argument("--workflow", required=True)
+
+    capabilities = subparsers.add_parser("capabilities", help="Inspect integrated and optional module backends")
+    capabilities.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
 
     transition = subparsers.add_parser("transition", help="Advance one workflow step")
     transition.add_argument("--workflow", required=True)
@@ -63,6 +69,22 @@ def main() -> int:
         if args.command == "init":
             path = initialize_run(Path(args.request_file), Path(args.output_dir), args.recipe)
             emit({"status": "initialized", "workflow": str(path)})
+            return 0
+        if args.command == "capabilities":
+            payload = {
+                "$schema": "autoflow/capabilities/1.0",
+                "capabilities": {
+                    "word": detect_word_backend(),
+                    "webapp_testing": detect_webapp_testing_backend(),
+                    "ppt": detect_ppt_backend(),
+                },
+            }
+            if args.json:
+                emit(payload)
+            else:
+                for name, capability in payload["capabilities"].items():
+                    backend = capability.get("backend") or "not configured"
+                    print(f"{name}: {capability.get('status', 'unknown')} ({backend})")
             return 0
 
         workflow, state, manifest, paths = load_run(Path(args.workflow))

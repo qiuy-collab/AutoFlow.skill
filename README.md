@@ -108,7 +108,7 @@ python scripts/env_setup.py --route video
 python scripts/env_setup.py --route ai
 ```
 
-AI 图片需要 `.env` 中的 `BASEURL` 和 `APIKEY`。Word 模块使用仓库内 `integrations/minimax-docx` 的集成内核，PPT 模块检测用户级或插件提供的 `pptx`/`presentations` Skill；AutoFlow 不复制 PPT 专有实现。
+AI 图片需要 `.env` 中的 `BASEURL` 和 `APIKEY`。Word 模块使用仓库内 `integrations/minimax-docx` 的集成内核，浏览器证据使用仓库内 `integrations/webapp-testing`，PPT 模块检测用户级或插件提供的 `pptx`/`presentations` Skill；AutoFlow 不复制 PPT 专有实现。
 
 Word 生成完成后必须运行内置验证器：
 
@@ -144,7 +144,8 @@ AutoFlow.skill/
 ├── docs/                     # 规则和 GitHub Pages
 └── integrations/             # 已审计、可复现的集成内核与外部 Skill 来源记录
     ├── minimax-docx/         # 集成的 DOCX/OpenXML 内核、规则和 XSD
-    └── nature-figure/        # nature-figure 来源、许可证和适配说明
+    ├── nature-figure/        # nature-figure 来源、许可证和适配说明
+    └── webapp-testing/       # 集成的 Playwright 网页测试与浏览器证据 Skill
 ```
 
 ## 当前效果示例

@@ -12,7 +12,11 @@ Use this module for visual artifacts. Computation belongs to `task.compute`; thi
 Read only the route-specific guidance needed:
 
 - AI assets: `docs/prompts/image_prompt_rules.md`, then use `generate_images.py` and `validate_prompt.py`.
-- Browser evidence: use `capture_frontend_screenshots.py`; verify the app is real and locally reachable first.
+- Browser evidence: route through AutoFlow's integrated `webapp-testing`
+  capability at `integrations/webapp-testing`. Read its `SKILL.md`, run
+  `scripts/with_server.py --help` before using the helper, and use
+  `capture_frontend_screenshots.py` for the declared capture plan. Verify the
+  app is real and locally reachable first.
 - Diagrams: `docs/prompts/diagram_asset_rules.md`, then use `generate_diagram_assets.py`.
 - Scientific schematics: use `generate_scientific_schematic.py` and validate with `validate_scientific_figure.py`.
 - Quality review: `docs/prompts/visual_review_rules.md` and `check_images.py`.

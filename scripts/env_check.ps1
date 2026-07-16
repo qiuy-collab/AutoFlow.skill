@@ -49,14 +49,21 @@ Write-Host "=== AutoFlow Environment Check ==="
 Write-Host "Root: $Root"
 Write-Host ""
 
-# Check optional Skill capabilities in the local cache or user-level directories.
+# Check integrated capabilities first; optional Skills are resolved separately.
 $IntegratedWordSkill = Join-Path $Root "integrations\minimax-docx\SKILL.md"
 if (Test-Path $IntegratedWordSkill) {
     Ok "integrated capability found: minimax-docx ($IntegratedWordSkill)"
 } else {
     Fail "integrated capability missing: minimax-docx ($IntegratedWordSkill)"
 }
-$SkillNames = @("pptx", "baseline-ui", "frontend-design", "webapp-testing")
+$IntegratedWebAppSkill = Join-Path $Root "integrations\webapp-testing\SKILL.md"
+$IntegratedWebAppHelper = Join-Path $Root "integrations\webapp-testing\scripts\with_server.py"
+if ((Test-Path $IntegratedWebAppSkill) -and (Test-Path $IntegratedWebAppHelper)) {
+    Ok "integrated capability found: webapp-testing ($IntegratedWebAppSkill)"
+} else {
+    Fail "integrated capability incomplete: webapp-testing ($IntegratedWebAppSkill)"
+}
+$SkillNames = @("pptx", "baseline-ui", "frontend-design")
 foreach ($skillName in $SkillNames) {
     $candidates = @(
         (Join-Path $HOME ".codex\skills\$skillName\SKILL.md"),

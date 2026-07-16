@@ -192,10 +192,11 @@ def check_dsl_tools(dry_run: bool = False) -> dict:
     return result
 
 
-# ── phase 3: optional external Skill capabilities ────────────────────────────
-SKILL_NAMES = ["pptx", "baseline-ui", "frontend-design", "webapp-testing"]
+# ── phase 3: integrated and optional Skill capabilities ──────────────────────
+SKILL_NAMES = ["pptx", "baseline-ui", "frontend-design"]
 INTEGRATED_PATHS = {
     "minimax-docx": SKILL_ROOT / "integrations" / "minimax-docx" / "SKILL.md",
+    "webapp-testing": SKILL_ROOT / "integrations" / "webapp-testing" / "SKILL.md",
 }
 
 

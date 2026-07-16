@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -12,6 +13,7 @@ from autoflow_core import (  # noqa: E402
     AutoFlowError,
     approve_gate,
     detect_ppt_backend,
+    detect_webapp_testing_backend,
     detect_word_backend,
     hash_path,
     initialize_run,
@@ -27,6 +29,7 @@ from autoflow_core import (  # noqa: E402
     validate_package_acceptance,
     validate_video_acceptance,
     validate_workflow_definition,
+    workflow_capabilities,
 )
 
 
@@ -65,7 +68,14 @@ class AutoFlowTestCase(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def init(self, recipe):
+    @patch("autoflow_core.detect_webapp_testing_backend")
+    def init(self, recipe, mocked_webapp_backend):
+        backend = detect_webapp_testing_backend()
+        mocked_webapp_backend.return_value = {
+            **backend,
+            "status": "available",
+            "playwright_available": True,
+        }
         workflow_path = initialize_run(self.request, self.root / "run", recipe)
         workflow, state, manifest, paths = load_run(workflow_path)
         paths["work_plan"].write_text(COMPLETE_PLAN, encoding="utf-8")
@@ -494,6 +504,17 @@ class AutoFlowTestCase(unittest.TestCase):
         workflow_path = initialize_run(self.request, self.root / "word", "document")
         workflow = load_json(workflow_path)
         self.assertEqual(workflow["capabilities"]["word"]["status"], "available")
+
+    def test_webapp_testing_is_integrated_and_routed_by_capture_steps(self):
+        backend = detect_webapp_testing_backend()
+        self.assertIn(backend["status"], {"available", "blocked"})
+        self.assertEqual(backend["backend"], "integrated-webapp-testing")
+        self.assertTrue(Path(backend["skill_file"]).is_file())
+        self.assertTrue(Path(backend["helper_script"]).is_file())
+        capabilities = workflow_capabilities(
+            [{"module": "image", "capture_backend": "integrated-webapp-testing"}]
+        )
+        self.assertIn("webapp_testing", capabilities)
 
 
 if __name__ == "__main__":
