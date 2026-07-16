@@ -6,7 +6,7 @@ if (!output) throw new Error("Usage: node pptx_adapter_smoke.js <output.pptx>");
 const pptx = new pptxgen();
 pptx.layout = "LAYOUT_WIDE";
 pptx.author = "AutoFlow adapter smoke test";
-pptx.subject = "External pptx Skill backend verification";
+pptx.subject = "Integrated presentation-skill backend verification";
 pptx.title = "AutoFlow PPT adapter";
 pptx.company = "AutoFlow";
 pptx.lang = "zh-CN";
@@ -43,7 +43,7 @@ const modules = [
   ["TASK", "research · build · compute · execute", C.orange],
   ["IMAGE", "capture · ai · diagram · chart", C.teal],
   ["WORD", "create · edit · fill", "B7791F"],
-  ["PPT", "external Skill adapter", "7C3AED"],
+  ["PPT", "integrated renderer + QA", "7C3AED"],
   ["VIDEO", "analyze · record · create · process", "2563EB"],
   ["PACKAGE", "declared artifacts only", "059669"],
 ];

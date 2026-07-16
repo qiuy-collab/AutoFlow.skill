@@ -19,7 +19,7 @@ AutoFlow 不再是一条固定的实验报告流水线。它把复杂任务拆�
 - `task`：调研、GitHub 源码选型、项目改造、计算和真实执行
 - `image`：真实截图、AI 资产、图示和数据图表
 - `word`：Word 创建、编辑和模板填写
-- `ppt`：通过已安装的 `pptx` Skill 创建或编辑演示文稿
+- `ppt`：通过本地审计的 `presentation-skill` 集成创建或编辑演示文稿
 - `video`：分析、录屏、创建和处理视频
 - `package`：按需求整理交付目录和压缩包
 
@@ -115,7 +115,7 @@ python scripts/env_setup.py --route video
 python scripts/env_setup.py --route ai
 ```
 
-AI 图片需要 `.env` 中的 `BASEURL` 和 `APIKEY`。Word 模块使用仓库内 `integrations/minimax-docx` 的集成内核，浏览器证据使用仓库内 `integrations/webapp-testing`，PPT 模块检测用户级或插件提供的 `pptx`/`presentations` Skill；AutoFlow 不复制 PPT 专有实现。
+AI 图片需要 `.env` 中的 `BASEURL` 和 `APIKEY`。Word 模块使用仓库内 `integrations/minimax-docx` 的集成内核，浏览器证据使用仓库内 `integrations/webapp-testing`，PPT 模块使用仓库内 `integrations/presentation-skill` 的 renderer 与 QA；缺少 Node/Python 依赖时会在 PLAN 阶段阻断，不调用用户级或插件 Skill。
 
 Word 生成完成后必须运行内置验证器：
 

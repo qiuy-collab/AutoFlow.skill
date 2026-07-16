@@ -84,18 +84,18 @@ if ((Test-Path $IntegratedQualitySkill) -and (Test-Path $IntegratedQualityAdapte
 } else {
     Fail "integrated capability incomplete: engineering-quality ($IntegratedQualitySkill)"
 }
-$SkillNames = @("pptx", "baseline-ui", "frontend-design")
-foreach ($skillName in $SkillNames) {
-    $candidates = @(
-        (Join-Path $HOME ".codex\skills\$skillName\SKILL.md"),
-        (Join-Path $HOME ".agents\skills\$skillName\SKILL.md")
-    )
-    $skillPath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($skillPath) {
-        Ok "skill capability found: $skillName ($skillPath)"
-    } else {
-        Warn "optional skill capability missing: $skillName; dependent workflows stop at PLAN"
-    }
+$IntegratedPresentationSkill = Join-Path $Root "integrations\presentation-skill\SKILL.md"
+$IntegratedPresentationAdapter = Join-Path $Root "integrations\presentation-skill\scripts\presentation_adapter.py"
+$IntegratedPresentationManifest = Join-Path $Root "integrations\presentation-skill\integration_manifest.json"
+if ((Test-Path $IntegratedPresentationSkill) -and (Test-Path $IntegratedPresentationAdapter) -and (Test-Path $IntegratedPresentationManifest)) {
+    Ok "integrated capability found: presentation-skill ($IntegratedPresentationSkill)"
+} else {
+    Fail "integrated capability incomplete: presentation-skill ($IntegratedPresentationSkill)"
+}
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    Ok "node $(& node --version) for integrated presentation-skill"
+} else {
+    Warn "node not found; integrated presentation workflows stop at PLAN"
 }
 
 if (Get-Command python -ErrorAction SilentlyContinue) {
