@@ -13,6 +13,7 @@ from autoflow_core import (  # noqa: E402
     AutoFlowError,
     approve_gate,
     detect_ppt_backend,
+    detect_superpowers_backend,
     detect_webapp_testing_backend,
     detect_word_backend,
     hash_path,
@@ -29,6 +30,7 @@ from autoflow_core import (  # noqa: E402
     validate_package_acceptance,
     validate_video_acceptance,
     validate_workflow_definition,
+    route_for_workflow,
     workflow_capabilities,
 )
 
@@ -515,6 +517,33 @@ class AutoFlowTestCase(unittest.TestCase):
             [{"module": "image", "capture_backend": "integrated-webapp-testing"}]
         )
         self.assertIn("webapp_testing", capabilities)
+
+    def test_superpowers_is_integrated_with_the_required_methodology_subset(self):
+        backend = detect_superpowers_backend()
+        self.assertEqual(backend["status"], "available")
+        self.assertEqual(backend["backend"], "integrated-superpowers")
+        self.assertEqual(set(backend["skills"]), {
+            "brainstorming",
+            "writing-plans",
+            "test-driven-development",
+            "systematic-debugging",
+            "verification-before-completion",
+            "requesting-code-review",
+            "executing-plans",
+            "finishing-a-development-branch",
+        })
+        for path in backend["skill_files"].values():
+            self.assertTrue(Path(path).is_file())
+
+    def test_route_for_build_step_returns_local_governance_and_module_paths(self):
+        workflow_path = initialize_run(self.request, self.root / "route", "project-delivery")
+        workflow, state, _, _ = load_run(workflow_path)
+        route = route_for_workflow(workflow, state, "build")
+        self.assertEqual(route["step"]["id"], "build")
+        self.assertTrue(route["module_file"].endswith("modules\\task.md"))
+        self.assertIn("test-driven-development", route["skill_names"])
+        self.assertIn("verification-before-completion", route["skill_names"])
+        self.assertTrue(all(Path(path).is_file() for path in route["skill_files"]))
 
 
 if __name__ == "__main__":

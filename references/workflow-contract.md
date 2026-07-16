@@ -9,6 +9,8 @@
 - `delivery_review.json` records final correctness for every requirement and artifact.
 - `WORK_PLAN.md` is the human-readable plan reviewed at `PLAN_STOP`.
 - `plans/` contains module-specific plans such as `source_candidates.json` and `package.json`.
+- `workflow.json.capabilities` records the integrated methodology and backend
+  paths resolved during initialization; route decisions must use those paths.
 
 ## Workflow step
 

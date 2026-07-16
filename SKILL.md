@@ -38,6 +38,19 @@ Then read only the modules selected for this run:
 | video | `modules/video.md` | Analysis, recording, creation, processing |
 | package | `modules/package.md` | Requirement-driven delivery assembly |
 
+AutoFlow also ships a local engineering-methodology layer under
+`integrations/superpowers`. Before planning or executing a step, resolve the
+exact local instructions with the CLI instead of invoking an external plugin:
+
+```bash
+python scripts/autoflow.py route --workflow <workflow.json> --step <step-id> --json
+```
+
+The route includes the module file, relevant local methodology Skills, and
+capability adapters. `brainstorming`, `writing-plans`, and
+`verification-before-completion` are global; TDD, debugging, review, execution,
+and delivery-handoff guidance is selected by step type and state.
+
 ## Start a run
 
 1. Inspect the request and all supplied files before asking discoverable questions.
@@ -85,6 +98,12 @@ Ask AutoFlow which steps are ready:
 
 ```bash
 python scripts/autoflow.py next --workflow <workflow.json>
+```
+
+Resolve the local module and methodology route before acting on a ready step:
+
+```bash
+python scripts/autoflow.py route --workflow <workflow.json> --step <step-id> --json
 ```
 
 For each ready step:

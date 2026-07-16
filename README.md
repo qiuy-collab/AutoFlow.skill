@@ -74,6 +74,7 @@ AutoFlow 没有“一键执行全部”的 `run` 命令。Agent 根据 ready ste
 
 ```bash
 python scripts/autoflow.py next --workflow task_runs/my-run/workflow.json
+python scripts/autoflow.py route --workflow task_runs/my-run/workflow.json --step build --json
 python scripts/autoflow.py transition --workflow task_runs/my-run/workflow.json --step task --to running
 python scripts/autoflow.py transition --workflow task_runs/my-run/workflow.json --step task --to completed --artifact task.result=C:/absolute/result.json
 ```
@@ -145,7 +146,8 @@ AutoFlow.skill/
 └── integrations/             # 已审计、可复现的集成内核与外部 Skill 来源记录
     ├── minimax-docx/         # 集成的 DOCX/OpenXML 内核、规则和 XSD
     ├── nature-figure/        # nature-figure 来源、许可证和适配说明
-    └── webapp-testing/       # 集成的 Playwright 网页测试与浏览器证据 Skill
+    ├── webapp-testing/       # 集成的 Playwright 网页测试与浏览器证据 Skill
+    └── superpowers/          # 集成的规划、TDD、调试、审查和验证方法 Skill
 ```
 
 ## 当前效果示例

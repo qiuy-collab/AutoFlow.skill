@@ -22,6 +22,31 @@ class AutoFlowCliTests(unittest.TestCase):
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["$schema"], "autoflow/capabilities/1.0")
         self.assertEqual(payload["capabilities"]["webapp_testing"]["backend"], "integrated-webapp-testing")
+        self.assertEqual(payload["capabilities"]["superpowers"]["backend"], "integrated-superpowers")
+
+    def test_route_returns_local_skill_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            request = root / "request.md"
+            request.write_text("Create a project.", encoding="utf-8")
+            run = root / "run"
+            initialized = subprocess.run(
+                [sys.executable, str(CLI), "init", "--request-file", str(request), "--output-dir", str(run), "--recipe", "project-delivery"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            routed = subprocess.run(
+                [sys.executable, str(CLI), "route", "--workflow", str(run / "workflow.json"), "--step", "build", "--json"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(routed.returncode, 0, routed.stderr)
+            payload = json.loads(routed.stdout)
+            self.assertEqual(payload["step"]["id"], "build")
+            self.assertIn("test-driven-development", payload["skill_names"])
 
     def test_init_status_and_legacy_error(self):
         with tempfile.TemporaryDirectory() as temp:

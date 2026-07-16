@@ -37,6 +37,16 @@ MODULE_ACTIONS = {
     "package": {"assemble"},
 }
 VISUAL_MODULES = {"image", "ppt", "video"}
+SUPERPOWERS_SKILL_NAMES = (
+    "brainstorming",
+    "writing-plans",
+    "test-driven-development",
+    "systematic-debugging",
+    "verification-before-completion",
+    "requesting-code-review",
+    "executing-plans",
+    "finishing-a-development-branch",
+)
 PLAN_REQUIRED_SECTIONS = (
     "## 目标",
     "## 需求与证据",
@@ -185,8 +195,44 @@ def detect_webapp_testing_backend() -> dict[str, Any]:
     }
 
 
+def detect_superpowers_backend() -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    integration = root / "integrations" / "superpowers"
+    skill_files = {
+        name: str((integration / name / "SKILL.md").resolve())
+        for name in SUPERPOWERS_SKILL_NAMES
+    }
+    missing = [name for name, path in skill_files.items() if not Path(path).is_file()]
+    adapter = integration / "AUTOFLOW_ADAPTER.md"
+    manifest = integration / "integration_manifest.json"
+    if not missing and adapter.is_file() and manifest.is_file():
+        return {
+            "status": "available",
+            "backend": "integrated-superpowers",
+            "integration_root": str(integration.resolve()),
+            "skills": list(SUPERPOWERS_SKILL_NAMES),
+            "skill_files": skill_files,
+            "adapter_file": str(adapter.resolve()),
+            "manifest_file": str(manifest.resolve()),
+            "external_skill_required": False,
+        }
+    return {
+        "status": "missing",
+        "backend": "integrated-superpowers",
+        "integration_root": str(integration.resolve()),
+        "skills": list(SUPERPOWERS_SKILL_NAMES),
+        "skill_files": skill_files,
+        "adapter_file": str(adapter.resolve()) if adapter.is_file() else "",
+        "manifest_file": str(manifest.resolve()) if manifest.is_file() else "",
+        "external_skill_required": False,
+        "missing": missing or ["AUTOFLOW_ADAPTER.md", "integration_manifest.json"],
+        "message": "AutoFlow's integrated superpowers subset is incomplete. Repair integrations/superpowers.",
+    }
+
+
 def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
     return {
+        "superpowers": detect_superpowers_backend(),
         **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in steps) else {}),
         **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in steps) else {}),
         **(
@@ -198,6 +244,12 @@ def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def validate_capabilities(workflow: dict[str, Any]) -> None:
+    superpowers = (workflow.get("capabilities") or {}).get("superpowers") or detect_superpowers_backend()
+    if superpowers.get("status") != "available":
+        raise AutoFlowError(
+            "AutoFlow requires its integrated superpowers methodology subset for planning and verification. "
+            "Repair integrations/superpowers before PLAN_STOP approval."
+        )
     if any(step.get("module") == "ppt" for step in workflow.get("steps", [])):
         ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
         skill_file = Path(str(ppt.get("skill_file", "")))
@@ -1287,6 +1339,74 @@ def save_run(state: dict[str, Any], manifest: dict[str, Any], paths: dict[str, P
     manifest["updated_at"] = utc_now()
     save_json(paths["state"], state)
     save_json(paths["manifest"], manifest)
+
+
+def route_for_workflow(
+    workflow: dict[str, Any], state: dict[str, Any], step_id: str | None = None
+) -> dict[str, Any]:
+    root = Path(__file__).resolve().parent.parent
+    by_id = _step_map(workflow)
+    if step_id:
+        if step_id not in by_id:
+            raise AutoFlowError(f"Unknown workflow step: {step_id}")
+        selected = [by_id[step_id]]
+    else:
+        selected = workflow.get("steps", [])
+
+    superpowers = (workflow.get("capabilities") or {}).get("superpowers") or detect_superpowers_backend()
+    base_names = ["brainstorming", "writing-plans", "verification-before-completion"]
+    routed_steps: list[dict[str, Any]] = []
+    for step in selected:
+        status = (state.get("steps", {}).get(step["id"]) or {}).get("status", "pending")
+        names = list(base_names)
+        if step.get("module") == "task" and step.get("action") in {"build", "execute"}:
+            names.extend(["test-driven-development", "requesting-code-review"])
+        if status in {"blocked", "failed"}:
+            names.append("systematic-debugging")
+        if status in {"ready", "running", "blocked", "failed"}:
+            names.append("executing-plans")
+        if step.get("module") == "package":
+            names.append("finishing-a-development-branch")
+        names = list(dict.fromkeys(names))
+
+        capability_names: list[str] = []
+        if step.get("module") == "word":
+            capability_names.append("word")
+        if step.get("module") == "ppt":
+            capability_names.append("ppt")
+        if step.get("capture_backend") == "integrated-webapp-testing":
+            capability_names.append("webapp_testing")
+        routed_steps.append(
+            {
+                "id": step["id"],
+                "module": step["module"],
+                "action": step["action"],
+                "status": status,
+                "module_file": str((root / "modules" / f"{step['module']}.md").resolve()),
+                "skill_names": names,
+                "skill_files": [
+                    superpowers.get("skill_files", {}).get(name, str(root / "integrations" / "superpowers" / name / "SKILL.md"))
+                    for name in names
+                ],
+                "capability_names": capability_names,
+                "capabilities": {
+                    name: (workflow.get("capabilities") or {}).get(name, {})
+                    for name in capability_names
+                },
+            }
+        )
+
+    payload: dict[str, Any] = {
+        "$schema": "autoflow/route/1.0",
+        "workflow_id": workflow.get("workflow_id", ""),
+        "recipe": workflow.get("recipe", ""),
+        "global_skill_names": base_names,
+        "steps": routed_steps,
+    }
+    if step_id:
+        payload["step"] = routed_steps[0]
+        payload.update(routed_steps[0])
+    return payload
 
 
 def status_summary(workflow: dict[str, Any], state: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:

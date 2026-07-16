@@ -13,6 +13,9 @@ and audited from external Skills or projects. It is not a runtime cache.
   AutoFlow's `scripts/` and uses the configured `.env` upstream.
 - `webapp-testing/`: Apache-2.0 Playwright skill for local webapp
   reconnaissance, server lifecycle, browser logs, and screenshot evidence.
+- `superpowers/`: MIT-licensed, file-only engineering methodology subset for
+  brainstorming, planning, TDD, debugging, review, verification, execution,
+  and delivery handoff. Its plugin bootstrap and telemetry are not copied.
 
 Optional capabilities such as `pptx`, `baseline-ui`, and `frontend-design` are
 resolved from user-level Skills or plugins. AutoFlow does not copy their

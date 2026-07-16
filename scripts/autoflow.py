@@ -7,12 +7,14 @@ from autoflow_core import (
     AutoFlowError,
     approve_gate,
     detect_ppt_backend,
+    detect_superpowers_backend,
     detect_webapp_testing_backend,
     detect_word_backend,
     initialize_run,
     load_run,
     parse_artifact_specs,
     refresh_ready,
+    route_for_workflow,
     save_json,
     save_run,
     set_gate_state,
@@ -38,6 +40,11 @@ def parse_args():
 
     capabilities = subparsers.add_parser("capabilities", help="Inspect integrated and optional module backends")
     capabilities.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+
+    route = subparsers.add_parser("route", help="Resolve local module and methodology Skills for a workflow step")
+    route.add_argument("--workflow", required=True)
+    route.add_argument("--step", default="")
+    route.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
 
     transition = subparsers.add_parser("transition", help="Advance one workflow step")
     transition.add_argument("--workflow", required=True)
@@ -73,10 +80,11 @@ def main() -> int:
         if args.command == "capabilities":
             payload = {
                 "$schema": "autoflow/capabilities/1.0",
-                "capabilities": {
-                    "word": detect_word_backend(),
-                    "webapp_testing": detect_webapp_testing_backend(),
-                    "ppt": detect_ppt_backend(),
+                    "capabilities": {
+                        "word": detect_word_backend(),
+                        "webapp_testing": detect_webapp_testing_backend(),
+                        "superpowers": detect_superpowers_backend(),
+                        "ppt": detect_ppt_backend(),
                 },
             }
             if args.json:
@@ -88,6 +96,18 @@ def main() -> int:
             return 0
 
         workflow, state, manifest, paths = load_run(Path(args.workflow))
+        if args.command == "route":
+            payload = route_for_workflow(workflow, state, args.step or None)
+            if args.json:
+                emit(payload)
+            else:
+                for item in payload.get("steps", [payload.get("step", payload)]):
+                    print(f"{item['id']}: {item['module']}.{item['action']}")
+                    print(f"  module: {item['module_file']}")
+                    print(f"  skills: {', '.join(item['skill_names'])}")
+                    for path in item["skill_files"]:
+                        print(f"    - {path}")
+            return 0
         if args.command == "validate":
             errors = validate_run(workflow, state, manifest, paths)
             if errors:
