@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,17 @@ SPEC.loader.exec_module(MODULE)
 
 
 class DiagramAssetTests(unittest.TestCase):
+    def test_all_declared_diagram_types_build_editable_sources(self):
+        plan = json.loads((ROOT / "examples" / "diagram_plan.all-types.json").read_text(encoding="utf-8"))
+        builtins = [item for item in plan["diagrams"] if item["kind"] in MODULE.RENDERER_MAP]
+        custom = [item for item in plan["diagrams"] if item["kind"] not in MODULE.RENDERER_MAP]
+        self.assertEqual({item["kind"] for item in builtins}, set(MODULE.RENDERER_MAP))
+        self.assertEqual({item["renderer"] for item in custom}, {"mermaid", "d2", "plantuml"})
+        for item in plan["diagrams"]:
+            source, extension, renderer = MODULE.build_source(item)
+            self.assertTrue(source.strip(), item["name"])
+            self.assertEqual(extension, MODULE.SOURCE_EXTENSIONS[renderer], item["name"])
+
     def test_arbitrary_mermaid_dsl_is_accepted(self):
         source, extension, renderer = MODULE.build_source(
             {
@@ -43,6 +55,23 @@ class DiagramAssetTests(unittest.TestCase):
         )
         self.assertEqual((extension, renderer), (".mmd", "mermaid"))
         self.assertIn("flowchart", source)
+
+    def test_deployment_diagram_uses_portable_node_containers(self):
+        source, extension, renderer = MODULE.build_source(
+            {
+                "name": "deployment",
+                "kind": "deployment_diagram",
+                "nodes": [
+                    {"id": "client", "name": "Browser", "type": "device"},
+                    {"id": "db", "name": "Database", "type": "database"},
+                ],
+                "connections": [{"from": "Browser", "to": "Database", "label": "SQL"}],
+            }
+        )
+        self.assertEqual((extension, renderer), (".puml", "plantuml"))
+        self.assertIn('node "Browser" as client <<device>> {', source)
+        self.assertIn('node "Database" as db <<database>> {', source)
+        self.assertNotIn('device "Browser"', source)
 
 
 if __name__ == "__main__":

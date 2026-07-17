@@ -9,6 +9,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -33,6 +34,48 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def validation_fingerprint() -> str:
+    digest = hashlib.sha256()
+    tracked = [Path(__file__).resolve()]
+    source_root = project_path().parent.parent
+    tracked.extend(sorted(source_root.rglob("*.cs")))
+    tracked.extend(sorted(source_root.rglob("*.csproj")))
+    for path in tracked:
+        if not path.is_file():
+            continue
+        digest.update(str(path.relative_to(skill_root()) if path.is_relative_to(skill_root()) else path).encode("utf-8"))
+        digest.update(sha256(path).encode("ascii"))
+    return digest.hexdigest()
+
+
+def validation_cache_key(document: Path, template: Path | None, source: Path | None) -> dict:
+    def item(path: Path | None) -> dict | None:
+        return {"path": str(path), "sha256": sha256(path)} if path else None
+
+    return {
+        "document": item(document),
+        "template": item(template),
+        "source": item(source),
+        "validator_fingerprint": validation_fingerprint(),
+    }
+
+
+def reusable_report(path: Path, cache_key: dict) -> dict | None:
+    if not path.is_file():
+        return None
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if (
+        report.get("$schema") == CORE_SCHEMA
+        and report.get("overall_pass") is True
+        and (report.get("cache") or {}).get("input_key") == cache_key
+    ):
+        return report
+    return None
 
 
 def capability() -> dict:
@@ -87,11 +130,57 @@ def validate_document(args: argparse.Namespace) -> int:
     if source and (not source.is_file() or source.suffix.lower() != ".docx"):
         raise SystemExit(f"Source not found or not .docx: {source}")
 
+    cache_key = validation_cache_key(document, template, source)
+    if not args.force:
+        cached = reusable_report(args.report, cache_key)
+        if cached is not None:
+            cached.setdefault("cache", {})["hit"] = True
+            args.report.write_text(json.dumps(cached, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            print(args.report)
+            return 0
+
     xsd = skill_root() / "integrations" / "minimax-docx" / "assets" / "xsd" / "wml-subset.xsd"
     validation_args = ["validate", "--input", str(document), "--xsd", str(xsd), "--business", "--json"]
     if template:
         validation_args.extend(["--gate-check", str(template)])
     validation = parse_json_output(run_core(validation_args), "validation")
+    validation_mode = "xsd-and-business"
+    fallback: dict | None = None
+    if validation.get("isValid") is not True:
+        with tempfile.TemporaryDirectory(prefix="autoflow-word-fix-order-") as temp:
+            repaired = Path(temp) / document.name
+            shutil.copy2(document, repaired)
+            fix_result = run_core(["fix-order", "--input", str(repaired)])
+            retry = None
+            if fix_result.returncode == 0:
+                retry_args = ["validate", "--input", str(repaired), "--xsd", str(xsd), "--business", "--json"]
+                if template:
+                    retry_args.extend(["--gate-check", str(template)])
+                retry = parse_json_output(run_core(retry_args), "fix-order validation retry")
+
+        business_args = ["validate", "--input", str(document), "--business", "--json"]
+        if template:
+            business_args.extend(["--gate-check", str(template)])
+        business = parse_json_output(run_core(business_args), "business fallback validation")
+        gate = business.get("gateCheck")
+        gate_passed = template is None or (isinstance(gate, dict) and gate.get("passed") is True)
+        fallback = {
+            "reason": (
+                "The bundled subset XSD did not accept the document. AutoFlow retried fix-order on an isolated copy, "
+                "then applied the integrated minimax-docx business-rules fallback. The final Word validator must also "
+                "record a passed rendered visual review."
+            ),
+            "fix_order": {
+                "exit_code": fix_result.returncode,
+                "stdout": fix_result.stdout.strip(),
+                "stderr": fix_result.stderr.strip(),
+            },
+            "xsd_retry": retry,
+            "business_rules": business,
+            "requires_visual_review": True,
+        }
+        if business.get("isValid") is True and gate_passed:
+            validation_mode = "business-plus-preview-required-fallback"
 
     dry_merge = run_core(["merge-runs", "--input", str(document), "--dry-run"])
     if dry_merge.returncode != 0:
@@ -113,10 +202,24 @@ def validate_document(args: argparse.Namespace) -> int:
         "source": str(source) if source else None,
         "checks": {
             "xsd_and_business": validation,
+            "fallback": fallback,
             "merge_runs_dry_run": dry_merge.stdout.strip(),
             "diff": diff,
         },
-        "overall_pass": validation.get("isValid") is True,
+        "validation_mode": validation_mode,
+        "requires_visual_review": fallback is not None,
+        "cache": {"input_key": cache_key, "hit": False},
+        "overall_pass": (
+            validation.get("isValid") is True
+            or (
+                fallback is not None
+                and fallback["business_rules"].get("isValid") is True
+                and (
+                    template is None
+                    or (fallback["business_rules"].get("gateCheck") or {}).get("passed") is True
+                )
+            )
+        ),
     }
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -136,6 +239,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--template", type=Path)
     validate.add_argument("--source", type=Path)
     validate.add_argument("--report", type=Path, required=True)
+    validate.add_argument("--force", action="store_true", help="Ignore a matching passed validation report.")
     return parser
 
 

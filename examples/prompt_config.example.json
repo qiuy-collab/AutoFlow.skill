@@ -2,7 +2,7 @@
   "task_name": "security_lab_example",
   "total_count": 4,
   "resolution": "2048x1152",
-  "output_dir": ".\\output\\generated_images",
+  "output_dir": ".\\autoflow\\.autoflow\\intermediate\\generated_images",
   "max_workers": 4,
   "max_retries": 3,
   "retry_delay": 2,

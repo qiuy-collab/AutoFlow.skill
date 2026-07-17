@@ -1,14 +1,33 @@
 # AutoFlow workflow contract
 
+## Run layout
+
+Every new run is created below a user-visible `autoflow/` directory:
+
+```text
+autoflow/
+├── .autoflow/
+│   ├── scripts/                 # task-specific scripts
+│   ├── runtime/                 # managed environments, never packaged
+│   ├── intermediate/            # plans, artifacts, screenshots, logs, reports
+│   │   ├── plans/
+│   │   └── artifacts/
+│   └── config/                  # workflow and mutable control state
+└── submit/                      # only final deliverables and delivery bundles
+```
+
+`workflow.json.directories` is the authoritative path map for the run. Agents
+must use it instead of inventing sibling folders.
+
 ## Durable files
 
-- `workflow.json` is the declarative DAG. It changes only when the user approves a revised plan.
-- `run_state.json` is mutable execution state for steps and STOP gates.
-- `artifact_manifest.json` records verified outputs and their hashes.
-- `requirement_map.json` maps requirements and scoring items to declared evidence.
-- `delivery_review.json` records final correctness for every requirement and artifact.
-- `WORK_PLAN.md` is the human-readable plan reviewed at `PLAN_STOP`.
-- `plans/` contains module-specific plans such as `source_candidates.json` and `package.json`.
+- `.autoflow/config/workflow.json` is the declarative DAG. It changes only when the user approves a revised plan.
+- `.autoflow/config/run_state.json` is mutable execution state for steps and STOP gates.
+- `.autoflow/config/artifact_manifest.json` records verified outputs and their hashes.
+- `.autoflow/config/requirement_map.json` maps requirements and scoring items to declared evidence.
+- `.autoflow/config/delivery_review.json` records final correctness for every requirement and artifact.
+- `.autoflow/config/WORK_PLAN.md` is the human-readable plan reviewed at `PLAN_STOP`.
+- `.autoflow/intermediate/plans/` contains module-specific plans such as `source_candidates.json` and `package.json`.
 - `workflow.json.capabilities` records the integrated methodology and backend
   paths resolved during initialization; route decisions must use those paths.
 - `autoflow.py integrations --json` is the repository-level catalog. It must
@@ -29,6 +48,7 @@ Every step contains:
   "outputs": ["word.document"],
   "validator": "artifacts_exist",
   "optional": false,
+  "max_attempts": 3,
   "gate_after": "visual"
 }
 ```
@@ -89,10 +109,39 @@ Steps start as `pending` and become `ready` after their dependencies complete an
 - blocked/failed → running
 - optional pending/ready → skipped
 
-A completed or skipped step is terminal. To redo it, revise the workflow/run rather than editing state by hand.
+A completed or skipped step is terminal during normal transitions. Before DELIVERY_STOP approval, reopen it with:
+
+```bash
+python scripts/autoflow.py revise --workflow <workflow.json> --step <step-id> --reason <reason>
+```
+
+Revision moves current target/downstream artifacts to `artifact_history`, invalidates transitive dependents, resets affected requirement evidence, and reopens the necessary gates. A delivered workflow is immutable; initialize a new revision run after DELIVERY_STOP approval.
+
+`max_attempts` defaults to 3 and may be set from 1 to 10. The budget applies
+within one revision. Exhaustion is a diagnostic stop, not permission for an
+unbounded retry; use `revise` after identifying and recording the cause.
 
 Complete a step with one `--artifact ID=PATH` for every declared output. AutoFlow verifies existence, records consumers, calculates SHA-256, and rejects undeclared or missing outputs.
 
 ## Agent-led execution
 
+Normal execution uses compact routing. Optional methodology overlays are
+loaded only with an explicit full route. Run independent ready deterministic
+backends concurrently when they do not share output paths; Word and PPT render
+commands are the primary example.
+
+Use `validate --fast` during iteration and `validate --deep` at STOP gates.
+Use `status --timings` to separate active-step time from user gate wait time.
+Provision environments once below `.autoflow/runtime/` and reuse them while
+dependency manifests are unchanged. Freeze inputs, verify in isolation,
+publish the package once, then use only read-only package verification.
+
+Use `autoflow.py eval-status` for evaluation evidence. It classifies runs as
+`incomplete`, `blocked`, `failed`, `awaiting_user_approval`,
+`checkpoint_pass`, `invalid`, or `full_test_pass`. Reaching an expected STOP
+may prove that checkpoint, but only a valid workflow with status `completed`
+is eligible for a full end-to-end test claim.
+
 AutoFlow does not contain a generic `run` command. The Agent reads the relevant module file, performs the work with the appropriate tool or Skill, and uses the CLI only to validate and advance state. This keeps human choices and cross-Skill operations visible while preserving deterministic gates and artifact contracts.
+
+Use compact routing by default. It returns the module and minimum required guidance. Use `route --full` only for an explicitly needed methodology overlay; do not load every integrated Skill for every step.

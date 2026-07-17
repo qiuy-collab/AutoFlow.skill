@@ -2,12 +2,17 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "scripts" / "autoflow.py"
+
+
+def workflow_file(run: Path) -> Path:
+    return run / ".autoflow" / "config" / "workflow.json"
 
 
 class AutoFlowCliTests(unittest.TestCase):
@@ -23,6 +28,9 @@ class AutoFlowCliTests(unittest.TestCase):
         self.assertEqual(payload["$schema"], "autoflow/integrations/1.0")
         self.assertEqual(len(payload["integrations"]), 8)
         self.assertTrue(all(item["status"] == "available" for item in payload["integrations"]))
+        self.assertTrue(all(item["self_contained"] for item in payload["integrations"]))
+        self.assertTrue(all(item["external_user_skill_required"] is False for item in payload["integrations"]))
+        self.assertTrue(all(item["source_checkout_required"] is False for item in payload["integrations"]))
 
     def test_capabilities_reports_integrated_backends(self):
         completed = subprocess.run(
@@ -46,7 +54,7 @@ class AutoFlowCliTests(unittest.TestCase):
         self.assertIn(payload["capabilities"]["video"]["status"], {"available", "blocked", "missing"})
         self.assertTrue(Path(payload["capabilities"]["video"]["script"]).is_file())
         self.assertEqual(payload["capabilities"]["image"]["backend"], "integrated-image-assets")
-        self.assertIn(payload["capabilities"]["image"]["status"], {"available", "blocked", "missing"})
+        self.assertIn(payload["capabilities"]["image"]["status"], {"available", "partial", "blocked", "missing"})
 
     def test_route_returns_local_skill_paths(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -62,7 +70,7 @@ class AutoFlowCliTests(unittest.TestCase):
             )
             self.assertEqual(initialized.returncode, 0, initialized.stderr)
             routed = subprocess.run(
-                [sys.executable, str(CLI), "route", "--workflow", str(run / "workflow.json"), "--step", "build", "--json"],
+                [sys.executable, str(CLI), "route", "--workflow", str(workflow_file(run)), "--step", "build", "--json"],
                 text=True,
                 capture_output=True,
                 check=False,
@@ -70,12 +78,23 @@ class AutoFlowCliTests(unittest.TestCase):
             self.assertEqual(routed.returncode, 0, routed.stderr)
             payload = json.loads(routed.stdout)
             self.assertEqual(payload["step"]["id"], "build")
-            self.assertIn("test-driven-development", payload["skill_names"])
-            self.assertIn("code-review-and-quality", payload["skill_names"])
-            self.assertIn("api-and-interface-design", payload["skill_names"])
-            self.assertIn("frontend-ui-engineering", payload["skill_names"])
-            self.assertIn("agent_skills", payload["capability_names"])
+            self.assertEqual(payload["mode"], "compact")
+            self.assertIn("verification-before-completion", payload["skill_names"])
+            self.assertNotIn("requesting-code-review", payload["skill_names"])
+            self.assertNotIn("code-review-and-quality", payload["skill_names"])
             self.assertTrue(all(Path(path).is_file() for path in payload["skill_files"]))
+            full = subprocess.run(
+                [sys.executable, str(CLI), "route", "--workflow", str(workflow_file(run)), "--step", "build", "--json", "--full"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(full.returncode, 0, full.stderr)
+            full_payload = json.loads(full.stdout)
+            self.assertEqual(full_payload["mode"], "full")
+            self.assertIn("test-driven-development", full_payload["skill_names"])
+            self.assertIn("code-review-and-quality", full_payload["skill_names"])
+            self.assertNotIn("requesting-code-review", full_payload["skill_names"])
 
     def test_ppt_route_returns_integrated_local_capability_files(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -101,7 +120,7 @@ class AutoFlowCliTests(unittest.TestCase):
             )
             self.assertEqual(initialized.returncode, 0, initialized.stderr)
             routed = subprocess.run(
-                [sys.executable, str(CLI), "route", "--workflow", str(run / "workflow.json"), "--step", "ppt", "--json"],
+                [sys.executable, str(CLI), "route", "--workflow", str(workflow_file(run)), "--step", "ppt", "--json"],
                 text=True,
                 capture_output=True,
                 check=False,
@@ -125,13 +144,14 @@ class AutoFlowCliTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(initialized.returncode, 0, initialized.stderr)
-            workflow = json.loads((run / "workflow.json").read_text(encoding="utf-8"))
+            workflow = json.loads(workflow_file(run).read_text(encoding="utf-8"))
             self.assertEqual(workflow["recipe"], "project-report-and-slides")
             self.assertEqual(workflow["recipe_selection"]["selected"], "project-report-and-slides")
             self.assertEqual([step["id"] for step in workflow["steps"]], ["source", "build", "image", "word", "ppt", "package"])
 
     def test_student_management_delivery_smoke_keeps_plan_stop_and_routes_every_step(self):
         with tempfile.TemporaryDirectory() as temp:
+            started = time.monotonic()
             root = Path(temp)
             request = root / "request.md"
             request.write_text(
@@ -156,8 +176,8 @@ class AutoFlowCliTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(initialized.returncode, 0, initialized.stderr)
-            workflow = json.loads((run / "workflow.json").read_text(encoding="utf-8"))
-            state = json.loads((run / "run_state.json").read_text(encoding="utf-8"))
+            workflow = json.loads(workflow_file(run).read_text(encoding="utf-8"))
+            state = json.loads((run / ".autoflow" / "config" / "run_state.json").read_text(encoding="utf-8"))
             self.assertEqual(workflow["recipe"], "project-report-and-slides")
             self.assertTrue(state["gates"]["plan"]["active"])
             self.assertEqual(state["gates"]["plan"]["status"], "pending")
@@ -170,7 +190,7 @@ class AutoFlowCliTests(unittest.TestCase):
                         str(CLI),
                         "route",
                         "--workflow",
-                        str(run / "workflow.json"),
+                        str(workflow_file(run)),
                         "--step",
                         step["id"],
                         "--json",
@@ -183,16 +203,19 @@ class AutoFlowCliTests(unittest.TestCase):
                 payload = json.loads(routed.stdout)
                 self.assertEqual(payload["step"]["id"], step["id"])
                 self.assertTrue(payload["skill_names"])
+                self.assertNotIn("requesting-code-review", payload["skill_names"])
+                self.assertLessEqual(len(payload["skill_names"]), 3)
                 self.assertTrue(all(Path(path).is_file() for path in payload["skill_files"]))
 
             next_state = subprocess.run(
-                [sys.executable, str(CLI), "next", "--workflow", str(run / "workflow.json")],
+                [sys.executable, str(CLI), "next", "--workflow", str(workflow_file(run))],
                 text=True,
                 capture_output=True,
                 check=False,
             )
             self.assertEqual(next_state.returncode, 0, next_state.stderr)
             self.assertEqual(json.loads(next_state.stdout)["ready_steps"], [])
+            self.assertLess(time.monotonic() - started, 10.0, "compact planning/routing regression")
 
     def test_init_status_and_legacy_error(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -211,7 +234,7 @@ class AutoFlowCliTests(unittest.TestCase):
             self.assertEqual(payload["status"], "initialized")
 
             unplanned = subprocess.run(
-                [sys.executable, str(CLI), "validate", "--workflow", str(run / "workflow.json")],
+                [sys.executable, str(CLI), "validate", "--workflow", str(workflow_file(run))],
                 text=True,
                 capture_output=True,
                 check=False,
@@ -223,13 +246,16 @@ class AutoFlowCliTests(unittest.TestCase):
             self.assertTrue(any("requirement_map.json" in error for error in validation_payload["errors"]))
 
             status = subprocess.run(
-                [sys.executable, str(CLI), "status", "--workflow", str(run / "workflow.json")],
+                [sys.executable, str(CLI), "status", "--workflow", str(workflow_file(run)), "--timings"],
                 text=True,
                 capture_output=True,
                 check=False,
             )
             self.assertEqual(status.returncode, 0, status.stderr)
-            self.assertEqual(json.loads(status.stdout)["recipe"], "document")
+            status_payload = json.loads(status.stdout)
+            self.assertEqual(status_payload["recipe"], "document")
+            self.assertIn("total_active_seconds", status_payload)
+            self.assertIn("total_gate_wait_seconds", status_payload)
 
             legacy = root / "legacy.json"
             legacy.write_text('{"template_path":"old.docx","output_docx":"result.docx"}', encoding="utf-8")

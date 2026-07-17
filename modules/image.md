@@ -7,7 +7,13 @@ Use this module for visual artifacts. Computation belongs to `task.compute`; thi
 - `capture`: real browser/application/terminal evidence. Prefer deterministic capture from the actual local result.
 - `ai`: AI-generated screenshots, explanatory assets, and scientific schematics only when real capture is unavailable or the request explicitly needs generation. The scientific-figure adapter uses AutoFlow's `.env` upstream with `gpt-image-2`; it does not call OpenRouter.
 - `diagram`: architecture, ER, UML, process, data-flow, and any other structured diagram. Prefer deterministic DSL renderers, but accept arbitrary Mermaid/D2/PlantUML source through the custom DSL route; the built-in semantic kinds are convenience templates, not a closed whitelist.
-- `chart`: plots derived from real task data and calculations.
+- `chart`: plots derived from real task data and calculations. Publication-grade
+  volcano, ROC, dot plot, marginal, and paired templates are provided by the
+  integrated Nature Figure backend.
+
+The action boundary is stable while internal families remain explicit. Read
+`references/image-routing-taxonomy.md` and treat its union as the image module's
+full regression surface; an integrated family is never omitted from testing.
 
 Before PLAN_STOP, read the `image` capability report in
 `workflow.json.capabilities.image`. It contains action-level status and local
@@ -30,6 +36,9 @@ Read only the route-specific guidance needed:
   remediation inputs, not an automatic approval.
 - Diagrams: `docs/prompts/diagram_asset_rules.md`, then use `generate_diagram_assets.py`.
 - Scientific schematics: use `generate_scientific_schematic.py` and validate with `validate_scientific_figure.py`.
+- Publication charts: read `integrations/nature-figure/SKILL.md`, then run its
+  local `scripts/plot_templates.py`; do not invoke a user-level nature-figure
+  Skill or depend on the separate source checkout.
 - Quality review: `docs/prompts/visual_review_rules.md` and `check_images.py`.
 
 Group a coherent review batch into one image step. Complete it with the generated directory or manifest as its artifact. A step with `gate_after: visual` activates `VISUAL_STOP`; downstream modules cannot consume the visuals until the user approves them.

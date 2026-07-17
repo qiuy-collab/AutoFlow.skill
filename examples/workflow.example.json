@@ -4,7 +4,7 @@
   "workflow_id": "af-example-project",
   "name": "course-system-delivery",
   "request_file": "C:/work/request.md",
-  "output_dir": "C:/work/run",
+  "output_dir": "C:/work/autoflow",
   "recipe": "project-delivery",
   "recipe_description": "GitHub-first project adaptation with evidence and packaging.",
   "created_at": "2026-07-16T00:00:00+00:00",
@@ -27,7 +27,7 @@
       "source_policy": "github_first",
       "needs": ["source"],
       "inputs": ["request", "source.plan"],
-      "outputs": ["project.source", "task.result"],
+      "outputs": ["project.source", "task.result", "task.environment"],
       "validator": "artifacts_exist"
     },
     {

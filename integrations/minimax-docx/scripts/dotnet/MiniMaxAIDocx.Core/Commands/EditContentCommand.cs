@@ -177,7 +177,19 @@ public static class EditContentCommand
 
             var newPara = new Paragraph();
             if (!string.IsNullOrEmpty(style))
+            {
+                var paragraphStyle = doc.MainDocumentPart?.StyleDefinitionsPart?.Styles?
+                    .Elements<Style>()
+                    .FirstOrDefault(candidate =>
+                        candidate.Type?.Value == StyleValues.Paragraph
+                        && (string.Equals(candidate.StyleId?.Value, style, StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(candidate.StyleName?.Val?.Value, style, StringComparison.OrdinalIgnoreCase)));
+                if (paragraphStyle == null)
+                    throw new InvalidOperationException(
+                        $"Paragraph style '{style}' does not exist or is not a paragraph style. "
+                        + "Use a valid paragraph style ID/name such as Normal or Heading1.");
                 newPara.Append(new ParagraphProperties(new ParagraphStyleId { Val = style }));
+            }
             newPara.Append(new Run(new Text(text)));
 
             var paragraphs = body.Elements<Paragraph>().ToList();

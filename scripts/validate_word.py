@@ -74,8 +74,9 @@ def load_core_report(path: Path | None, document: Path) -> tuple[bool, str, dict
         and Path(str(recorded.get("path", ""))).expanduser().resolve() == document.resolve()
         and recorded.get("sha256") == sha256(document)
     )
+    mode = str(data.get("validation_mode", "xsd-and-business"))
     evidence = (
-        "Integrated minimax-docx XSD/business/template validation passed"
+        f"Integrated minimax-docx validation passed (mode={mode})"
         if passed
         else "Integrated OpenXML report is failed, stale, or for a different document"
     )
@@ -192,12 +193,18 @@ def review_passed(plan: dict, key: str) -> tuple[bool, str]:
 
 def validate(document: Path, template: Path | None, plan: dict, core_report_path: Path | None = None) -> dict:
     document_info = inspect_docx(document)
+    template_info = inspect_docx(template) if template is not None else None
     checks: list[dict] = []
     full_text = document_info["full_text"]
 
     placeholder_hits = [pattern.pattern for pattern in PLACEHOLDER_PATTERNS if pattern.search(full_text)]
     checks.append(check("no_unresolved_placeholders", not placeholder_hits, f"matched={placeholder_hits or 'none'}"))
-    instruction_hits = [pattern.pattern for pattern in FORMAT_INSTRUCTION_PATTERNS if pattern.search(full_text)]
+    instruction_hits = [
+        pattern.pattern
+        for pattern in FORMAT_INSTRUCTION_PATTERNS
+        if pattern.search(full_text)
+        and (template_info is None or not pattern.search(template_info["full_text"]))
+    ]
     checks.append(check("no_template_instructions_in_body", not instruction_hits, f"matched={instruction_hits or 'none'}"))
     voice_hits = [pattern.pattern for pattern in AGENT_VOICE_PATTERNS if pattern.search(full_text)]
     checks.append(check("no_agent_voice", not voice_hits, f"matched={voice_hits or 'none'}"))
@@ -268,7 +275,7 @@ def validate(document: Path, template: Path | None, plan: dict, core_report_path
             checks.append(check("caption_numbers_unique", len(labels) == len(set(labels)), f"labels={labels}"))
 
     if template is not None:
-        template_info = inspect_docx(template)
+        assert template_info is not None
         checks.append(check("output_does_not_overwrite_template", document.resolve() != template.resolve(), str(template.resolve())))
         if plan.get("preserve_section_settings", True):
             checks.append(

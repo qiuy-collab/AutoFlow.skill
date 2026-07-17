@@ -1,0 +1,29 @@
+{
+  "$schema": "autoflow/nature-figure-types/1.0",
+  "routes": {
+    "image.chart": {
+      "publication_templates": ["volcano", "roc", "dotplot", "marginal", "paired"],
+      "adaptable_patterns": [
+        "radar_polar",
+        "sphere_3d_concept",
+        "cluster_scatter",
+        "probability_manifold",
+        "ablation_line",
+        "fill_between_area",
+        "log_scale_bar",
+        "multi_metric_bar",
+        "grouped_bar",
+        "event_annotated_trend",
+        "multi_panel_composition"
+      ]
+    },
+    "image.ai": {
+      "scientific_schematics": [
+        "graphical_abstract",
+        "mechanism_diagram",
+        "concept_illustration",
+        "paper_schematic"
+      ]
+    }
+  }
+}

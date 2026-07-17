@@ -21,7 +21,7 @@
       "design_backend": "integrated-impeccable",
       "needs": ["source"],
       "inputs": ["request", "source.plan"],
-      "outputs": ["project.source", "task.result"],
+      "outputs": ["project.source", "task.result", "task.environment"],
       "validator": "artifacts_exist"
     },
     {

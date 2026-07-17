@@ -5,7 +5,7 @@ This matrix prevents the modular AutoFlow architecture from silently dropping pr
 | AutoLab capability | AutoFlow owner | Enforcement |
 |---|---|---|
 | Environment check and dependency setup | core / module backends | `env_setup.py`, backend capability reports |
-| Requirement and rubric analysis | core | `WORK_PLAN.md` plus `requirement_map.json` |
+| Requirement and rubric analysis | core | `.autoflow/config/WORK_PLAN.md` plus `.autoflow/config/requirement_map.json` |
 | Pre-task detection and execution | task | Explicit DAG step; no convenience-only invented task |
 | GitHub project selection | task | `task.research`, `SOURCE_STOP`, `task.build` |
 | Figure count and evidence mapping | image + core | `requirement_map.json.planned_figures` |
@@ -13,14 +13,14 @@ This matrix prevents the modular AutoFlow architecture from silently dropping pr
 | Browser evidence | image | `capture_frontend_screenshots.py` and `VISUAL_STOP` |
 | DSL diagrams | image | `generate_diagram_assets.py`, source plus rendered asset |
 | Image fixup | image | img2img clarity/content repair, then reopen `VISUAL_STOP` |
-| Template analysis and preservation | word | `plans/word.json`, `validate_word.py` |
+| Template analysis and preservation | word | `.autoflow/intermediate/plans/word.json`, `validate_word.py` |
 | Placeholder and template-instruction removal | word | `validate_word.py` hard checks |
 | Student voice | word | automated agent-voice scan plus recorded human/Agent review evidence |
 | Figure-caption pairing | word | image/caption/lead-in/analysis checks in `validate_word.py` |
 | TOC, sections, tables, headers, footers | word | template comparison in `validate_word.py` |
 | Reference document cleanup | word | `prepare_blank_template.py`, `word.edit` plan contract |
 | Video metadata and sampled-frame review | video | `video_process.py analyze` validation report |
-| Requirement-driven package | package | `plans/package.json`, per-file requirement ids and manifest checks |
+| Requirement-driven package | package | `.autoflow/intermediate/plans/package.json`, per-file requirement ids and manifest checks |
 | Final requirement acceptance | core | `delivery_review.json` and `DELIVERY_STOP` |
 | Human plan/image/delivery confirmation | core | PLAN, VISUAL, DELIVERY STOP gates |
 | Durable recovery | core | workflow, state, manifest, hashes, gate history |

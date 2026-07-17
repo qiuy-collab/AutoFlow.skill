@@ -295,14 +295,13 @@ def resolve_output_dir(config_path: Path, configured_output_dir: Optional[str]) 
             output_path = output_path.resolve()
         return output_path
 
-    output_dir = config_path.parent / "generated_images"
-    if (config_path.parent / "workflow.json").exists():
-        return output_dir.resolve()
+    if config_path.parent.name == "config" and config_path.parent.parent.name == ".autoflow":
+        return (config_path.parent.parent / "intermediate" / "generated_images").resolve()
 
     raise SystemExit(
         f"prompt_config.json must have an explicit 'output_dir' field.\n"
         f"Current config: {config_path}\n"
-        f"Expected: inside an AutoFlow run directory with workflow.json.\n"
+        f"Expected: inside an AutoFlow run at .autoflow/config with an explicit output directory.\n"
         f"Fix: set 'output_dir' in the image plan to the correct artifact directory."
     )
 

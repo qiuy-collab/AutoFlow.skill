@@ -6,7 +6,7 @@
     {
       "id": "source.plan",
       "type": "data",
-      "path": "C:/work/run/plans/source_candidates.json",
+      "path": "C:/work/autoflow/.autoflow/intermediate/plans/source_candidates.json",
       "producer": "source",
       "consumers": ["build"],
       "sha256": "replace-with-real-sha256",

@@ -15,11 +15,13 @@ from autoflow_core import (
     detect_video_backend,
     detect_webapp_testing_backend,
     detect_word_backend,
+    evaluation_summary,
     integration_catalog,
     initialize_run,
     load_run,
     parse_artifact_specs,
     refresh_ready,
+    revise_step,
     route_for_workflow,
     save_json,
     save_run,
@@ -40,9 +42,30 @@ def parse_args():
     init.add_argument("--output-dir", required=True)
     init.add_argument("--recipe", default="auto")
 
-    for name in ("validate", "status", "next", "sync"):
+    for name in ("status", "next", "sync"):
         sub = subparsers.add_parser(name)
         sub.add_argument("--workflow", required=True)
+
+    validate = subparsers.add_parser("validate")
+    validate.add_argument("--workflow", required=True)
+    validate_mode = validate.add_mutually_exclusive_group()
+    validate_mode.add_argument("--fast", action="store_true", help="Skip full artifact rehashing during iteration")
+    validate_mode.add_argument("--deep", action="store_true", help="Force full artifact rehashing (default)")
+
+    status = subparsers.choices["status"]
+    status.add_argument("--timings", action="store_true", help="Include step and gate timing metrics")
+
+    eval_status = subparsers.add_parser(
+        "eval-status",
+        help="Classify a real evaluation as incomplete, checkpoint pass, or full end-to-end pass",
+    )
+    eval_status.add_argument("--workflow", required=True)
+    eval_status.add_argument(
+        "--expected-gate",
+        choices=["plan", "source", "visual", "delivery"],
+        default="",
+        help="Count reaching this active STOP as a checkpoint pass, never as a full test pass",
+    )
 
     capabilities = subparsers.add_parser("capabilities", help="Inspect integrated and optional module backends")
     capabilities.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
@@ -54,6 +77,9 @@ def parse_args():
     route.add_argument("--workflow", required=True)
     route.add_argument("--step", default="")
     route.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+    route_mode = route.add_mutually_exclusive_group()
+    route_mode.add_argument("--compact", action="store_true", help="Load only required step guidance (default)")
+    route_mode.add_argument("--full", action="store_true", help="Include optional methodology overlays")
 
     transition = subparsers.add_parser("transition", help="Advance one workflow step")
     transition.add_argument("--workflow", required=True)
@@ -61,6 +87,11 @@ def parse_args():
     transition.add_argument("--to", required=True, choices=["running", "blocked", "completed", "failed", "skipped"])
     transition.add_argument("--note", default="")
     transition.add_argument("--artifact", action="append", default=[], metavar="ARTIFACT_ID=PATH")
+
+    revise = subparsers.add_parser("revise", help="Reopen a step and invalidate all downstream artifacts")
+    revise.add_argument("--workflow", required=True)
+    revise.add_argument("--step", required=True)
+    revise.add_argument("--reason", required=True)
 
     approve = subparsers.add_parser("approve", help="Record explicit user approval for a STOP gate")
     approve.add_argument("--workflow", required=True)
@@ -119,7 +150,7 @@ def main() -> int:
 
         workflow, state, manifest, paths = load_run(Path(args.workflow))
         if args.command == "route":
-            payload = route_for_workflow(workflow, state, args.step or None)
+            payload = route_for_workflow(workflow, state, args.step or None, compact=not args.full)
             if args.json:
                 emit(payload)
             else:
@@ -133,15 +164,26 @@ def main() -> int:
                         print(f"  capability: {path}")
             return 0
         if args.command == "validate":
-            errors = validate_run(workflow, state, manifest, paths)
+            errors = validate_run(workflow, state, manifest, paths, deep=not args.fast)
             if errors:
                 emit({"status": "invalid", "errors": errors})
                 return 1
             emit({"status": "valid", "workflow": str(paths["workflow"])})
             return 0
         if args.command == "status":
-            emit(status_summary(workflow, state, manifest))
+            emit(status_summary(workflow, state, manifest, include_timings=args.timings))
             return 0
+        if args.command == "eval-status":
+            errors = validate_run(workflow, state, manifest, paths, deep=False)
+            payload = evaluation_summary(
+                workflow,
+                state,
+                manifest,
+                expected_gate=args.expected_gate,
+                validation_errors=errors,
+            )
+            emit(payload)
+            return 0 if payload["outcome"] in {"checkpoint_pass", "full_test_pass"} else 1
         if args.command == "next":
             ready = refresh_ready(workflow, state)
             save_run(state, manifest, paths)
@@ -158,6 +200,11 @@ def main() -> int:
             transition_step(workflow, state, manifest, paths, args.step, args.to, args.note, artifacts)
             save_run(state, manifest, paths)
             emit(status_summary(workflow, state, manifest))
+            return 0
+        if args.command == "revise":
+            affected = revise_step(workflow, state, manifest, paths, args.step, args.reason)
+            save_run(state, manifest, paths)
+            emit({"status": "revised", "affected_steps": affected, "state": status_summary(workflow, state, manifest)})
             return 0
         if args.command == "approve":
             approve_gate(workflow, state, manifest, paths, args.gate, args.note)

@@ -14,11 +14,13 @@ from typing import Any
 
 SCHEMA_ID = "autoflow/1.0"
 SCHEMA_VERSION = "1.0"
+RUN_LAYOUT_SCHEMA = "autoflow/run-layout/1.0"
 REQUIREMENT_MAP_SCHEMA = "autoflow/requirement-map/1.0"
 DELIVERY_REVIEW_SCHEMA = "autoflow/delivery-review/1.0"
 WORD_VALIDATION_SCHEMA = "autoflow/word-validation/1.0"
 VIDEO_VALIDATION_SCHEMA = "autoflow/video-validation/1.0"
 PACKAGE_MANIFEST_SCHEMA = "autoflow/package-manifest/1.0"
+ENVIRONMENT_REPORT_SCHEMA = "autoflow/environment-report/1.0"
 STEP_STATUSES = {"pending", "ready", "running", "blocked", "completed", "failed", "skipped"}
 GATE_STATUSES = {"pending", "approved", "rejected", "not_applicable"}
 GATE_NAMES = ("plan", "source", "visual", "delivery")
@@ -38,6 +40,18 @@ MODULE_ACTIONS = {
     "package": {"assemble"},
 }
 VISUAL_MODULES = {"image", "ppt", "video"}
+HASH_EXCLUDED_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+}
 SUPERPOWERS_SKILL_NAMES = (
     "brainstorming",
     "writing-plans",
@@ -97,6 +111,32 @@ class AutoFlowError(RuntimeError):
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _elapsed_seconds(started_at: str, ended_at: str | None = None) -> int:
+    if not started_at:
+        return 0
+    try:
+        start = datetime.fromisoformat(started_at)
+        end = datetime.fromisoformat(ended_at or utc_now())
+    except ValueError:
+        return 0
+    return max(0, int((end - start).total_seconds()))
+
+
+def _new_step_state(status: str = "pending") -> dict[str, Any]:
+    return {
+        "status": status,
+        "attempts": 0,
+        "revision_attempts": 0,
+        "revision": 0,
+        "note": "",
+        "started_at": "",
+        "completed_at": "",
+        "active_seconds": 0,
+        "history": [],
+        "updated_at": utc_now(),
+    }
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -159,6 +199,17 @@ def integration_catalog() -> list[dict[str, Any]]:
         for field in ("upstream", "revision", "license"):
             if not str(manifest.get(field, "")).strip():
                 errors.append(f"missing {field}")
+        mode = str(manifest.get("mode", ""))
+        allowed_modes = {"integrated_local_runtime", "integrated_instruction_overlay"}
+        if mode not in allowed_modes:
+            errors.append(f"mode must be one of: {', '.join(sorted(allowed_modes))}")
+        if manifest.get("self_contained") is not True:
+            errors.append("self_contained must be true")
+        if manifest.get("external_user_skill_required") is not False:
+            errors.append("external_user_skill_required must be false")
+        if manifest.get("source_checkout_required") is not False:
+            errors.append("source_checkout_required must be false")
+
         skills = manifest.get("skills", [])
         references = manifest.get("references", [])
         if not isinstance(skills, list) or not all(isinstance(name, str) for name in skills):
@@ -174,19 +225,39 @@ def integration_catalog() -> list[dict[str, Any]]:
         missing: list[str] = []
         for name in skills:
             relative = str(skill_paths.get(name, f"{name}/SKILL.md"))
-            if not (directory / relative).is_file():
+            resolved = (directory / relative).resolve()
+            if not resolved.is_relative_to(directory.resolve()):
+                missing.append(f"unsafe-skill-path:{relative}")
+            elif not resolved.is_file():
                 missing.append(relative)
         for name in references:
             relative = f"references/{name}"
-            if not (directory / relative).is_file():
+            resolved = (directory / relative).resolve()
+            if not resolved.is_relative_to(directory.resolve()):
+                missing.append(f"unsafe-reference-path:{relative}")
+            elif not resolved.is_file():
                 missing.append(relative)
         adapter_paths = manifest.get("adapter_paths", [])
         if not isinstance(adapter_paths, list) or not all(isinstance(path, str) for path in adapter_paths):
             errors.append("adapter_paths must be an array of strings")
             adapter_paths = []
         for relative in adapter_paths:
-            if not (root / relative).is_file():
+            resolved = (root / relative).resolve()
+            if not resolved.is_relative_to(root.resolve()):
+                missing.append(f"unsafe-adapter-path:{relative}")
+                continue
+            if not resolved.is_file():
                 missing.append(f"adapter:{relative}")
+                continue
+            if resolved.suffix.lower() in {".py", ".js", ".mjs", ".cjs", ".ps1", ".md"}:
+                source = resolved.read_text(encoding="utf-8", errors="ignore").casefold()
+                forbidden = [
+                    marker
+                    for marker in ("autoflow-workspace", ".codex/skills/", ".codex\\skills\\", ".agents/skills/", ".agents\\skills\\")
+                    if marker in source
+                ]
+                if forbidden:
+                    errors.append(f"adapter depends on external checkout/user Skill path: {relative}")
         if missing:
             errors.append("declared local files are missing")
         entries.append(
@@ -197,6 +268,10 @@ def integration_catalog() -> list[dict[str, Any]]:
                 "revision": manifest.get("revision", ""),
                 "license": manifest.get("license", ""),
                 "network_access_required": bool(manifest.get("network_access_required", False)),
+                "mode": mode,
+                "self_contained": manifest.get("self_contained") is True,
+                "external_user_skill_required": manifest.get("external_user_skill_required"),
+                "source_checkout_required": manifest.get("source_checkout_required"),
                 "runtime_bootstrap_copied": bool(manifest.get("runtime_bootstrap_copied", False)),
                 "skills": skills,
                 "references": references,
@@ -208,18 +283,54 @@ def integration_catalog() -> list[dict[str, Any]]:
     return entries
 
 
+def _run_layout_paths(output_dir: Path) -> dict[str, Path]:
+    output_dir = output_dir.expanduser().resolve()
+    internal = output_dir / ".autoflow"
+    config = internal / "config"
+    intermediate = internal / "intermediate"
+    return {
+        "root": output_dir,
+        "internal": internal,
+        "scripts": internal / "scripts",
+        "runtime": internal / "runtime",
+        "intermediate": intermediate,
+        "verification": intermediate / "verification",
+        "config": config,
+        "plans": intermediate / "plans",
+        "artifacts": intermediate / "artifacts",
+        "submit": output_dir / "submit",
+        "workflow": config / "workflow.json",
+        "state": config / "run_state.json",
+        "manifest": config / "artifact_manifest.json",
+        "work_plan": config / "WORK_PLAN.md",
+        "requirement_map": config / "requirement_map.json",
+        "delivery_review": config / "delivery_review.json",
+        "source_plan": intermediate / "plans" / "source_candidates.json",
+    }
+
+
 def workflow_paths(workflow_path: Path) -> dict[str, Path]:
-    root = workflow_path.resolve().parent
+    config = workflow_path.resolve().parent
+    internal = config.parent
+    root = internal.parent
     return {
         "root": root,
         "workflow": workflow_path.resolve(),
-        "state": root / "run_state.json",
-        "manifest": root / "artifact_manifest.json",
-        "work_plan": root / "WORK_PLAN.md",
-        "requirement_map": root / "requirement_map.json",
-        "delivery_review": root / "delivery_review.json",
-        "plans": root / "plans",
-        "source_plan": root / "plans" / "source_candidates.json",
+        "internal": internal,
+        "scripts": internal / "scripts",
+        "runtime": internal / "runtime",
+        "intermediate": internal / "intermediate",
+        "verification": internal / "intermediate" / "verification",
+        "config": config,
+        "plans": internal / "intermediate" / "plans",
+        "artifacts": internal / "intermediate" / "artifacts",
+        "submit": root / "submit",
+        "state": config / "run_state.json",
+        "manifest": config / "artifact_manifest.json",
+        "work_plan": config / "WORK_PLAN.md",
+        "requirement_map": config / "requirement_map.json",
+        "delivery_review": config / "delivery_review.json",
+        "source_plan": internal / "intermediate" / "plans" / "source_candidates.json",
     }
 
 
@@ -376,10 +487,19 @@ def _image_env_status(root: Path) -> tuple[bool, str]:
 
 def _image_action_report(action: str, root: Path) -> dict[str, Any]:
     files = {
-        "ai": [root / "scripts" / "generate_images.py", root / "scripts" / "validate_prompt.py"],
+        "ai": [
+            root / "scripts" / "generate_images.py",
+            root / "scripts" / "validate_prompt.py",
+            root / "scripts" / "generate_scientific_schematic.py",
+            root / "scripts" / "validate_scientific_figure.py",
+        ],
         "capture": [root / "scripts" / "capture_frontend_screenshots.py"],
         "diagram": [root / "scripts" / "generate_diagram_assets.py"],
-        "chart": [],
+        "chart": [
+            root / "integrations" / "nature-figure" / "SKILL.md",
+            root / "integrations" / "nature-figure" / "figure-types.json",
+            root / "integrations" / "nature-figure" / "scripts" / "plot_templates.py",
+        ],
     }
     missing = [str(path.relative_to(root)) for path in files.get(action, []) if not path.is_file()]
     report: dict[str, Any] = {
@@ -405,7 +525,9 @@ def _image_action_report(action: str, root: Path) -> dict[str, Any]:
         report["browser_backend"] = browser
         report["status"] = browser.get("status", "blocked")
         report["missing"] = list(browser.get("missing", []))
-        report["message"] = browser.get("message", "Browser capture capability is unavailable.")
+        report["message"] = browser.get("message") or (
+            "ready" if report["status"] == "available" else "Browser capture capability is unavailable."
+        )
     elif action == "diagram":
         renderers = {
             "mermaid": shutil.which("mmdc") or shutil.which("mmdc.cmd"),
@@ -417,8 +539,20 @@ def _image_action_report(action: str, root: Path) -> dict[str, Any]:
         report["status"] = "available" if not missing_renderers else "blocked"
         report["missing"] = missing_renderers
         report["message"] = "ready" if not missing_renderers else "Missing renderers: " + ", ".join(missing_renderers)
+    elif action == "chart":
+        missing_packages = [
+            package for package in ("numpy", "matplotlib")
+            if importlib.util.find_spec(package) is None
+        ]
+        report["status"] = "available" if not missing_packages else "blocked"
+        report["missing"] = missing_packages
+        report["message"] = (
+            "Charts consume approved task.compute data; publication templates use the integrated Nature Figure backend."
+            if not missing_packages
+            else "Missing publication chart runtime: " + ", ".join(missing_packages)
+        )
     else:
-        report["message"] = "Charts consume approved task.compute data; no external renderer is required."
+        report["message"] = "Image action backend is ready."
     return report
 
 
@@ -427,9 +561,16 @@ def detect_image_backend(actions: list[str] | None = None) -> dict[str, Any]:
     selected = actions or ["ai", "capture", "diagram", "chart"]
     reports = {action: _image_action_report(action, root) for action in dict.fromkeys(selected)}
     statuses = [item["status"] for item in reports.values()]
-    status = "available" if all(value == "available" for value in statuses) else "blocked"
-    if any(value == "missing" for value in statuses):
+    available_count = sum(value == "available" for value in statuses)
+    if available_count == len(statuses):
+        status = "available"
+    elif available_count:
+        status = "partial"
+    elif any(value == "missing" for value in statuses):
         status = "missing"
+    else:
+        status = "blocked"
+    status_details = ", ".join(f"{action}={report['status']}" for action, report in reports.items())
     return {
         "status": status,
         "backend": "integrated-image-assets",
@@ -437,7 +578,21 @@ def detect_image_backend(actions: list[str] | None = None) -> dict[str, Any]:
         "actions": reports,
         "external_skill_required": False,
         "network_access_required": any(action == "ai" for action in reports),
-        "message": "ready" if status == "available" else "One or more image actions are blocked.",
+        "message": "ready" if status == "available" else status_details,
+    }
+
+
+def image_capability_for_action(image: dict[str, Any], action: str) -> dict[str, Any]:
+    """Return an action-scoped image capability without sibling-action leakage."""
+    report = (image.get("actions") or {}).get(action)
+    if not report:
+        report = _image_action_report(action, Path(__file__).resolve().parent.parent)
+    return {
+        **image,
+        "status": report.get("status", "missing"),
+        "actions": {action: report},
+        "network_access_required": bool(report.get("network_access_required", False)),
+        "message": report.get("message", f"Image action {action} is unavailable."),
     }
 
 
@@ -1003,6 +1158,8 @@ def _new_gate(required: bool, active: bool, status: str) -> dict[str, Any]:
         "status": status,
         "note": "",
         "updated_at": utc_now(),
+        "activated_at": utc_now() if active and status == "pending" else "",
+        "wait_seconds": 0,
         "history": [],
     }
 
@@ -1012,9 +1169,16 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
     output_dir = output_dir.expanduser().resolve()
     if not request_file.is_file():
         raise AutoFlowError(f"Request file does not exist: {request_file}")
-    workflow_path = output_dir / "workflow.json"
+    layout = _run_layout_paths(output_dir)
+    workflow_path = layout["workflow"]
     if workflow_path.exists():
         raise AutoFlowError(f"Run already initialized: {workflow_path}")
+    legacy_workflow = output_dir / "workflow.json"
+    if legacy_workflow.exists():
+        raise AutoFlowError(
+            "Legacy AutoFlow run layout detected at the output root; "
+            "create a new run with 'python scripts/autoflow.py init'."
+        )
 
     request_text = request_file.read_text(encoding="utf-8")
     if recipe_name == "auto":
@@ -1030,7 +1194,13 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
         }
         recipe = load_recipe(recipe_name)
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "plans").mkdir(exist_ok=True)
+    for directory in (
+        layout["scripts"], layout["runtime"], layout["intermediate"], layout["verification"],
+        layout["config"], layout["plans"], layout["artifacts"], layout["submit"],
+    ):
+        directory.mkdir(parents=True, exist_ok=True)
+    request_copy = layout["config"] / "request.md"
+    shutil.copyfile(request_file, request_copy)
 
     workflow_id = f"af-{datetime.now().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}"
     workflow = {
@@ -1038,8 +1208,14 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
         "schema_version": SCHEMA_VERSION,
         "workflow_id": workflow_id,
         "name": output_dir.name,
-        "request_file": str(request_file),
+        "request_file": str(request_copy),
+        "request_source_file": str(request_file),
         "output_dir": str(output_dir),
+        "run_layout": RUN_LAYOUT_SCHEMA,
+        "directories": {
+            key: str(layout[key])
+            for key in ("root", "internal", "scripts", "runtime", "intermediate", "verification", "config", "plans", "artifacts", "submit")
+        },
         "recipe": recipe["name"],
         "recipe_description": recipe.get("description", ""),
         "recipe_selection": recipe_selection,
@@ -1054,15 +1230,9 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
         "workflow_id": workflow_id,
         "status": "planning",
         "updated_at": utc_now(),
-        "steps": {
-            step["id"]: {
-                "status": "pending",
-                "attempts": 0,
-                "note": "",
-                "updated_at": utc_now(),
-            }
-            for step in workflow["steps"]
-        },
+        "steps": {step["id"]: _new_step_state() for step in workflow["steps"]},
+        "revision": 0,
+        "revision_history": [],
         "gates": {
             "plan": _new_gate(True, True, "pending"),
             "source": _new_gate(False, False, "not_applicable"),
@@ -1075,13 +1245,14 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
         "workflow_id": workflow_id,
         "updated_at": utc_now(),
         "artifacts": [],
+        "artifact_history": [],
     }
     requirement_map = {
         "$schema": REQUIREMENT_MAP_SCHEMA,
         "workflow_id": workflow_id,
         "status": "planning",
         "target_tier": "requirements-complete",
-        "source_files": [str(request_file)],
+        "source_files": [str(request_copy)],
         "requirements": [],
         "planned_figures": [],
         "updated_at": utc_now(),
@@ -1132,18 +1303,17 @@ def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Pa
 """
 
     save_json(workflow_path, workflow)
-    save_json(output_dir / "run_state.json", state)
-    save_json(output_dir / "artifact_manifest.json", manifest)
-    save_json(output_dir / "requirement_map.json", requirement_map)
-    save_json(output_dir / "delivery_review.json", delivery_review)
-    (output_dir / "WORK_PLAN.md").write_text(work_plan, encoding="utf-8")
+    save_json(layout["state"], state)
+    save_json(layout["manifest"], manifest)
+    save_json(layout["requirement_map"], requirement_map)
+    save_json(layout["delivery_review"], delivery_review)
+    layout["work_plan"].write_text(work_plan, encoding="utf-8")
     return workflow_path
 
 
 def load_run(workflow_path: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Path]]:
     workflow_path = workflow_path.expanduser().resolve()
-    paths = workflow_paths(workflow_path)
-    workflow = load_json(paths["workflow"])
+    workflow = load_json(workflow_path)
     if workflow.get("$schema") != SCHEMA_ID or workflow.get("schema_version") != SCHEMA_VERSION:
         if any(key in workflow for key in ("template_path", "output_docx", "requirement_checklist_path")):
             raise AutoFlowError(
@@ -1153,6 +1323,12 @@ def load_run(workflow_path: Path) -> tuple[dict[str, Any], dict[str, Any], dict[
         raise AutoFlowError(
             f"Unsupported workflow schema. Expected {SCHEMA_ID} version {SCHEMA_VERSION}."
         )
+    if workflow_path.parent.name != "config" or workflow_path.parent.parent.name != ".autoflow":
+        raise AutoFlowError(
+            "Invalid AutoFlow run layout. Expected <output>/.autoflow/config/workflow.json; "
+            "create a new run with 'python scripts/autoflow.py init'."
+        )
+    paths = workflow_paths(workflow_path)
     state = load_json(paths["state"])
     manifest = load_json(paths["manifest"])
     return workflow, state, manifest, paths
@@ -1186,6 +1362,9 @@ def validate_workflow_definition(workflow: dict[str, Any]) -> None:
             raise AutoFlowError(f"Step {step_id} needs/inputs/outputs must be arrays")
         if "agent_skills" in step:
             agent_skills_skill_names(step)
+        max_attempts = step.get("max_attempts", 3)
+        if not isinstance(max_attempts, int) or isinstance(max_attempts, bool) or not 1 <= max_attempts <= 10:
+            raise AutoFlowError(f"Step {step_id} max_attempts must be an integer from 1 to 10")
         for artifact_id in outputs:
             if artifact_id in produced:
                 raise AutoFlowError(
@@ -1208,6 +1387,12 @@ def validate_workflow_definition(workflow: dict[str, Any]) -> None:
                 )
         elif validator == "word_acceptance":
             raise AutoFlowError(f"Only word steps may use the word_acceptance validator: {step_id}")
+        if module == "task" and action == "build":
+            required_build_outputs = {"project.source", "task.result", "task.environment"}
+            if not required_build_outputs.issubset(outputs):
+                raise AutoFlowError(
+                    f"Build step {step_id} must declare outputs: {', '.join(sorted(required_build_outputs))}"
+                )
         if module == "video":
             if validator != "video_acceptance":
                 raise AutoFlowError(f"Video step {step_id} must use the video_acceptance validator")
@@ -1448,7 +1633,11 @@ def hash_path(path: Path) -> str:
     if not path.is_dir():
         raise AutoFlowError(f"Artifact path does not exist: {path}")
     digest = hashlib.sha256()
-    for child in sorted(item for item in path.rglob("*") if item.is_file()):
+    children: list[Path] = []
+    for root, directories, files in os.walk(path):
+        directories[:] = sorted(name for name in directories if name.lower() not in HASH_EXCLUDED_DIRS)
+        children.extend(Path(root) / name for name in sorted(files))
+    for child in sorted(children):
         digest.update(child.relative_to(path).as_posix().encode("utf-8"))
         digest.update(_hash_file(child).encode("ascii"))
     return digest.hexdigest()
@@ -1533,7 +1722,7 @@ def validate_video_acceptance(artifacts: dict[str, Path]) -> None:
         raise AutoFlowError("video.validation metadata must record positive duration/dimensions and a codec")
 
 
-def validate_package_acceptance(artifacts: dict[str, Path]) -> None:
+def validate_package_acceptance(artifacts: dict[str, Path], submit_root: Path | None = None) -> None:
     bundle = artifacts.get("package.bundle")
     manifest_path = artifacts.get("package.manifest")
     if not bundle or not bundle.exists():
@@ -1545,6 +1734,13 @@ def validate_package_acceptance(artifacts: dict[str, Path]) -> None:
         raise AutoFlowError(f"package.manifest must use {PACKAGE_MANIFEST_SCHEMA} with overall_pass=true")
     output_zip = Path(str(report.get("output_zip", ""))).expanduser().resolve()
     output_folder = Path(str(report.get("output_folder", ""))).expanduser().resolve()
+    if not output_zip.is_file() or not output_folder.is_dir():
+        raise AutoFlowError("package.manifest output_zip and output_folder must both exist")
+    if submit_root is not None:
+        submit_root = submit_root.resolve()
+        published_paths = (bundle.resolve(), manifest_path.resolve(), output_zip, output_folder)
+        if any(path == submit_root or submit_root not in path.parents for path in published_paths):
+            raise AutoFlowError("Every final package artifact must be located below autoflow/submit/")
     if bundle.resolve() not in {output_zip, output_folder}:
         raise AutoFlowError("package.manifest output paths do not include package.bundle")
     files = report.get("files")
@@ -1558,6 +1754,24 @@ def validate_package_acceptance(artifacts: dict[str, Path]) -> None:
     checks = report.get("checks")
     if not isinstance(checks, list) or not checks or any(item.get("status") != "passed" for item in checks):
         raise AutoFlowError("package.manifest checks must all pass")
+
+
+def validate_unpacked_final_locations(
+    workflow: dict[str, Any], step: dict[str, Any], artifacts: dict[str, Path], submit_root: Path
+) -> None:
+    """Require terminal deliverables below submit when no package step exists."""
+    if any(item.get("module") == "package" for item in workflow.get("steps", [])):
+        return
+    step_id = step["id"]
+    if any(step_id in item.get("needs", []) for item in workflow.get("steps", []) if item.get("id") != step_id):
+        return
+    submit_root = submit_root.resolve()
+    outside = [artifact_id for artifact_id, path in artifacts.items() if submit_root not in path.resolve().parents]
+    if outside:
+        raise AutoFlowError(
+            "Final artifacts for workflows without package steps must be below autoflow/submit/: "
+            + ", ".join(sorted(outside))
+        )
 
 
 def parse_artifact_specs(specs: list[str]) -> dict[str, Path]:
@@ -1588,15 +1802,7 @@ def sync_planning_state(workflow: dict[str, Any], state: dict[str, Any]) -> None
         if item.get("attempts", 0) or item.get("status") not in {"pending", "ready"}:
             raise AutoFlowError("Cannot synchronize a workflow after step execution has started")
     workflow["capabilities"] = workflow_capabilities(workflow["steps"])
-    state["steps"] = {
-        step["id"]: {
-            "status": "pending",
-            "attempts": 0,
-            "note": "",
-            "updated_at": utc_now(),
-        }
-        for step in workflow["steps"]
-    }
+    state["steps"] = {step["id"]: _new_step_state() for step in workflow["steps"]}
     state["status"] = "planning"
     state["updated_at"] = utc_now()
 
@@ -1734,6 +1940,9 @@ def validate_build_completion(artifacts: dict[str, Path], source_plan_path: Path
     verification = result.get("verification_results") or []
     if not verification or not any(item.get("status") == "passed" for item in verification if isinstance(item, dict)):
         raise AutoFlowError("task.result.verification_results must include at least one passed check")
+    environment_path = artifacts.get("task.environment")
+    if environment_path:
+        validate_environment_report(environment_path, project_path)
     if expected_mode == "github_adaptation":
         if not (project_path / ".git").exists():
             raise AutoFlowError("A GitHub adaptation must retain a .git repository in project.source")
@@ -1745,13 +1954,53 @@ def validate_build_completion(artifacts: dict[str, Path], source_plan_path: Path
             raise AutoFlowError("task.result upstream revision does not match the selected revision")
 
 
+def validate_environment_report(report_path: Path, project_path: Path) -> dict[str, Any]:
+    if not report_path.is_file():
+        raise AutoFlowError("task.environment must be an existing JSON report")
+    report = load_json(report_path)
+    if report.get("$schema") != ENVIRONMENT_REPORT_SCHEMA:
+        raise AutoFlowError(f"task.environment must use {ENVIRONMENT_REPORT_SCHEMA}")
+    if report.get("command") not in {"ensure", "verify"}:
+        raise AutoFlowError("task.environment must come from environment_setup.py ensure or verify")
+    if report.get("status") != "ready":
+        raise AutoFlowError("task.environment status must be ready")
+    reported_project = Path(str(report.get("project", ""))).expanduser().resolve()
+    if reported_project != project_path.resolve():
+        raise AutoFlowError("task.environment project does not match project.source")
+    runtime_root = Path(str(report.get("runtime_root", ""))).expanduser().resolve()
+    project_root = project_path.resolve()
+    if runtime_root == project_root or runtime_root in project_root.parents or project_root in runtime_root.parents:
+        raise AutoFlowError("task.environment runtime_root must be outside project.source")
+    if not runtime_root.is_dir():
+        raise AutoFlowError("task.environment runtime_root does not exist")
+    if report.get("missing_tools"):
+        raise AutoFlowError("task.environment still reports missing tools")
+    if report.get("project_kinds") and not report.get("checks"):
+        raise AutoFlowError("task.environment must contain verification checks for every detected project stack")
+    failed_checks = [item.get("name", "unknown") for item in report.get("checks", []) if item.get("status") != "passed"]
+    if failed_checks:
+        raise AutoFlowError("task.environment checks failed: " + ", ".join(failed_checks))
+    return report
+
+
 def _set_gate(state: dict[str, Any], gate_name: str, status: str, note: str, active: bool) -> None:
     gate = state["gates"][gate_name]
     previous = gate.get("status")
+    now = utc_now()
+    if gate.get("activated_at") and previous in {"pending", "rejected"} and status != previous:
+        gate["wait_seconds"] = int(gate.get("wait_seconds", 0)) + _elapsed_seconds(gate["activated_at"], now)
     gate.setdefault("history", []).append(
-        {"from": previous, "to": status, "note": note, "at": utc_now()}
+        {"from": previous, "to": status, "note": note, "at": now}
     )
-    gate.update({"status": status, "note": note, "active": active, "updated_at": utc_now()})
+    gate.update(
+        {
+            "status": status,
+            "note": note,
+            "active": active,
+            "updated_at": now,
+            "activated_at": now if active and status in {"pending", "rejected"} else "",
+        }
+    )
     if gate_name == "visual" and status == "pending":
         gate["approved_artifacts"] = []
     state["updated_at"] = utc_now()
@@ -1793,6 +2042,15 @@ def refresh_ready(workflow: dict[str, Any], state: dict[str, Any]) -> list[str]:
 
 
 def _refresh_delivery(workflow: dict[str, Any], state: dict[str, Any]) -> None:
+    step_statuses = [item["status"] for item in state["steps"].values()]
+    if "failed" in step_statuses:
+        state["status"] = "failed"
+        state["gates"]["delivery"]["active"] = False
+        return
+    if "blocked" in step_statuses:
+        state["status"] = "blocked"
+        state["gates"]["delivery"]["active"] = False
+        return
     all_done = all(item["status"] in {"completed", "skipped"} for item in state["steps"].values())
     blocker = _active_blocking_gate(state)
     gate = state["gates"]["delivery"]
@@ -1841,7 +2099,20 @@ def transition_step(
         unmet = [dep for dep in step.get("needs", []) if state["steps"][dep]["status"] not in {"completed", "skipped"}]
         if unmet:
             raise AutoFlowError(f"Step {step_id} has incomplete dependencies: {', '.join(unmet)}")
-        state["steps"][step_id]["attempts"] += 1
+        step_state = state["steps"][step_id]
+        max_attempts = int(step.get("max_attempts", 3))
+        revision_attempts = int(step_state.get("revision_attempts", 0))
+        if revision_attempts >= max_attempts:
+            raise AutoFlowError(
+                f"Step {step_id} exhausted its revision attempt budget ({max_attempts}); "
+                "diagnose the repeated failure and use revise before another attempt"
+            )
+        step_state["attempts"] += 1
+        step_state["revision_attempts"] = revision_attempts + 1
+        step_state["started_at"] = utc_now()
+        step_state.setdefault("history", []).append(
+            {"from": current, "to": target, "note": note, "at": step_state["started_at"]}
+        )
     if target == "completed":
         if step.get("module") == "task" and step.get("action") == "build":
             validate_build_completion(artifacts, paths["source_plan"])
@@ -1850,12 +2121,26 @@ def transition_step(
         if step.get("validator") == "video_acceptance":
             validate_video_acceptance(artifacts)
         if step.get("validator") == "package_acceptance":
-            validate_package_acceptance(artifacts)
+            validate_package_acceptance(artifacts, paths["submit"])
+        validate_unpacked_final_locations(workflow, step, artifacts, paths["submit"])
         register_step_artifacts(workflow, manifest, step, artifacts)
     elif artifacts:
         raise AutoFlowError("--artifact may only be used when completing a step")
 
-    state["steps"][step_id].update({"status": target, "note": note, "updated_at": utc_now()})
+    now = utc_now()
+    step_state = state["steps"][step_id]
+    if target != "running" and step_state.get("started_at"):
+        step_state["active_seconds"] = int(step_state.get("active_seconds", 0)) + _elapsed_seconds(
+            step_state["started_at"], now
+        )
+        step_state["started_at"] = ""
+    if target == "completed":
+        step_state["completed_at"] = now
+    if target != "running":
+        step_state.setdefault("history", []).append(
+            {"from": current, "to": target, "note": note, "at": now}
+        )
+    step_state.update({"status": target, "note": note, "updated_at": now})
 
     if target == "completed" and step.get("gate_after") == "source":
         source_status = validate_source_plan(paths["source_plan"])
@@ -1877,7 +2162,137 @@ def transition_step(
     _refresh_delivery(workflow, state)
 
 
-def _validate_artifacts(manifest: dict[str, Any]) -> list[str]:
+def revise_step(
+    workflow: dict[str, Any],
+    state: dict[str, Any],
+    manifest: dict[str, Any],
+    paths: dict[str, Path],
+    step_id: str,
+    reason: str,
+) -> list[str]:
+    """Reopen an executed step and invalidate every transitive downstream consumer."""
+    if not reason.strip():
+        raise AutoFlowError("revise requires a non-empty reason")
+    if state.get("status") == "completed" or state.get("gates", {}).get("delivery", {}).get("status") == "approved":
+        raise AutoFlowError("A delivered workflow is immutable; initialize a new revision run")
+    steps = _step_map(workflow)
+    if step_id not in steps:
+        raise AutoFlowError(f"Unknown step: {step_id}")
+    current_status = state["steps"][step_id]["status"]
+    if current_status in {"pending", "ready"}:
+        raise AutoFlowError(f"Step {step_id} has not executed and does not need revision")
+
+    affected = {step_id}
+    changed = True
+    while changed:
+        changed = False
+        for candidate in workflow["steps"]:
+            if candidate["id"] not in affected and any(dep in affected for dep in candidate.get("needs", [])):
+                affected.add(candidate["id"])
+                changed = True
+    affected_order = [candidate["id"] for candidate in workflow["steps"] if candidate["id"] in affected]
+
+    revision = int(state.get("revision", 0)) + 1
+    now = utc_now()
+    affected_outputs = {
+        artifact_id
+        for candidate in workflow["steps"]
+        if candidate["id"] in affected
+        for artifact_id in candidate.get("outputs", [])
+    }
+    retained = []
+    history = manifest.setdefault("artifact_history", [])
+    for artifact in manifest.get("artifacts", []):
+        if artifact.get("producer") in affected or artifact.get("id") in affected_outputs:
+            history.append(
+                {
+                    **artifact,
+                    "status": "superseded",
+                    "superseded_at": now,
+                    "superseded_by_revision": revision,
+                    "reason": reason.strip(),
+                }
+            )
+        else:
+            retained.append(artifact)
+    manifest["artifacts"] = sorted(retained, key=lambda item: item["id"])
+    manifest["updated_at"] = now
+
+    for candidate in workflow["steps"]:
+        candidate_id = candidate["id"]
+        if candidate_id not in affected:
+            continue
+        old = state["steps"][candidate_id]
+        old.setdefault("history", []).append(
+            {
+                "from": old.get("status"),
+                "to": "pending",
+                "note": f"revision {revision}: {reason.strip()}",
+                "at": now,
+            }
+        )
+        old.update(
+            {
+                "status": "pending",
+                "revision": int(old.get("revision", 0)) + 1,
+                "revision_attempts": 0,
+                "note": f"Revision {revision}: {reason.strip()}",
+                "started_at": "",
+                "completed_at": "",
+                "updated_at": now,
+            }
+        )
+
+    affected_steps = [steps[item] for item in affected]
+    if any(step.get("gate_after") == "source" for step in affected_steps):
+        _set_gate(state, "source", "not_applicable", f"Revision {revision} invalidated source evidence", False)
+    if any(step.get("gate_after") == "visual" for step in affected_steps):
+        _set_gate(state, "visual", "not_applicable", f"Revision {revision} invalidated visual evidence", False)
+    _set_gate(state, "delivery", "pending", f"Revision {revision} requires a new delivery review", False)
+
+    if paths["requirement_map"].is_file():
+        requirement_map = load_json(paths["requirement_map"])
+        requirement_map["status"] = "planning"
+        for requirement in requirement_map.get("requirements", []):
+            if set(requirement.get("evidence_artifacts", [])) & affected_outputs:
+                requirement["validation"] = {
+                    "status": "pending",
+                    "notes": f"Invalidated by revision {revision}",
+                }
+        requirement_map["updated_at"] = now
+        save_json(paths["requirement_map"], requirement_map)
+    if paths["delivery_review"].is_file():
+        delivery_review = load_json(paths["delivery_review"])
+        delivery_review.update(
+            {
+                "review_completed": False,
+                "requirement_results": [],
+                "artifact_results": [],
+                "issues_found": [],
+                "overall_pass": False,
+                "reviewer_notes": f"Invalidated by revision {revision}: {reason.strip()}",
+                "updated_at": now,
+            }
+        )
+        save_json(paths["delivery_review"], delivery_review)
+
+    state["revision"] = revision
+    state.setdefault("revision_history", []).append(
+        {
+            "revision": revision,
+            "root_step": step_id,
+            "affected_steps": affected_order,
+            "reason": reason.strip(),
+            "at": now,
+        }
+    )
+    state["status"] = "running"
+    state["updated_at"] = now
+    refresh_ready(workflow, state)
+    return affected_order
+
+
+def _validate_artifacts(manifest: dict[str, Any], deep: bool = True) -> list[str]:
     errors: list[str] = []
     seen: set[str] = set()
     for item in manifest.get("artifacts", []):
@@ -1890,9 +2305,10 @@ def _validate_artifacts(manifest: dict[str, Any]) -> list[str]:
         if not path.exists():
             errors.append(f"Artifact path missing: {artifact_id} -> {path}")
             continue
-        actual = hash_path(path)
-        if actual != item.get("sha256"):
-            errors.append(f"Artifact changed after validation: {artifact_id} -> {path}")
+        if deep:
+            actual = hash_path(path)
+            if actual != item.get("sha256"):
+                errors.append(f"Artifact changed after validation: {artifact_id} -> {path}")
         if (item.get("validation") or {}).get("status") != "valid":
             errors.append(f"Artifact is not marked valid: {artifact_id}")
     return errors
@@ -1987,7 +2403,13 @@ def set_gate_state(
     state["status"] = "blocked" if target == "rejected" else state.get("status", "running")
 
 
-def validate_run(workflow: dict[str, Any], state: dict[str, Any], manifest: dict[str, Any], paths: dict[str, Path]) -> list[str]:
+def validate_run(
+    workflow: dict[str, Any],
+    state: dict[str, Any],
+    manifest: dict[str, Any],
+    paths: dict[str, Path],
+    deep: bool = True,
+) -> list[str]:
     errors: list[str] = []
     try:
         validate_workflow_definition(workflow)
@@ -2007,6 +2429,16 @@ def validate_run(workflow: dict[str, Any], state: dict[str, Any], manifest: dict
     output_dir = Path(str(workflow.get("output_dir", ""))).resolve()
     if output_dir != paths["root"]:
         errors.append(f"workflow.output_dir does not match the run directory: {output_dir}")
+    if workflow.get("run_layout") != RUN_LAYOUT_SCHEMA:
+        errors.append(f"workflow.run_layout must be {RUN_LAYOUT_SCHEMA}")
+    declared_directories = workflow.get("directories")
+    if not isinstance(declared_directories, dict):
+        errors.append("workflow.directories is missing from the run layout")
+    else:
+        for name in ("root", "internal", "scripts", "runtime", "intermediate", "verification", "config", "plans", "artifacts", "submit"):
+            declared = Path(str(declared_directories.get(name, ""))).expanduser().resolve()
+            if declared != paths[name]:
+                errors.append(f"workflow.directories.{name} does not match the run layout: {declared}")
     expected_steps = {step["id"] for step in workflow.get("steps", [])}
     if set(state.get("steps", {})) != expected_steps:
         errors.append("run_state.json step ids do not match workflow.json")
@@ -2019,7 +2451,7 @@ def validate_run(workflow: dict[str, Any], state: dict[str, Any], manifest: dict
             errors.append(f"Missing gate state: {gate_name}")
         elif gate.get("status") not in GATE_STATUSES:
             errors.append(f"Invalid status for gate {gate_name}: {gate.get('status')}")
-    errors.extend(_validate_artifacts(manifest))
+    errors.extend(_validate_artifacts(manifest, deep=deep))
 
     manifest_ids = set(_manifest_map(manifest))
     by_id = _step_map(workflow) if workflow.get("steps") else {}
@@ -2063,7 +2495,7 @@ def save_run(state: dict[str, Any], manifest: dict[str, Any], paths: dict[str, P
 
 
 def route_for_workflow(
-    workflow: dict[str, Any], state: dict[str, Any], step_id: str | None = None
+    workflow: dict[str, Any], state: dict[str, Any], step_id: str | None = None, compact: bool = True
 ) -> dict[str, Any]:
     root = Path(__file__).resolve().parent.parent
     by_id = _step_map(workflow)
@@ -2080,32 +2512,37 @@ def route_for_workflow(
     ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
     video = (workflow.get("capabilities") or {}).get("video") or detect_video_backend()
     image = (workflow.get("capabilities") or {}).get("image") or detect_image_backend()
-    base_names = ["using-superpowers", "brainstorming", "writing-plans", "verification-before-completion"]
+    base_names = ["verification-before-completion"] if compact else [
+        "using-superpowers",
+        "brainstorming",
+        "writing-plans",
+        "verification-before-completion",
+    ]
     routed_steps: list[dict[str, Any]] = []
     for step in selected:
         status = (state.get("steps", {}).get(step["id"]) or {}).get("status", "pending")
         names = list(base_names)
-        if step.get("module") == "task" and step.get("action") in {"build", "execute"}:
-            names.extend(["test-driven-development", "requesting-code-review"])
+        if not compact and step.get("module") == "task" and step.get("action") in {"build", "execute"}:
+            names.append("test-driven-development")
             if step.get("parallelizable") or step.get("independent_tasks"):
                 names.append("dispatching-parallel-agents")
             if step.get("subagent_mode") or step.get("independent_tasks"):
                 names.append("subagent-driven-development")
             if step.get("git_worktree"):
                 names.append("using-git-worktrees")
-        if step.get("review_feedback"):
+        if not compact and step.get("review_feedback"):
             names.append("receiving-code-review")
         if step.get("design_backend") == "integrated-impeccable":
             names.append("impeccable")
         if status in {"blocked", "failed"}:
             names.append("systematic-debugging")
-        if status in {"ready", "running", "blocked", "failed"}:
+        if not compact and status in {"ready", "running", "blocked", "failed"}:
             names.append("executing-plans")
-        if step.get("module") == "package":
+        if not compact and step.get("module") == "package":
             names.append("finishing-a-development-branch")
-        agent_names = agent_skills_skill_names(step, status)
+        agent_names = [] if compact else agent_skills_skill_names(step, status)
         names.extend(agent_names)
-        quality_names = engineering_quality_skill_names(step, status)
+        quality_names = [] if compact else engineering_quality_skill_names(step, status)
         names.extend(quality_names)
         names = list(dict.fromkeys(names))
 
@@ -2152,6 +2589,12 @@ def route_for_workflow(
                     for key in ("skill_file", "helper_script")
                     if str(browser.get(key, ""))
                 )
+        routed_capabilities = {
+            name: (workflow.get("capabilities") or {}).get(name, {})
+            for name in capability_names
+        }
+        if step.get("module") == "image":
+            routed_capabilities["image"] = image_capability_for_action(image, step.get("action", ""))
         routed_steps.append(
             {
                 "id": step["id"],
@@ -2176,10 +2619,7 @@ def route_for_workflow(
                 ],
                 "capability_files": capability_files,
                 "capability_names": capability_names,
-                "capabilities": {
-                    name: (workflow.get("capabilities") or {}).get(name, {})
-                    for name in capability_names
-                },
+                "capabilities": routed_capabilities,
             }
         )
 
@@ -2187,6 +2627,7 @@ def route_for_workflow(
         "$schema": "autoflow/route/1.0",
         "workflow_id": workflow.get("workflow_id", ""),
         "recipe": workflow.get("recipe", ""),
+        "mode": "compact" if compact else "full",
         "global_skill_names": base_names,
         "steps": routed_steps,
     }
@@ -2196,8 +2637,13 @@ def route_for_workflow(
     return payload
 
 
-def status_summary(workflow: dict[str, Any], state: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
-    return {
+def status_summary(
+    workflow: dict[str, Any],
+    state: dict[str, Any],
+    manifest: dict[str, Any],
+    include_timings: bool = False,
+) -> dict[str, Any]:
+    payload = {
         "workflow_id": workflow["workflow_id"],
         "name": workflow["name"],
         "recipe": workflow["recipe"],
@@ -2208,6 +2654,20 @@ def status_summary(workflow: dict[str, Any], state: dict[str, Any], manifest: di
                 "module": step["module"],
                 "action": step["action"],
                 "status": state["steps"][step["id"]]["status"],
+                **(
+                    {
+                        "attempts": state["steps"][step["id"]].get("attempts", 0),
+                        "revision_attempts": state["steps"][step["id"]].get("revision_attempts", 0),
+                        "max_attempts": step.get("max_attempts", 3),
+                        "revision": state["steps"][step["id"]].get("revision", 0),
+                        "active_seconds": state["steps"][step["id"]].get("active_seconds", 0)
+                        + _elapsed_seconds(state["steps"][step["id"]].get("started_at", "")),
+                        "started_at": state["steps"][step["id"]].get("started_at", ""),
+                        "completed_at": state["steps"][step["id"]].get("completed_at", ""),
+                    }
+                    if include_timings
+                    else {}
+                ),
             }
             for step in workflow["steps"]
         ],
@@ -2216,8 +2676,91 @@ def status_summary(workflow: dict[str, Any], state: dict[str, Any], manifest: di
                 "status": state["gates"][name]["status"],
                 "active": state["gates"][name]["active"],
                 "note": state["gates"][name]["note"],
+                **(
+                    {
+                        "wait_seconds": state["gates"][name].get("wait_seconds", 0)
+                        + _elapsed_seconds(state["gates"][name].get("activated_at", "")),
+                        "activated_at": state["gates"][name].get("activated_at", ""),
+                    }
+                    if include_timings
+                    else {}
+                ),
             }
             for name in GATE_NAMES
         },
         "artifact_count": len(manifest.get("artifacts", [])),
+    }
+    if include_timings:
+        payload["revision"] = state.get("revision", 0)
+        payload["total_active_seconds"] = sum(item.get("active_seconds", 0) for item in payload["steps"])
+        payload["total_gate_wait_seconds"] = sum(item.get("wait_seconds", 0) for item in payload["gates"].values())
+    return payload
+
+
+def evaluation_summary(
+    workflow: dict[str, Any],
+    state: dict[str, Any],
+    manifest: dict[str, Any],
+    expected_gate: str = "",
+    validation_errors: list[str] | None = None,
+) -> dict[str, Any]:
+    """Classify an evaluation without weakening human STOP approval rules."""
+    errors = list(validation_errors or [])
+    required_steps = [step for step in workflow["steps"] if not step.get("optional", False)]
+    required_step_ids = [step["id"] for step in required_steps]
+    incomplete_steps = [
+        step_id
+        for step_id in required_step_ids
+        if state["steps"][step_id]["status"] not in {"completed", "skipped"}
+    ]
+    registered_ids = {item.get("id") for item in manifest.get("artifacts", [])}
+    missing_outputs = sorted(
+        artifact_id
+        for step in required_steps
+        if state["steps"][step["id"]]["status"] == "completed"
+        for artifact_id in step.get("outputs", [])
+        if artifact_id not in registered_ids
+    )
+    active_gates = [
+        name
+        for name in GATE_NAMES
+        if state["gates"][name].get("active") and state["gates"][name].get("status") == "pending"
+    ]
+    artifact_execution_complete = not incomplete_steps and not missing_outputs
+
+    if errors:
+        outcome = "invalid"
+    elif state.get("status") == "completed":
+        outcome = "full_test_pass"
+    elif expected_gate and expected_gate in active_gates:
+        outcome = "checkpoint_pass"
+    elif active_gates:
+        outcome = "awaiting_user_approval"
+    elif any(state["steps"][step_id]["status"] == "failed" for step_id in required_step_ids):
+        outcome = "failed"
+    elif any(state["steps"][step_id]["status"] == "blocked" for step_id in required_step_ids):
+        outcome = "blocked"
+    else:
+        outcome = "incomplete"
+
+    return {
+        "$schema": "autoflow/evaluation-status/1.0",
+        "workflow_id": workflow["workflow_id"],
+        "recipe": workflow["recipe"],
+        "outcome": outcome,
+        "workflow_status": state.get("status", ""),
+        "valid": not errors,
+        "validation_errors": errors,
+        "artifact_execution_complete": artifact_execution_complete,
+        "full_test_eligible": outcome == "full_test_pass",
+        "expected_gate": expected_gate,
+        "active_gates": active_gates,
+        "incomplete_steps": incomplete_steps,
+        "missing_outputs": missing_outputs,
+        "artifact_count": len(manifest.get("artifacts", [])),
+        "note": (
+            "A checkpoint pass proves the expected STOP behavior only; it is not a completed end-to-end run."
+            if outcome == "checkpoint_pass"
+            else "Only full_test_pass may be reported as a completed end-to-end evaluation."
+        ),
     }

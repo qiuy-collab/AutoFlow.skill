@@ -133,6 +133,64 @@ class PackageSubmissionTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("sensitive", result.stderr + result.stdout)
 
+    def test_nested_git_runtime_and_cache_files_are_recursively_excluded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run = Path(temp) / "run"
+            plans = run / "plans"
+            project = run / "project"
+            plans.mkdir(parents=True)
+            (project / ".git" / "logs" / "refs" / "heads").mkdir(parents=True)
+            (project / ".git" / "COMMIT_EDITMSG").write_text("secret history", encoding="utf-8")
+            (project / ".git" / "logs" / "refs" / "heads" / "main").write_text("history", encoding="utf-8")
+            (project / "src" / "__pycache__").mkdir(parents=True)
+            (project / "src" / "__pycache__" / "app.pyc").write_bytes(b"cache")
+            (project / ".venv" / "Lib").mkdir(parents=True)
+            (project / ".venv" / "Lib" / "dependency.py").write_text("runtime", encoding="utf-8")
+            (project / "src" / "app.py").write_text("print('ok')", encoding="utf-8")
+            config = {
+                "enabled": True,
+                "source_root": "..",
+                "allowed_output_root": "..",
+                "output_zip": "../delivery/交付.zip",
+                "output_folder": "../delivery/交付",
+                "include_paths": [{"path": "project", "archive_root": "系统源码", "requirement_ids": ["R1"]}],
+                "exclude_globs": [],
+            }
+            config_path = plans / "package.json"
+            config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+            result = subprocess.run([sys.executable, str(SCRIPT), "--config", str(config_path)], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with zipfile.ZipFile(run / "delivery" / "交付.zip") as archive:
+                self.assertEqual(archive.namelist(), ["系统源码/src/app.py"])
+            manifest = json.loads((run / "delivery" / "交付_manifest.json").read_text(encoding="utf-8"))
+            self.assertGreaterEqual(manifest["excluded"]["count"], 4)
+
+    def test_verify_only_is_read_only_and_detects_submit_pollution(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run = Path(temp) / "run"
+            plans = run / "plans"
+            artifact = run / "artifact.txt"
+            plans.mkdir(parents=True)
+            artifact.write_text("final", encoding="utf-8")
+            config = {
+                "enabled": True,
+                "source_root": "..",
+                "allowed_output_root": "..",
+                "output_zip": "../delivery/submit.zip",
+                "output_folder": "../delivery/submit",
+                "include_paths": [{"path": "artifact.txt", "archive_root": "", "requirement_ids": ["R1"]}],
+            }
+            config_path = plans / "package.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            built = subprocess.run([sys.executable, str(SCRIPT), "--config", str(config_path)], text=True, capture_output=True)
+            self.assertEqual(built.returncode, 0, built.stderr)
+            verified = subprocess.run([sys.executable, str(SCRIPT), "--config", str(config_path), "--verify-only"], text=True, capture_output=True)
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+            (run / "delivery" / "submit" / "db.sqlite3").write_text("pollution", encoding="utf-8")
+            polluted = subprocess.run([sys.executable, str(SCRIPT), "--config", str(config_path), "--verify-only"], text=True, capture_output=True)
+            self.assertNotEqual(polluted.returncode, 0)
+            self.assertIn("verification failed", polluted.stderr + polluted.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

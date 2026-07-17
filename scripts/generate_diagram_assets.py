@@ -598,8 +598,12 @@ def build_plantuml_deployment(diagram: dict) -> str:
         require_fields(node, ["name"], f"{context} deployment node")
         alias = safe_alias(node.get("id", node["name"]), "dep")
         alias_map[node["name"]] = alias
-        keyword = node.get("type", "node")
-        lines.append(f'{keyword} "{escape_label(node["name"])}" as {alias}')
+        # The standalone PlantUML native runtime does not consistently accept
+        # empty `device`/`database` deployment elements. A node container is
+        # portable across runtimes; a stereotype preserves the intended role.
+        role = safe_alias(node.get("type", "node"), "node")
+        lines.append(f'node "{escape_label(node["name"])}" as {alias} <<{role}>> {{')
+        lines.append("}")
     for connection in connections:
         require_fields(connection, ["from", "to"], f"{context} deployment connection")
         if connection["from"] not in alias_map or connection["to"] not in alias_map:

@@ -12,14 +12,16 @@ Use this module for work that creates the factual or executable foundation consu
 Every completed step must produce the artifact IDs declared in `workflow.json`. Register them through `autoflow.py transition --to completed --artifact ID=PATH`.
 
 Before acting on a task step, run `autoflow.py route --workflow ... --step ...
---json` and read every returned local Skill file. The integrated methodology
-route applies `writing-plans` and fresh verification globally, adds
-`test-driven-development` and `requesting-code-review` to build/execute work,
-and adds `systematic-debugging` before retrying a blocked or failed step. These
+--json --compact` and read the returned required files. Compact routing applies
+fresh verification and only guidance required by the current step. Use
+`--full` only when a specific methodology is needed; independent or cross-model
+review is not part of the default route. Full routing may add
+`test-driven-development` to build/execute work and adds `systematic-debugging`
+before retrying a blocked or failed step. These
 are local files under `integrations/superpowers`; do not substitute a missing
 external plugin.
 
-For `task.build` and `task.execute`, the route also adds the local
+When `--full` is explicitly requested, `task.build` and `task.execute` also add the local
 `engineering-quality` subset: multi-axis code review, security hardening, and
 architecture decision records. For `task.compute`, it adds performance
 optimization guidance. Read the returned files before acting and record the
@@ -39,7 +41,7 @@ For independent implementation work, the step may declare
 flags are routing declarations, not permission to skip DAG dependencies or
 verification.
 
-The route also resolves the local `agent-skills` overlay. Research steps add
+Full routing may also resolve the local `agent-skills` overlay. Research steps add
 interview, idea refinement, planning, and doubt-driven review; build steps add
 context engineering, interface design, planning, and commit discipline; UI
 builds add frontend architecture. Read the exact paths returned by the CLI.
@@ -57,7 +59,7 @@ For code, websites, applications, systems, databases, or runnable project reques
 1. Read the request and extract required features, technology constraints, deliverables, and forbidden substitutions.
 2. Search GitHub with several requirement-derived queries. Inspect repository files, license, maintenance activity, build instructions, dependencies, and screenshots where available.
 3. Score candidates from 0–5 for requirement fit, modification distance, stack compatibility, buildability, maintenance, and license compatibility.
-4. Keep only genuinely usable candidates. Write three to five to `plans/source_candidates.json`.
+4. Keep only genuinely usable candidates. Write three to five to `.autoflow/intermediate/plans/source_candidates.json`.
 5. Complete the research step. AutoFlow activates `SOURCE_STOP` when candidates exist.
 6. Show a compact candidate table to the user and wait. Do not clone or modify a candidate before the user chooses.
 7. After the user selects, record the choice, selected revision, and rationale, then approve `SOURCE_STOP` with the user's explicit confirmation note.
@@ -129,7 +131,9 @@ Completing the research step marks `SOURCE_STOP` not applicable in this case and
 
 ## Build completion
 
-Record the selected upstream URL and revision, baseline commands/results, change plan, changed files, startup documentation, and verification commands. Produce both the project directory and a machine-readable result summary when the workflow declares both outputs.
+Before baseline or dependency commands, read `references/environment-contract.md`. Run `environment_setup.py ensure`, place the managed runtime below `.autoflow/runtime/<step-id>/`, and register its ready report as `task.environment` when declared. Ordinary missing runtimes and dependencies are automatic remediation work, not a user blocker.
+
+Record the selected upstream URL and revision, baseline commands/results, change plan, changed files, startup documentation, and verification commands. Produce the project directory, a machine-readable result summary, and the environment report when the workflow declares those outputs.
 
 The project directory must be non-empty and contain a README with startup/handoff instructions. For GitHub adaptation it must retain `.git`. The `task.result` JSON must contain:
 

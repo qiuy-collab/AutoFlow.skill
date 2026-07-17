@@ -25,7 +25,7 @@
     {
       "id": "word",
       "module": "word",
-      "action": "fill",
+      "action": "create",
       "needs": ["task", "image"],
       "inputs": ["request", "task.result", "image.assets"],
       "outputs": ["word.document", "word.validation"],

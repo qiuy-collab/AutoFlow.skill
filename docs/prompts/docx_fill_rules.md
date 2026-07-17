@@ -42,7 +42,7 @@ Four image actions may appear in the same document:
 
 Before editing the document:
 1. Read the template and identify headings, body zones, tables, and figure anchors.
-2. Read `workflow.json` and `artifact_manifest.json`; use only inputs declared for the Word step.
+2. Read `.autoflow/config/workflow.json` and `.autoflow/config/artifact_manifest.json`; use only inputs declared for the Word step.
 3. Confirm all upstream task steps are completed and all consumed artifacts still validate.
 4. If the document consumes image or PPT artifacts, confirm `VISUAL_STOP` is approved.
 5. Read the relevant module plans under `plans/` rather than assuming every route exists.

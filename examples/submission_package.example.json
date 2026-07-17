@@ -1,17 +1,17 @@
 {
   "enabled": true,
-  "source_root": ".",
-  "allowed_output_root": ".",
-  "output_zip": ".\\submit.zip",
-  "output_folder": ".\\submit",
+  "source_root": "..\\intermediate\\artifacts",
+  "allowed_output_root": "..\\..\\submit",
+  "output_zip": "..\\..\\submit\\submit.zip",
+  "output_folder": "..\\..\\submit\\delivery",
   "include_paths": [
     {
-      "path": "artifacts/result.docx",
+      "path": "result.docx",
       "archive_root": "",
       "requirement_ids": ["R2"]
     },
     {
-      "path": "artifacts/images",
+      "path": "images",
       "archive_root": "images",
       "requirement_ids": ["R1"]
     }

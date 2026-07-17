@@ -119,6 +119,7 @@ class BackendCliSmokeTests(unittest.TestCase):
         self.assertIn("integrated-presentation-skill", result.stdout)
         self.assertIn("renderer_status", result.stdout)
         self.assertIn("qa_status", result.stdout)
+        self.assertIn("windows_powerpoint", result.stdout)
 
 
 if __name__ == "__main__":

@@ -66,36 +66,38 @@ AutoFlow 3.1 重新纳入 AutoLab 已验证的课程交付约束：需求/评分
 ```bash
 python scripts/autoflow.py init \
   --request-file request.md \
-  --output-dir task_runs/my-run \
+  --output-dir autoflow \
   --recipe lab-report
 
-python scripts/autoflow.py status --workflow task_runs/my-run/workflow.json
-python scripts/autoflow.py validate --workflow task_runs/my-run/workflow.json
+python scripts/autoflow.py status --workflow autoflow/.autoflow/config/workflow.json
+python scripts/autoflow.py validate --workflow autoflow/.autoflow/config/workflow.json
 ```
 
 AutoFlow 没有“一键执行全部”的 `run` 命令。Agent 根据 ready steps 调用对应模块，核心 CLI 只验证和推进状态：
 
 ```bash
-python scripts/autoflow.py next --workflow task_runs/my-run/workflow.json
+python scripts/autoflow.py next --workflow autoflow/.autoflow/config/workflow.json
 python scripts/autoflow.py integrations --json
-python scripts/autoflow.py route --workflow task_runs/my-run/workflow.json --step build --json
+python scripts/autoflow.py route --workflow autoflow/.autoflow/config/workflow.json --step build --json
 python scripts/engineering_quality_adapter.py route --module task --action build --json
 node scripts/impeccable_adapter.mjs detect --json src/
-python scripts/autoflow.py transition --workflow task_runs/my-run/workflow.json --step task --to running
-python scripts/autoflow.py transition --workflow task_runs/my-run/workflow.json --step task --to completed --artifact task.result=C:/absolute/result.json
+python scripts/autoflow.py transition --workflow autoflow/.autoflow/config/workflow.json --step task --to running
+python scripts/autoflow.py transition --workflow autoflow/.autoflow/config/workflow.json --step task --to completed --artifact task.result=C:/absolute/result.json
 ```
 
 ## 运行目录
 
 ```text
-task_runs/my-run/
-├── workflow.json            # AutoFlow Schema 1.0 DAG
-├── run_state.json           # 步骤和 STOP 状态
-├── artifact_manifest.json   # 路径、生产者、消费者和 SHA-256
-├── requirement_map.json     # 需求/评分项、验收条件、证据和计划图表
-├── delivery_review.json     # 每项需求和每个产物的最终正确性审查
-├── WORK_PLAN.md             # 用户确认的工作计划
-└── plans/                   # GitHub、图片、Word、PPT、视频、打包等模块计划
+autoflow/
+├── .autoflow/
+│   ├── scripts/              # 本次任务专用脚本
+│   ├── runtime/              # 自动补齐的隔离运行环境，不进入交付包
+│   ├── intermediate/         # 中间产物、验证报告、日志和计划
+│   │   ├── plans/            # GitHub、图片、Word、PPT、视频、打包计划
+│   │   ├── artifacts/        # 截图、图表、Word/PPT 验收报告等
+│   │   └── verification/     # 源码隔离复测区，禁止在 submit 中运行
+│   └── config/               # workflow、状态、需求映射、审批和请求副本
+└── submit/                   # 最终源码、论文、PPT、视频和 ZIP
 ```
 
 旧版 AutoLab `workflow.json` 不兼容，需要重新初始化。
@@ -121,10 +123,10 @@ Word 生成完成后必须运行内置验证器：
 
 ```bash
 python scripts/validate_word.py \
-  --document task_runs/my-run/artifacts/report.docx \
+  --document autoflow/.autoflow/intermediate/artifacts/report.docx \
   --template template.docx \
-  --plan task_runs/my-run/plans/word.json \
-  --report task_runs/my-run/artifacts/word_validation.json
+  --plan autoflow/.autoflow/intermediate/plans/word.json \
+  --report autoflow/.autoflow/intermediate/artifacts/word_validation.json
 ```
 
 Word 步骤只有同时提交 `word.document` 和通过的 `word.validation` 才能完成。
@@ -132,11 +134,12 @@ Word 步骤只有同时提交 `word.document` 和通过的 `word.validation` 才
 ## 项目结构
 
 ```text
-AutoFlow.skill/
+autoflow/
 ├── SKILL.md                  # 精简路由入口
 ├── modules/                  # 六个能力模块
 ├── references/               # Workflow 与 STOP 协议
 ├── recipes/                  # 内置 DAG 模板
+├── examples/                 # Schema、计划和交付示例
 ├── scripts/
 │   ├── autoflow.py           # 状态与校验 CLI
 │   ├── autoflow_core.py      # DAG、Gate、artifact 核心
@@ -163,6 +166,8 @@ AutoFlow.skill/
 ```
 
 各目录职责和外部能力集成策略见 `references/directory-layout.md`。
+
+运行时数据不属于 Skill 包：每个任务的持久化工作流放在用户工作区的 `autoflow/.autoflow/`，最终交付放在 `autoflow/submit/`；Skill 根目录下的测试和后端缓存目录只在运行时临时创建，发布时不应保留。
 
 ## 当前效果示例
 

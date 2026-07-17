@@ -144,51 +144,28 @@ dotnet run ... validate --xsd business-rules.xsd   # if applying a template
 
 ## Content Configuration JSON Format
 
-The CLI `create` command accepts a JSON config:
+The integrated CLI currently accepts a **flat JSON array**. The wrapper rejects
+object-shaped `sections` configs because the executable does not implement that
+shape. Use one array item per block:
 
 ```json
-{
-  "type": "report",
-  "title": "Quarterly Revenue Analysis",
-  "subtitle": "Q1 2026",
-  "author": "Finance Team",
-  "pageSize": "A4",
-  "margins": { "top": 1440, "right": 1440, "bottom": 1440, "left": 1440 },
-  "sections": [
-    {
-      "heading": "Executive Summary",
-      "level": 1,
-      "content": [
-        { "type": "paragraph", "text": "Revenue grew 12% year-over-year..." },
-        {
-          "type": "table",
-          "headers": ["Region", "Revenue", "Growth"],
-          "rows": [
-            ["North America", "$4.2M", "+15%"],
-            ["Europe", "$2.8M", "+8%"],
-            ["Asia Pacific", "$1.9M", "+18%"]
-          ]
-        },
-        { "type": "image", "path": "charts/revenue.png", "width": "5in", "alt": "Revenue chart" }
-      ]
-    },
-    {
-      "heading": "Detailed Analysis",
-      "level": 1,
-      "content": [
-        { "type": "paragraph", "text": "Breaking down by product line..." }
-      ]
-    }
-  ]
-}
+[
+  { "type": "heading", "text": "Executive Summary", "level": 1 },
+  { "type": "paragraph", "text": "Revenue grew 12% year-over-year..." },
+  { "type": "pagebreak", "text": "" },
+  { "type": "heading", "text": "Detailed Analysis", "level": 1 },
+  { "type": "paragraph", "text": "Breaking down by product line..." }
+]
 ```
 
-Supported content types:
-- `paragraph` — body text (applies Normal style)
-- `table` — headers + rows (applies TableGrid style)
-- `image` — inline image with width/height control
-- `list` — bulleted or numbered list items
-- `pageBreak` — forces a page break
+Supported content types in the current executable:
+- `heading` — heading text with `level` from 1 to 6;
+- `paragraph` — body text;
+- `pagebreak` — forces a page break.
+
+Tables, lists, and images require a subsequent edit/assembly phase. Do not put
+those types in `content-json` and assume they were rendered; inspect the final
+DOCX and verify drawing/table counts.
 
 ---
 

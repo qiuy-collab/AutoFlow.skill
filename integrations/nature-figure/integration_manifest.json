@@ -6,14 +6,25 @@
   "license": "Apache-2.0",
   "runtime_bootstrap_copied": false,
   "plugin_hooks_copied": false,
-  "network_access_required": false,
-  "mode": "provenance_and_contract",
-  "skills": [],
-  "references": [],
+  "network_access_required": true,
+  "mode": "integrated_local_runtime",
+  "self_contained": true,
+  "external_user_skill_required": false,
+  "source_checkout_required": false,
+  "skills": ["nature-figure"],
+  "skill_paths": {"nature-figure": "SKILL.md"},
+  "references": ["figure-types.md"],
   "adapter_paths": [
+    "integrations/nature-figure/figure-types.json",
+    "integrations/nature-figure/scripts/plot_templates.py",
     "scripts/scientific_figure_backend.py",
     "scripts/generate_scientific_schematic.py",
     "scripts/validate_scientific_figure.py"
   ],
-  "notes": "The contract and attribution are local; generation uses AutoFlow's configured image upstream."
+  "runtime": {
+    "publication_charts": "Python + NumPy + Matplotlib",
+    "scientific_schematic": "AutoFlow image upstream + gpt-image-2",
+    "validation": "dependency-free Python source preflight"
+  },
+  "notes": "Nature Figure is routed inside AutoFlow image.chart and image.ai; it is not invoked as an external user-level Skill."
 }

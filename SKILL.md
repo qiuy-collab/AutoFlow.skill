@@ -29,6 +29,9 @@ Always read:
 1. `references/workflow-contract.md`
 2. `references/stop-gates.md`
 3. `references/acceptance-contracts.md`
+4. `references/anti-patterns.md`
+
+Read `references/environment-contract.md` for project build or execution steps.
 
 Then read only the modules selected for this run:
 
@@ -46,7 +49,7 @@ AutoFlow also ships a local engineering-methodology layer under
 exact local instructions with the CLI instead of invoking an external plugin:
 
 ```bash
-python scripts/autoflow.py route --workflow <workflow.json> --step <step-id> --json
+python scripts/autoflow.py route --workflow <workflow.json> --step <step-id> --json --compact
 ```
 
 To audit all checked-in external capabilities before planning, use:
@@ -60,19 +63,16 @@ files, provenance fields, and adapter paths. A workflow must use the local
 paths reported by `route`; a manifest or runtime marked unavailable is a hard
 capability signal, not permission to invent a tool call.
 
-The route includes the module file, relevant local methodology Skills, and
-capability adapters. `brainstorming`, `writing-plans`, and
-`verification-before-completion` are global; TDD, debugging, review, execution,
-and delivery-handoff guidance is selected by step type and state. Engineering
-quality guidance is added for task builds/execution, compute steps, and package
-assembly: use the returned local files for code review, security, performance,
-ADRs, and shipping checks.
+Compact routing includes the module file, fresh verification, and required
+capability adapters. It does not load every available methodology Skill. Use
+`route --full` only when a specific TDD, debugging, security, performance, ADR,
+or shipping method is needed. Independent or cross-model review is not part of
+the default route.
 
-Every route also resolves the local `integrations/agent-skills` overlay. It
-adds `using-agent-skills` globally and selects planning, interface, frontend,
-browser, observability, migration, CI/CD, or debugging guidance by step type.
-Read the returned local paths; do not substitute a user-level or uninstalled
-upstream plugin.
+Full routing may resolve the local `integrations/agent-skills` overlay for a
+specific planning, interface, frontend, browser, observability, migration,
+CI/CD, or debugging method. Compact routing does not load this overlay by
+default. Read only the local paths returned by the selected route.
 
 For independent build slices, set explicit step flags such as
 `parallelizable`, `subagent_mode`, `git_worktree`, or `review_feedback`; the
@@ -102,25 +102,25 @@ fall back to `npx impeccable`, a remote URL scan, or an uninstalled plugin.
 ```bash
 python scripts/autoflow.py init \
   --request-file <request.md> \
-  --output-dir <run-directory> \
+  --output-dir <workspace>/autoflow \
   --recipe <recipe-or-auto>
 ```
 
-5. Read the generated `workflow.json`, `run_state.json`, `artifact_manifest.json`, `requirement_map.json`, `delivery_review.json`, and `WORK_PLAN.md`.
+5. Read the generated files from `<workspace>/autoflow/.autoflow/config/`: `workflow.json`, `run_state.json`, `artifact_manifest.json`, `requirement_map.json`, `delivery_review.json`, and `WORK_PLAN.md`.
 6. If `auto` was used, inspect `workflow.json.recipe_selection`, including its matched signals and reason. Keep the recommended recipe when it fits; if it selected `custom`, replace its steps with the actual DAG before asking for approval.
-7. Fill every `WORK_PLAN.md` section. Map each requirement or rubric item to declared evidence in `requirement_map.json`; record planned figures and real information substitutions rather than leaving these decisions implicit.
+7. Fill every `.autoflow/config/WORK_PLAN.md` section. Map each requirement or rubric item to declared evidence in `.autoflow/config/requirement_map.json`; record planned figures and real information substitutions rather than leaving these decisions implicit.
 8. After editing workflow steps, synchronize the still-unstarted state and validate the configuration:
 
 ```bash
-python scripts/autoflow.py sync --workflow <run-directory>/workflow.json
-python scripts/autoflow.py validate --workflow <run-directory>/workflow.json
+python scripts/autoflow.py sync --workflow <workspace>/autoflow/.autoflow/config/workflow.json
+python scripts/autoflow.py validate --workflow <workspace>/autoflow/.autoflow/config/workflow.json
 ```
 
 9. Show the plan to the user and stop. After explicit approval, record it:
 
 ```bash
 python scripts/autoflow.py approve \
-  --workflow <run-directory>/workflow.json \
+  --workflow <workspace>/autoflow/.autoflow/config/workflow.json \
   --gate plan \
   --note "<summary of the user's explicit approval>"
 ```
@@ -132,13 +132,13 @@ Do not start module work before PLAN_STOP approval.
 Ask AutoFlow which steps are ready:
 
 ```bash
-python scripts/autoflow.py next --workflow <workflow.json>
+python scripts/autoflow.py next --workflow <workspace>/autoflow/.autoflow/config/workflow.json
 ```
 
 Resolve the local module and methodology route before acting on a ready step:
 
 ```bash
-python scripts/autoflow.py route --workflow <workflow.json> --step <step-id> --json
+python scripts/autoflow.py route --workflow <workspace>/autoflow/.autoflow/config/workflow.json --step <step-id> --json --compact
 ```
 
 For each ready step:
@@ -149,16 +149,26 @@ For each ready step:
 4. Validate every declared output.
 5. Complete it with exactly one artifact mapping for each declared output.
 
+When multiple ready steps have no write conflict, prepare them together and run
+their deterministic backends concurrently. In particular, run Word and PPT
+build/render commands in parallel after shared image evidence is approved.
+Do not introduce extra Agents to gain concurrency.
+
+For project builds, run `environment_setup.py ensure` before baseline/build
+commands. Keep the managed environment below `.autoflow/runtime/<step-id>/` and
+register the ready `task.environment` report. Do not ask the user to install an
+ordinary missing runtime or dependency.
+
 Word steps must register both `word.document` and the matching `word.validation` report produced by `validate_word.py`. Follow the same report-first principle for video and package outputs described in `references/acceptance-contracts.md`.
 
 ```bash
 python scripts/autoflow.py transition \
-  --workflow <workflow.json> \
+  --workflow <workspace>/autoflow/.autoflow/config/workflow.json \
   --step <step-id> \
   --to running
 
 python scripts/autoflow.py transition \
-  --workflow <workflow.json> \
+  --workflow <workspace>/autoflow/.autoflow/config/workflow.json \
   --step <step-id> \
   --to completed \
   --artifact artifact.id=<absolute-path>
@@ -173,7 +183,7 @@ AutoFlow has no generic `run` command. The Agent invokes each module's real back
 Code and runnable project tasks use separate `task.research` and `task.build` steps. Follow `modules/task.md` exactly.
 
 - Search and inspect GitHub before implementation.
-- Write `plans/source_candidates.json` with real queries, scores, licenses, revisions, and judgments.
+- Write `.autoflow/intermediate/plans/source_candidates.json` with real queries, scores, licenses, revisions, and judgments.
 - Completing discovery activates SOURCE_STOP when usable candidates exist.
 - Show 3–5 candidates and wait for the user's selection.
 - Record the selected candidate and revision before approving the gate.
@@ -182,7 +192,7 @@ Code and runnable project tasks use separate `task.research` and `task.build` st
 
 ```bash
 python scripts/autoflow.py approve \
-  --workflow <workflow.json> \
+  --workflow <workspace>/autoflow/.autoflow/config/workflow.json \
   --gate source \
   --note "User selected candidate <rank/name>"
 ```
@@ -193,7 +203,7 @@ Any step with `gate_after: visual` activates VISUAL_STOP after completion. Show 
 
 ```bash
 python scripts/autoflow.py approve \
-  --workflow <workflow.json> \
+  --workflow <workspace>/autoflow/.autoflow/config/workflow.json \
   --gate visual \
   --note "User approved the displayed visual batch"
 ```
@@ -216,7 +226,7 @@ After the user signs off:
 
 ```bash
 python scripts/autoflow.py approve \
-  --workflow <workflow.json> \
+  --workflow <workspace>/autoflow/.autoflow/config/workflow.json \
   --gate delivery \
   --note "User approved the final delivery"
 ```
@@ -226,14 +236,36 @@ The run is complete only when `run_state.json.status` is `completed`.
 ## Status and recovery
 
 ```bash
-python scripts/autoflow.py status --workflow <workflow.json>
-python scripts/autoflow.py validate --workflow <workflow.json>
+python scripts/autoflow.py status --workflow <workspace>/autoflow/.autoflow/config/workflow.json
+python scripts/autoflow.py status --workflow <workspace>/autoflow/.autoflow/config/workflow.json --timings
+python scripts/autoflow.py eval-status --workflow <workspace>/autoflow/.autoflow/config/workflow.json
+python scripts/autoflow.py validate --workflow <workspace>/autoflow/.autoflow/config/workflow.json --fast
+python scripts/autoflow.py validate --workflow <workspace>/autoflow/.autoflow/config/workflow.json --deep
 ```
 
-- Never hand-edit `run_state.json` or `artifact_manifest.json` to bypass a gate.
-- If the user rejects a STOP, record it with `autoflow.py gate --to rejected`, revise the affected plan/artifact, and create a new run when terminal steps must be redone.
-- If an artifact changes after registration, validation fails because its hash no longer matches. Re-run the producing step in a revised run.
+For evaluation runs, use `eval-status --expected-gate <gate>` when the test is
+supposed to prove a STOP checkpoint. A `checkpoint_pass` is not a completed
+end-to-end run; only `full_test_pass` may be reported as such.
+
+Reuse hash-matched Word validation and PPT render caches. Use `--force` or
+`--force-render` only after inputs or validation requirements change, or when
+diagnosing a suspected cache defect.
+
+- Never hand-edit `.autoflow/config/run_state.json` or `.autoflow/config/artifact_manifest.json` to bypass a gate.
+- If the user rejects a STOP, record it with `autoflow.py gate --to rejected`, then use `autoflow.py revise --step <id> --reason <reason>` before regenerating terminal steps.
+- If an artifact changes after registration, never refresh its hash by hand. Use `revise`; it supersedes target/downstream artifacts, resets requirement evidence, and reopens affected gates.
+- A DELIVERY_STOP-approved run is immutable. Initialize a new revision run for later changes.
 - If the integrated presentation runtime is missing, stop with a capability report rather than silently substituting a user-level or lower-quality backend.
+
+## Prohibited actions and dangerous states
+
+- Do not run tests, migrations, installers, or applications inside `submit/`.
+- Do not place virtual environments, `node_modules`, caches, or runtime databases inside source artifacts.
+- Do not package the workspace or `.autoflow/` by habit.
+- Do not repeat full rendering, hashing, or packaging when inputs are unchanged.
+- Do not invent approvals, source candidates, tool calls, or evidence.
+
+Read `references/anti-patterns.md` for the complete replacement action for each prohibited state.
 
 ## Definition of done
 
@@ -242,6 +274,9 @@ python scripts/autoflow.py validate --workflow <workflow.json>
 - Every completed step has all declared artifacts.
 - Artifact paths exist and hashes validate.
 - Module-specific quality checks pass.
+- Project environments are ready, verified, and outside source artifacts.
+- Source/application tests ran before packaging in the isolated verification area.
+- Final delivery passes `package_submission.py --verify-only` without modifying `submit/`.
 - Every required requirement maps to present, correct evidence in `requirement_map.json` and `delivery_review.json`.
 - `autoflow.py validate` returns `valid`.
 - DELIVERY_STOP is explicitly approved.

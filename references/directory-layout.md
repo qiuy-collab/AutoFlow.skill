@@ -1,44 +1,75 @@
 # AutoFlow directory layout
 
-AutoFlow is the active Skill. Its repository is deliberately split by
-responsibility so routing instructions, deterministic execution code,
-integrated capabilities, and generated run data do not get mixed together.
+AutoFlow separates routing instructions, deterministic execution code,
+integrated capabilities, and generated run data.
 
 ```text
 autoflow/
 ├── SKILL.md                 # compact entrypoint and routing rules
 ├── modules/                 # task/image/word/ppt/video/package contracts
-├── integrations/            # audited, local capability implementations
+├── integrations/            # audited local capability implementations
 ├── scripts/                 # CLI, adapters, validators, and executors
 ├── references/              # workflow contracts, gates, acceptance rules
 ├── recipes/                 # reusable DAG templates
 ├── examples/                # schema and plan examples
-├── tests/                   # standard-library and integration smoke tests
+├── tests/                   # unit and integration tests
 ├── docs/                    # project documentation site
 └── evals/                   # skill evaluation prompts
+```
+
+Each user run remains outside the Skill source tree:
+
+```text
+<workspace>/autoflow/
+├── .autoflow/
+│   ├── scripts/
+│   ├── runtime/
+│   ├── intermediate/
+│   │   ├── plans/
+│   │   ├── artifacts/
+│   │   └── verification/
+│   └── config/
+└── submit/
 ```
 
 ## Integration policy
 
 `integrations/` is the only place for an external Skill or tool that AutoFlow
-has deliberately reviewed and made locally callable. Each integration should
-carry its upstream/license record and expose an AutoFlow adapter when its
-upstream entrypoint is not already deterministic.
+has reviewed and made locally callable. Each integration carries its
+upstream/license record and exposes an AutoFlow adapter when its upstream
+entrypoint is not deterministic.
 
-Current integrated capability families are `minimax-docx`, `nature-figure`,
-`webapp-testing`, `superpowers`, `impeccable`, `engineering-quality`,
-`presentation-skill`, and the file-only `agent-skills` overlay. The latter keeps its 15 non-overlapping
-workflow Skills and seven checklists under one manifest; overlapping routes
-remain in their original integration to avoid duplicate canonical paths.
+Current integrated capability families include `minimax-docx`,
+`nature-figure`, `webapp-testing`, `superpowers`, `impeccable`,
+`engineering-quality`, `presentation-skill`, and the file-only `agent-skills`
+overlay. Overlapping routes remain in their original integration to avoid
+duplicate canonical paths.
 
-External capabilities live under `integrations/` after review and provenance
-recording. User-level Skills and plugins may still be detected as optional
-adapters, but AutoFlow never treats an uninstalled or unverified external
-package as available.
+User-level Skills and plugins may be detected as optional adapters, but
+AutoFlow never treats an uninstalled or unverified external package as
+available.
+
+Read `references/integration-contract.md` before adding or updating an
+integration. All checked-in integrations must satisfy its self-containment
+fields; partial provenance-only entries are not routable.
 
 ## Runtime data
 
-Workflow runs belong under `task_runs/` and generated outputs belong under
-`output/`, `generated_images/`, `conversations/`, or `test_output/`. These are
-runtime artifacts and remain ignored by Git; they are not part of the Skill
-package or its directory contract.
+- `.autoflow/config/` stores workflow, mutable state, approvals, request copy,
+  requirement map, and path map.
+- `.autoflow/intermediate/` stores plans, evidence, logs, and validation reports
+  that are not final deliverables.
+- `.autoflow/intermediate/verification/` stores isolated test copies, temporary
+  databases, migration state, and smoke-test output. Verification must not run
+  inside `submit/`.
+- `.autoflow/runtime/` stores managed environments and dependency caches made by
+  `environment_setup.py`. It must remain outside every registered source
+  artifact.
+- `.autoflow/scripts/` stores scripts specific to one run; shared executors stay
+  in this Skill's `scripts/` directory.
+- `submit/` contains only frozen final deliverables intended for handoff.
+
+Disposable backend/test directories such as `test_output/`, `output/`,
+`generated_images/`, `conversations/`, and `.probe_cache/` are not source,
+examples, or deliverables. Never commit runtime artifacts, credentials, caches,
+or temporary browser profiles to the Skill package.

@@ -12,6 +12,7 @@ $VideoProcessPy = Join-Path $Root "scripts\video_process.py"
 $BlankTemplatePy = Join-Path $Root "scripts\prepare_blank_template.py"
 $ImageConcurrencyPy = Join-Path $Root "scripts\test_image_concurrency.py"
 $SubmissionPackagePy = Join-Path $Root "scripts\package_submission.py"
+$EnvironmentSetupPy = Join-Path $Root "scripts\environment_setup.py"
 $EnvFile = Join-Path $Root ".env"
 $EnvExample = Join-Path $Root ".env.example"
 $LocalFfmpeg = Join-Path $env:USERPROFILE "Tools\ffmpeg\bin\ffmpeg.exe"
@@ -74,7 +75,7 @@ if ((Test-Path $IntegratedImpeccableSkill) -and (Test-Path $IntegratedImpeccable
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Ok "node $(& node --version) for integrated impeccable"
 } else {
-    Warn "node not found; integrated impeccable workflows stop at PLAN"
+    Warn "node not found; project execution must run environment_setup.py ensure before reporting a blocker"
 }
 $IntegratedQualitySkill = Join-Path $Root "integrations\engineering-quality\code-review-and-quality\SKILL.md"
 $IntegratedQualityAdapter = Join-Path $Root "scripts\engineering_quality_adapter.py"
@@ -95,7 +96,7 @@ if ((Test-Path $IntegratedPresentationSkill) -and (Test-Path $IntegratedPresenta
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Ok "node $(& node --version) for integrated presentation-skill"
 } else {
-    Warn "node not found; integrated presentation workflows stop at PLAN"
+    Warn "node not found; project execution must run environment_setup.py ensure before reporting a blocker"
 }
 
 if (Get-Command python -ErrorAction SilentlyContinue) {
@@ -117,6 +118,7 @@ if (Test-Path $VideoProcessPy) { Ok "scripts\video_process.py found" } else { Fa
 if (Test-Path $BlankTemplatePy) { Ok "scripts\prepare_blank_template.py found" } else { Fail "scripts\prepare_blank_template.py missing" }
 if (Test-Path $ImageConcurrencyPy) { Ok "scripts\test_image_concurrency.py found" } else { Fail "scripts\test_image_concurrency.py missing" }
 if (Test-Path $SubmissionPackagePy) { Ok "scripts\package_submission.py found" } else { Fail "scripts\package_submission.py missing" }
+if (Test-Path $EnvironmentSetupPy) { Ok "scripts\environment_setup.py found" } else { Fail "scripts\environment_setup.py missing" }
 
 
 if (Get-Command python -ErrorAction SilentlyContinue) {
@@ -227,7 +229,7 @@ if (Test-Path $EnvFile) {
     if (Test-Path $EnvExample) { Warn "copy .env.example to .env and fill real values before using image.ai" }
 }
 
-foreach ($scriptName in @("autoflow.py", "capture_frontend_screenshots.py", "generate_diagram_assets.py", "video_process.py", "prepare_blank_template.py", "test_image_concurrency.py", "package_submission.py", "artifact_map.py")) {
+foreach ($scriptName in @("autoflow.py", "environment_setup.py", "capture_frontend_screenshots.py", "generate_diagram_assets.py", "video_process.py", "prepare_blank_template.py", "test_image_concurrency.py", "package_submission.py", "artifact_map.py")) {
     $scriptPath = Join-Path $PSScriptRoot $scriptName
     if (-not (Test-Path $scriptPath)) {
         Fail "$scriptName missing"

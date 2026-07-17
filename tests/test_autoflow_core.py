@@ -30,6 +30,7 @@ from autoflow_core import (  # noqa: E402
     load_run,
     refresh_ready,
     recommend_recipe,
+    revise_step,
     save_json,
     save_run,
     set_gate_state,
@@ -37,7 +38,9 @@ from autoflow_core import (  # noqa: E402
     transition_step,
     validate_run,
     validate_capabilities,
+    validate_environment_report,
     validate_package_acceptance,
+    validate_unpacked_final_locations,
     validate_video_acceptance,
     validate_workflow_definition,
     route_for_workflow,
@@ -128,14 +131,33 @@ class AutoFlowTestCase(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
         return path
 
+    def test_init_uses_hidden_control_dir_and_submit_dir(self):
+        output = self.root / "autoflow"
+        workflow_path = initialize_run(self.request, output, "document")
+        expected_workflow = output / ".autoflow" / "config" / "workflow.json"
+        self.assertEqual(workflow_path, expected_workflow)
+        self.assertFalse((output / "workflow.json").exists())
+        workflow, _, _, paths = load_run(workflow_path)
+        self.assertEqual(paths["root"], output.resolve())
+        self.assertEqual(paths["submit"], (output / "submit").resolve())
+        self.assertEqual(paths["plans"], (output / ".autoflow" / "intermediate" / "plans").resolve())
+        self.assertEqual(workflow["run_layout"], "autoflow/run-layout/1.0")
+        self.assertEqual(Path(workflow["request_file"]), output / ".autoflow" / "config" / "request.md")
+        self.assertTrue(Path(workflow["request_file"]).is_file())
+        for directory in ("scripts", "intermediate", "config", "plans", "artifacts", "submit"):
+            self.assertTrue(paths[directory].is_dir(), directory)
+
     def complete_step(self, workflow, state, manifest, paths, step_id, artifacts):
         refresh_ready(workflow, state)
         transition_step(workflow, state, manifest, paths, step_id, "running", "started", {})
         transition_step(workflow, state, manifest, paths, step_id, "completed", "verified", artifacts)
 
-    def make_word_artifacts(self):
-        document = self.make_artifact("result.docx", "minimal test document")
-        report = self.root / "word-validation.json"
+    def make_word_artifacts(self, base=None):
+        base = Path(base) if base else self.root
+        base.mkdir(parents=True, exist_ok=True)
+        document = base / "result.docx"
+        document.write_text("minimal test document", encoding="utf-8")
+        report = base / "word-validation.json"
         save_json(
             report,
             {
@@ -189,7 +211,7 @@ class AutoFlowTestCase(unittest.TestCase):
         refresh_ready(workflow, state)
         transition_step(workflow, state, manifest, paths, "task", "skipped", "Not needed", {})
         transition_step(workflow, state, manifest, paths, "image", "skipped", "Not needed", {})
-        self.complete_step(workflow, state, manifest, paths, "word", self.make_word_artifacts())
+        self.complete_step(workflow, state, manifest, paths, "word", self.make_word_artifacts(paths["submit"]))
         self.assertTrue(state["gates"]["delivery"]["active"])
         self.assertEqual(state["gates"]["delivery"]["status"], "pending")
         with self.assertRaisesRegex(AutoFlowError, "not marked passed|delivery_review"):
@@ -216,6 +238,27 @@ class AutoFlowTestCase(unittest.TestCase):
         with self.assertRaisesRegex(AutoFlowError, "SHA-256"):
             transition_step(workflow, state, manifest, paths, "word", "completed", "done", artifacts)
 
+    def test_failed_step_sets_workflow_failed(self):
+        _, workflow, state, manifest, paths = self.init("document")
+        transition_step(workflow, state, manifest, paths, "task", "running", "started", {})
+        transition_step(workflow, state, manifest, paths, "task", "failed", "real execution failed", {})
+        self.assertEqual(state["steps"]["task"]["status"], "failed")
+        self.assertEqual(state["status"], "failed")
+
+    def test_revision_attempt_budget_requires_diagnosis_before_more_retries(self):
+        workflow_path, workflow, state, manifest, paths = self.init("custom")
+        workflow["steps"][0]["max_attempts"] = 2
+        for attempt in range(2):
+            transition_step(workflow, state, manifest, paths, "task", "running", f"attempt {attempt + 1}", {})
+            transition_step(workflow, state, manifest, paths, "task", "failed", "repeat failure", {})
+        with self.assertRaisesRegex(AutoFlowError, "attempt budget"):
+            transition_step(workflow, state, manifest, paths, "task", "running", "unbounded retry", {})
+
+        revise_step(workflow, state, manifest, paths, "task", "Diagnosed repeated failure")
+        transition_step(workflow, state, manifest, paths, "task", "running", "new revision", {})
+        self.assertEqual(state["steps"]["task"]["revision_attempts"], 1)
+        self.assertFalse(state["gates"]["delivery"]["active"])
+
     def test_video_acceptance_requires_matching_metadata_and_hash(self):
         media = self.make_artifact("demo.mp4", "video-bytes")
         report = self.root / "video-validation.json"
@@ -236,14 +279,19 @@ class AutoFlowTestCase(unittest.TestCase):
             validate_video_acceptance({"video.media": media, "video.validation": report})
 
     def test_package_acceptance_requires_manifest_checks_and_requirement_ids(self):
-        bundle = self.make_artifact("submit.zip", "archive")
-        manifest_path = self.root / "submit_manifest.json"
+        submit_root = self.root / "submit"
+        output_folder = submit_root / "delivery"
+        output_folder.mkdir(parents=True)
+        (output_folder / "report.docx").write_text("report", encoding="utf-8")
+        bundle = submit_root / "submit.zip"
+        bundle.write_text("archive", encoding="utf-8")
+        manifest_path = submit_root / "submit_manifest.json"
         save_json(
             manifest_path,
             {
                 "$schema": "autoflow/package-manifest/1.0",
                 "output_zip": str(bundle.resolve()),
-                "output_folder": str((self.root / "submit").resolve()),
+                "output_folder": str(output_folder.resolve()),
                 "files": [
                     {
                         "source": str(bundle),
@@ -257,12 +305,42 @@ class AutoFlowTestCase(unittest.TestCase):
                 "overall_pass": True,
             },
         )
-        validate_package_acceptance({"package.bundle": bundle, "package.manifest": manifest_path})
+        validate_package_acceptance({"package.bundle": bundle, "package.manifest": manifest_path}, submit_root)
         data = load_json(manifest_path)
         data["files"][0]["requirement_ids"] = []
         save_json(manifest_path, data)
         with self.assertRaisesRegex(AutoFlowError, "requirement_ids"):
-            validate_package_acceptance({"package.bundle": bundle, "package.manifest": manifest_path})
+            validate_package_acceptance({"package.bundle": bundle, "package.manifest": manifest_path}, submit_root)
+
+    def test_package_acceptance_rejects_final_artifacts_outside_submit(self):
+        submit_root = self.root / "submit"
+        submit_root.mkdir()
+        outside_folder = self.root / "outside-delivery"
+        outside_folder.mkdir()
+        bundle = self.make_artifact("outside.zip", "archive")
+        manifest_path = self.root / "outside-manifest.json"
+        save_json(manifest_path, {
+            "$schema": "autoflow/package-manifest/1.0",
+            "output_zip": str(bundle.resolve()),
+            "output_folder": str(outside_folder.resolve()),
+            "files": [{"archive_path": "report.docx", "sha256": "abc", "requirement_ids": ["R1"]}],
+            "checks": [{"name": "listing", "status": "passed"}],
+            "overall_pass": True,
+        })
+        with self.assertRaisesRegex(AutoFlowError, "autoflow/submit"):
+            validate_package_acceptance({"package.bundle": bundle, "package.manifest": manifest_path}, submit_root)
+
+    def test_unpacked_terminal_outputs_must_be_below_submit(self):
+        submit_root = self.root / "submit"
+        submit_root.mkdir()
+        workflow = {"steps": [{"id": "word", "module": "word", "needs": []}]}
+        step = workflow["steps"][0]
+        outside = self.make_artifact("outside.docx", "doc")
+        with self.assertRaisesRegex(AutoFlowError, "autoflow/submit"):
+            validate_unpacked_final_locations(workflow, step, {"word.document": outside}, submit_root)
+        inside = submit_root / "report.docx"
+        inside.write_text("doc", encoding="utf-8")
+        validate_unpacked_final_locations(workflow, step, {"word.document": inside}, submit_root)
 
     def test_visual_stop_blocks_word_until_user_approval(self):
         _, workflow, state, manifest, paths = self.init("lab-report")
@@ -406,6 +484,19 @@ class AutoFlowTestCase(unittest.TestCase):
                 {"project.source": project, "task.result": result},
             )
 
+    def test_build_workflow_requires_environment_artifact(self):
+        workflow = {
+            "$schema": "autoflow/1.0",
+            "schema_version": "1.0",
+            "steps": [{
+                "id": "build", "module": "task", "action": "build", "needs": [],
+                "inputs": ["request"], "outputs": ["project.source", "task.result"],
+                "validator": "artifacts_exist",
+            }],
+        }
+        with self.assertRaisesRegex(AutoFlowError, "task.environment"):
+            validate_workflow_definition(workflow)
+
     def test_cycle_is_rejected(self):
         workflow_path = initialize_run(self.request, self.root / "cycle", "custom")
         workflow = load_json(workflow_path)
@@ -493,7 +584,8 @@ class AutoFlowTestCase(unittest.TestCase):
 
     def test_registered_artifact_change_fails_validation(self):
         _, workflow, state, manifest, paths = self.init("custom")
-        artifact = self.make_artifact("result.txt", "v1")
+        artifact = paths["submit"] / "result.txt"
+        artifact.write_text("v1", encoding="utf-8")
         self.complete_step(workflow, state, manifest, paths, "task", {"task.result": artifact})
         artifact.write_text("v2", encoding="utf-8")
         errors = validate_run(workflow, state, manifest, paths)
@@ -512,14 +604,14 @@ class AutoFlowTestCase(unittest.TestCase):
 
     def test_video_backend_is_local_and_runtime_checked(self):
         backend = detect_video_backend()
-        self.assertIn(backend["status"], {"available", "blocked", "missing"})
+        self.assertIn(backend["status"], {"available", "partial", "blocked", "missing"})
         self.assertEqual(backend["backend"], "integrated-video-process")
         self.assertFalse(backend["external_skill_required"])
         self.assertTrue(Path(backend["script"]).is_file())
 
     def test_image_backend_routes_actions_without_external_skill_fallback(self):
         backend = detect_image_backend(["diagram", "chart"])
-        self.assertIn(backend["status"], {"available", "blocked", "missing"})
+        self.assertIn(backend["status"], {"available", "partial", "blocked", "missing"})
         self.assertEqual(backend["backend"], "integrated-image-assets")
         self.assertFalse(backend["external_skill_required"])
         self.assertIn("diagram", backend["actions"])
@@ -568,6 +660,54 @@ class AutoFlowTestCase(unittest.TestCase):
         )
         self.assertIn("webapp_testing", capabilities)
 
+    def test_image_route_reports_only_selected_action_capability(self):
+        steps = [
+            {
+                "id": "capture",
+                "module": "image",
+                "action": "capture",
+                "needs": [],
+                "inputs": ["request"],
+                "outputs": ["capture.result"],
+                "validator": "artifacts_exist",
+            },
+            {
+                "id": "ai",
+                "module": "image",
+                "action": "ai",
+                "needs": [],
+                "inputs": ["request"],
+                "outputs": ["ai.result"],
+                "validator": "artifacts_exist",
+            },
+        ]
+        workflow = {
+            "$schema": "autoflow/1.0",
+            "schema_version": "1.0",
+            "workflow_id": "image-route-isolation",
+            "recipe": "custom",
+            "steps": steps,
+            "capabilities": {
+                "image": {
+                    "status": "blocked",
+                    "backend": "integrated-image-assets",
+                    "actions": {
+                        "capture": {"status": "available", "message": "ready", "files": []},
+                        "ai": {"status": "blocked", "message": "missing credentials", "files": []},
+                    },
+                }
+            },
+        }
+        state = {"steps": {"capture": {"status": "pending"}, "ai": {"status": "pending"}}}
+
+        capture_route = route_for_workflow(workflow, state, "capture")
+        ai_route = route_for_workflow(workflow, state, "ai")
+
+        self.assertEqual(capture_route["capabilities"]["image"]["status"], "available")
+        self.assertEqual(set(capture_route["capabilities"]["image"]["actions"]), {"capture"})
+        self.assertEqual(ai_route["capabilities"]["image"]["status"], "blocked")
+        self.assertEqual(set(ai_route["capabilities"]["image"]["actions"]), {"ai"})
+
     def test_superpowers_is_integrated_with_the_required_methodology_subset(self):
         backend = detect_superpowers_backend()
         self.assertEqual(backend["status"], "available")
@@ -600,7 +740,7 @@ class AutoFlowTestCase(unittest.TestCase):
                 "action": "build",
                 "needs": [],
                 "inputs": ["request"],
-                "outputs": ["task.result"],
+                "outputs": ["project.source", "task.result", "task.environment"],
                 "validator": "artifacts_exist",
                 "parallelizable": True,
                 "subagent_mode": True,
@@ -609,7 +749,7 @@ class AutoFlowTestCase(unittest.TestCase):
             }
         ]
         sync_planning_state(workflow, state)
-        route = route_for_workflow(workflow, state, "build")
+        route = route_for_workflow(workflow, state, "build", compact=False)
         for name in (
             "dispatching-parallel-agents",
             "subagent-driven-development",
@@ -682,6 +822,12 @@ class AutoFlowTestCase(unittest.TestCase):
             },
         )
         self.assertTrue(all(item["status"] == "available" for item in catalog))
+        self.assertTrue(all(item["self_contained"] for item in catalog))
+        self.assertTrue(all(item["external_user_skill_required"] is False for item in catalog))
+        self.assertTrue(all(item["source_checkout_required"] is False for item in catalog))
+        self.assertTrue(
+            all(item["mode"] in {"integrated_local_runtime", "integrated_instruction_overlay"} for item in catalog)
+        )
         minimax = next(item for item in catalog if item["name"] == "minimax-docx")
         self.assertEqual(minimax["license"], "MIT")
         self.assertEqual(minimax["revision"], "60aaae52bb2af8162732751a4332f62a5fef518b")
@@ -732,7 +878,7 @@ class AutoFlowTestCase(unittest.TestCase):
     def test_route_for_build_step_returns_local_governance_and_module_paths(self):
         workflow_path = initialize_run(self.request, self.root / "route", "project-delivery")
         workflow, state, _, _ = load_run(workflow_path)
-        route = route_for_workflow(workflow, state, "build")
+        route = route_for_workflow(workflow, state, "build", compact=False)
         self.assertEqual(route["step"]["id"], "build")
         self.assertTrue(route["module_file"].endswith("modules\\task.md"))
         self.assertIn("test-driven-development", route["skill_names"])
@@ -743,6 +889,82 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertIn("documentation-and-adrs", route["skill_names"])
         self.assertIn("engineering_quality", route["capability_names"])
         self.assertTrue(all(Path(path).is_file() for path in route["skill_files"]))
+
+    def test_compact_route_skips_cross_agent_review_and_optional_overlays(self):
+        _, workflow, state, _, _ = self.init("project-delivery")
+        route = route_for_workflow(workflow, state, "build")
+        self.assertEqual(route["mode"], "compact")
+        self.assertNotIn("requesting-code-review", route["skill_names"])
+        self.assertNotIn("subagent-driven-development", route["skill_names"])
+        self.assertNotIn("code-review-and-quality", route["skill_names"])
+        self.assertIn("verification-before-completion", route["skill_names"])
+
+    def test_revise_invalidates_target_downstream_artifacts_and_delivery(self):
+        workflow_path = initialize_run(self.request, self.root / "revision", "custom")
+        workflow, state, manifest, paths = load_run(workflow_path)
+        workflow["steps"] = [
+            {"id": "task", "module": "task", "action": "execute", "needs": [], "inputs": ["request"], "outputs": ["task.result"], "validator": "artifacts_exist"},
+            {"id": "downstream", "module": "task", "action": "compute", "needs": ["task"], "inputs": ["task.result"], "outputs": ["downstream.result"], "validator": "artifacts_exist"},
+        ]
+        sync_planning_state(workflow, state)
+        paths["work_plan"].write_text(COMPLETE_PLAN, encoding="utf-8")
+        save_json(paths["requirement_map"], {
+            "$schema": "autoflow/requirement-map/1.0", "workflow_id": workflow["workflow_id"], "status": "planning",
+            "target_tier": "revision-test", "source_files": [str(self.request)],
+            "requirements": [{"id": "R1", "description": "Outputs", "required": True, "acceptance": "Both exist", "evidence_artifacts": ["task.result", "downstream.result"], "validation": {"status": "passed"}}],
+            "planned_figures": [],
+        })
+        approve_gate(workflow, state, manifest, paths, "plan", "User approved")
+        self.complete_step(workflow, state, manifest, paths, "task", {"task.result": self.make_artifact("task.json", "{}")})
+        downstream = paths["submit"] / "downstream.txt"
+        downstream.write_text("result", encoding="utf-8")
+        self.complete_step(workflow, state, manifest, paths, "downstream", {"downstream.result": downstream})
+        affected = revise_step(workflow, state, manifest, paths, "task", "Update implementation")
+        self.assertEqual(affected, ["task", "downstream"])
+        self.assertEqual(state["steps"]["task"]["status"], "ready")
+        self.assertEqual(state["steps"]["downstream"]["status"], "pending")
+        self.assertEqual(manifest["artifacts"], [])
+        self.assertEqual(len(manifest["artifact_history"]), 2)
+        self.assertEqual(state["gates"]["delivery"]["status"], "pending")
+        self.assertFalse(state["gates"]["delivery"]["active"])
+
+    def test_revise_rejects_delivered_workflow(self):
+        _, workflow, state, manifest, paths = self.init("custom")
+        done = paths["submit"] / "done.txt"
+        done.write_text("done", encoding="utf-8")
+        self.complete_step(workflow, state, manifest, paths, "task", {"task.result": done})
+        state["status"] = "completed"
+        state["gates"]["delivery"]["status"] = "approved"
+        with self.assertRaisesRegex(AutoFlowError, "immutable"):
+            revise_step(workflow, state, manifest, paths, "task", "Too late")
+
+    def test_environment_report_requires_verified_matching_external_runtime(self):
+        project = self.root / "environment-project"
+        runtime = self.root / "environment-runtime"
+        project.mkdir()
+        runtime.mkdir()
+        report_path = self.root / "environment.json"
+        payload = {
+            "$schema": "autoflow/environment-report/1.0",
+            "command": "detect",
+            "project": str(project),
+            "runtime_root": str(runtime),
+            "status": "ready",
+            "project_kinds": ["python"],
+            "missing_tools": [],
+            "checks": [],
+        }
+        save_json(report_path, payload)
+        with self.assertRaisesRegex(AutoFlowError, "ensure or verify"):
+            validate_environment_report(report_path, project)
+        payload["command"] = "ensure"
+        payload["checks"] = [{"name": "python_dependency_consistency", "status": "passed"}]
+        save_json(report_path, payload)
+        self.assertEqual(validate_environment_report(report_path, project)["status"], "ready")
+        payload["project"] = str(self.root / "different-project")
+        save_json(report_path, payload)
+        with self.assertRaisesRegex(AutoFlowError, "does not match"):
+            validate_environment_report(report_path, project)
 
     def test_impeccable_is_an_integrated_offline_frontend_backend(self):
         backend = detect_impeccable_backend()

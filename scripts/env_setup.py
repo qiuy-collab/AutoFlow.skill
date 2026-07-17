@@ -94,8 +94,9 @@ def run_pip_install(packages: List[str], label: str) -> bool:
 
 PIP_REQUIRED = ["requests", "python-docx", "Pillow"]
 PIP_BROWSER = ["playwright"]
+PIP_CHART = ["numpy", "matplotlib"]
 PIP_VIDEO = ["av", "opencv-python", "numpy", "mss"]
-PIP_ALL = list(set(PIP_REQUIRED + PIP_BROWSER + PIP_VIDEO))
+PIP_ALL = list(set(PIP_REQUIRED + PIP_BROWSER + PIP_CHART + PIP_VIDEO))
 
 
 def install_playwright_browsers() -> bool:
@@ -294,7 +295,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="AutoFlow environment check & auto-install")
     parser.add_argument("--check-only", action="store_true",
                         help="Only check, do not install anything")
-    parser.add_argument("--route", choices=["ai", "capture", "diagram", "video", "all"],
+    parser.add_argument("--route", choices=["ai", "capture", "diagram", "chart", "video", "all"],
                         default="all", help="Target route (default: all)")
     parser.add_argument("--no-probe", action="store_true",
                         help="Skip upstream API probe")
@@ -332,6 +333,10 @@ def main():
         if not dry_run:
             run_pip_install(PIP_BROWSER, "image.capture")
             install_playwright_browsers()
+
+    if route in ("chart", "all"):
+        if not dry_run:
+            run_pip_install(PIP_CHART, "image.chart")
 
     if route in ("video", "all"):
         if not dry_run:

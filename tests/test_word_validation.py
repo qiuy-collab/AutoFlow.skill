@@ -112,6 +112,40 @@ class WordValidationTests(unittest.TestCase):
             self.assertIn("no_unresolved_placeholders", failed)
             self.assertIn("figure_caption_pairing", failed)
 
+    def test_format_instructions_inherited_from_template_do_not_fail(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            template = root / "template.docx"
+            document = root / "result.docx"
+            inherited = paragraph("格式要求：正文使用宋体小四。")
+            write_docx(template, inherited)
+            write_docx(document, inherited + paragraph("这是学生填写的课程学习总结正文。"))
+            plan = self.strict_plan()
+            plan.update(
+                {
+                    "minimum_image_count": 0,
+                    "require_caption_pairing": False,
+                }
+            )
+            result, report = self.run_validator(root, document, template, plan)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            checks = {item["name"]: item for item in report["checks"]}
+            self.assertEqual(checks["no_template_instructions_in_body"]["status"], "passed")
+
+    def test_new_format_instructions_not_present_in_template_fail(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            template = root / "template.docx"
+            document = root / "result.docx"
+            write_docx(template, paragraph("课程报告模板"))
+            write_docx(document, paragraph("格式要求：正文使用宋体小四。"))
+            plan = self.strict_plan()
+            plan.update({"minimum_image_count": 0, "require_caption_pairing": False})
+            result, report = self.run_validator(root, document, template, plan)
+            self.assertNotEqual(result.returncode, 0)
+            failed = {item["name"] for item in report["checks"] if item["status"] == "failed"}
+            self.assertIn("no_template_instructions_in_body", failed)
+
 
 if __name__ == "__main__":
     unittest.main()
