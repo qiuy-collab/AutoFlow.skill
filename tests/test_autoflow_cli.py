@@ -16,6 +16,150 @@ def workflow_file(run: Path) -> Path:
 
 
 class AutoFlowCliTests(unittest.TestCase):
+    def test_direct_route_resolves_one_module_without_creating_workflow_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "direct-route",
+                    "--module",
+                    "image",
+                    "--action",
+                    "diagram",
+                    "--json",
+                ],
+                cwd=root,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            payload = json.loads(completed.stdout)
+            self.assertEqual(payload["$schema"], "autoflow/direct-route/1.0")
+            self.assertEqual(payload["execution_mode"], "direct")
+            self.assertEqual(payload["module"], "image")
+            self.assertEqual(payload["action"], "diagram")
+            self.assertFalse(payload["workflow_files_created"])
+            self.assertEqual(payload["stop_gates"], [])
+            self.assertFalse(payload["output_policy"]["managed_submit_required"])
+            self.assertTrue(payload["output_policy"]["minimum_requested_outputs"])
+            self.assertEqual(payload["output_policy"]["sidecars"], "only_when_requested_or_required")
+            self.assertTrue(payload["output_policy"]["sidecar_formats_are_one_artifact_family"])
+            self.assertTrue(Path(payload["module_file"]).is_file())
+            self.assertTrue(all(Path(path).is_file() for path in payload["capability_files"]))
+            self.assertEqual(list(root.iterdir()), [])
+
+    def test_plan_review_packet_exposes_plan_contents_and_absolute_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            request = root / "request.md"
+            request.write_text("Create one managed document with an auditable review.", encoding="utf-8")
+            run = root / "run"
+            initialized = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "init",
+                    "--request-file",
+                    str(request),
+                    "--output-dir",
+                    str(run),
+                    "--recipe",
+                    "document",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+
+            config = run / ".autoflow" / "config"
+            workflow = json.loads((config / "workflow.json").read_text(encoding="utf-8"))
+            (config / "WORK_PLAN.md").write_text(
+                """# Managed document plan
+
+## 目标
+生成一份经过结构检查的文档，并保留可复核的计划、需求映射和验证结果。目标、范围和最终文件均在执行前明确，避免用户只看到一个没有内容的确认问题。
+
+## 需求与证据
+R1 要求文档真实生成并通过验证，证据对应 word.document 与 word.validation，计划文件负责解释验收标准和产出位置。
+
+## 工作流
+使用 document recipe。可选调研和图片步骤按需求跳过，Word 步骤负责创建与验证，所有依赖和输出以 workflow.json 为准。
+
+## 产物
+最终产物是 Word 文档及其验证报告；路径在执行后登记，计划阶段先声明类型、用途和验收条件。
+
+## 信息替换
+本测试没有身份信息、模板占位符或其他待替换字段，因此明确记录为无，不猜测用户信息。
+
+## 范围与约束
+不生成无关图片，不创建额外交付包，不绕过计划审核，不把运行环境或缓存混入最终文档目录。
+
+## 验收策略
+检查文件存在、文档结构和验证报告，再将结果与 R1 映射；完成前向用户展示计划摘要和本计划的绝对路径。
+""",
+                encoding="utf-8",
+            )
+            requirement_map_path = config / "requirement_map.json"
+            requirement_map = json.loads(requirement_map_path.read_text(encoding="utf-8"))
+            requirement_map["requirements"] = [
+                {
+                    "id": "R1",
+                    "description": "Create and validate the managed document",
+                    "required": True,
+                    "acceptance": ["Document and validation report exist"],
+                    "evidence_artifacts": ["word.document", "word.validation"],
+                    "validation": {"status": "pending", "evidence": ""},
+                }
+            ]
+            requirement_map_path.write_text(
+                json.dumps(requirement_map, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            reviewed = subprocess.run(
+                [
+                    sys.executable,
+                    str(CLI),
+                    "review",
+                    "--workflow",
+                    str(workflow_file(run)),
+                    "--gate",
+                    "plan",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(reviewed.returncode, 0, reviewed.stderr)
+            packet = json.loads(reviewed.stdout)
+            self.assertEqual(packet["$schema"], "autoflow/gate-review/1.0")
+            self.assertEqual(packet["gate"], "plan")
+            self.assertTrue(packet["must_show_before_approval"])
+            self.assertEqual(packet["summary"]["recipe"], "document")
+            self.assertTrue(packet["summary"]["steps"])
+            self.assertEqual(packet["summary"]["required_requirements"][0]["id"], "R1")
+            self.assertTrue(Path(packet["review_file"]).is_absolute())
+            self.assertEqual(Path(packet["review_file"]), config / "WORK_PLAN.md")
+            self.assertIn("absolute WORK_PLAN.md path", packet["required_display"])
+
+    def test_stop_gate_contract_requires_substantive_review_packets(self):
+        contract = (ROOT / "references" / "stop-gates.md").read_text(encoding="utf-8")
+        for gate in ("PLAN_STOP", "SOURCE_STOP", "VISUAL_STOP", "DELIVERY_STOP"):
+            self.assertIn(f"## {gate}", contract)
+        for required_phrase in (
+            "What the task will produce",
+            "Three to five candidate names",
+            "actual new images",
+            "Final deliverable inventory",
+            "absolute path",
+        ):
+            self.assertIn(required_phrase, contract)
+        self.assertIn("only says “ready”, “approve?”, “continue?”", contract)
+
     def test_integrations_command_reports_audited_catalog(self):
         completed = subprocess.run(
             [sys.executable, str(CLI), "integrations", "--json"],

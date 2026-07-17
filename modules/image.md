@@ -2,6 +2,14 @@
 
 Use this module for visual artifacts. Computation belongs to `task.compute`; this module renders or captures its results.
 
+## Direct mode
+
+A small request for one visual artifact family—such as one ER diagram with `.mmd`, `.svg`, and `.png` representations—runs directly. Resolve it with `autoflow.py direct-route --module image --action <action>`, read only the returned files, render, validate, and deliver it. Do not create a workflow, plan, requirement map, manifest, forced `submit/`, or PLAN/VISUAL/DELIVERY STOP for this case.
+
+The quality rules below still apply in direct mode. Generate only the requested formats. If no format is specified, prefer one broadly viewable final such as PNG; retain editable DSL or additional SVG/PDF exports only when requested or materially needed. Validation can remain internal rather than becoming another delivery file. Show the finished visual and report its path and validation once; do not ask for a second approval unless the user explicitly requested an iterative review.
+
+For diagrams, pass `--direct` to `generate_diagram_assets.py`; it defaults to one PNG and omits source, SVG, and the managed generation report. Use `--format svg|source|all` or `--keep-report` only when the request needs them.
+
 ## Actions
 
 - `capture`: real browser/application/terminal evidence. Prefer deterministic capture from the actual local result.
@@ -15,7 +23,7 @@ The action boundary is stable while internal families remain explicit. Read
 `references/image-routing-taxonomy.md` and treat its union as the image module's
 full regression surface; an integrated family is never omitted from testing.
 
-Before PLAN_STOP, read the `image` capability report in
+In managed mode before PLAN_STOP, read the `image` capability report in
 `workflow.json.capabilities.image`. It contains action-level status and local
 file paths for `ai`, `capture`, `diagram`, and `chart`; a missing upstream,
 browser runtime, or DSL renderer is a `blocked` capability, not a reason to
@@ -41,9 +49,9 @@ Read only the route-specific guidance needed:
   Skill or depend on the separate source checkout.
 - Quality review: `docs/prompts/visual_review_rules.md` and `check_images.py`.
 
-Group a coherent review batch into one image step. Complete it with the generated directory or manifest as its artifact. A step with `gate_after: visual` activates `VISUAL_STOP`; downstream modules cannot consume the visuals until the user approves them.
+In managed mode, group a coherent review batch into one image step. Complete it with the generated directory or manifest as its artifact. A step with `gate_after: visual` activates `VISUAL_STOP`; downstream modules cannot consume the visuals until the user approves them.
 
-Before PLAN_STOP, record every planned visual in `requirement_map.json.planned_figures` with a stable id, requirement ids, route, purpose, and expected caption. The number of generated visuals must satisfy this plan. Do not add decorative figures that prove no requirement.
+In managed mode before PLAN_STOP, record every planned visual in `requirement_map.json.planned_figures` with a stable id, requirement ids, route, purpose, and expected caption. The number of generated visuals must satisfy this plan. Do not add decorative figures that prove no requirement.
 
 After generation, preserve the route-specific report, source files for diagrams/charts, real capture URL or command where applicable, and any img2img fixup history. A fix creates a new artifact hash and reopens `VISUAL_STOP`.
 

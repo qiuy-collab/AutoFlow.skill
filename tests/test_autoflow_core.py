@@ -23,6 +23,7 @@ from autoflow_core import (  # noqa: E402
     detect_webapp_testing_backend,
     detect_word_backend,
     engineering_quality_skill_names,
+    gate_review_packet,
     hash_path,
     integration_catalog,
     initialize_run,
@@ -44,6 +45,7 @@ from autoflow_core import (  # noqa: E402
     validate_video_acceptance,
     validate_workflow_definition,
     route_for_workflow,
+    route_for_direct,
     workflow_capabilities,
 )
 
@@ -217,6 +219,13 @@ class AutoFlowTestCase(unittest.TestCase):
         with self.assertRaisesRegex(AutoFlowError, "not marked passed|delivery_review"):
             approve_gate(workflow, state, manifest, paths, "delivery", "User accepted the Word delivery")
         self.prepare_delivery_review(workflow, manifest, paths)
+        review = gate_review_packet(workflow, state, manifest, paths, "delivery")
+        self.assertEqual(review["gate"], "delivery")
+        self.assertEqual(len(review["artifacts"]), 2)
+        self.assertTrue(review["ready_for_decision"])
+        self.assertEqual(review["validation_errors"], [])
+        self.assertTrue(Path(review["review_file"]).is_absolute())
+        self.assertIn("known limitations or an explicit statement that none remain", review["required_display"])
         approve_gate(workflow, state, manifest, paths, "delivery", "User accepted the Word delivery")
         self.assertEqual(state["status"], "completed")
 
@@ -352,6 +361,10 @@ class AutoFlowTestCase(unittest.TestCase):
         self.complete_step(workflow, state, manifest, paths, "image", {"image.assets": image_dir})
         self.assertEqual(refresh_ready(workflow, state), [])
         self.assertEqual(state["gates"]["visual"]["status"], "pending")
+        review = gate_review_packet(workflow, state, manifest, paths, "visual")
+        self.assertEqual(review["gate"], "visual")
+        self.assertEqual(review["artifacts"][0]["id"], "image.assets")
+        self.assertIn("the actual images, rendered slides, or sampled video frames", review["required_display"])
         approve_gate(workflow, state, manifest, paths, "visual", "User approved the displayed screenshots")
         self.assertIn("word", refresh_ready(workflow, state))
 
@@ -402,6 +415,11 @@ class AutoFlowTestCase(unittest.TestCase):
         )
         self.assertEqual(state["gates"]["source"]["status"], "pending")
         self.assertEqual(refresh_ready(workflow, state), [])
+        review = gate_review_packet(workflow, state, manifest, paths, "source")
+        self.assertEqual(review["gate"], "source")
+        self.assertEqual(len(review["candidates"]), 3)
+        self.assertEqual(review["candidates"][0]["revision"], "abc123")
+        self.assertTrue(Path(review["review_file"]).is_absolute())
 
         source_plan.update(
             {
@@ -419,6 +437,14 @@ class AutoFlowTestCase(unittest.TestCase):
         approve_gate(workflow, state, manifest, paths, "source", "User selected candidate 1")
         self.assertIn("build", refresh_ready(workflow, state))
         self.assertEqual(validate_run(workflow, state, manifest, paths), [])
+
+    def test_direct_route_rejects_unknown_actions_without_creating_state(self):
+        payload = route_for_direct("image", "diagram")
+        self.assertEqual(payload["execution_mode"], "direct")
+        self.assertEqual(payload["stop_gates"], [])
+        self.assertFalse(payload["workflow_files_created"])
+        with self.assertRaisesRegex(AutoFlowError, "Unknown direct action"):
+            route_for_direct("image", "unsupported")
 
     def test_no_candidate_uses_from_scratch_without_source_approval(self):
         _, workflow, state, manifest, paths = self.init("project-delivery")

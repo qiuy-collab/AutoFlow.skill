@@ -2494,6 +2494,48 @@ def save_run(state: dict[str, Any], manifest: dict[str, Any], paths: dict[str, P
     save_json(paths["manifest"], manifest)
 
 
+def route_for_direct(module: str, action: str, compact: bool = True) -> dict[str, Any]:
+    """Resolve one local module without creating a managed workflow run."""
+    if module not in MODULE_ACTIONS:
+        raise AutoFlowError(f"Unknown direct module: {module}")
+    if action not in MODULE_ACTIONS[module]:
+        allowed = ", ".join(sorted(MODULE_ACTIONS[module]))
+        raise AutoFlowError(f"Unknown direct action {module}.{action}; allowed actions: {allowed}")
+
+    step: dict[str, Any] = {
+        "id": "direct",
+        "module": module,
+        "action": action,
+        "needs": [],
+        "inputs": ["request"],
+        "outputs": [f"{module}.result"],
+        "optional": False,
+    }
+    if module == "image" and action == "capture":
+        step["capture_backend"] = "integrated-webapp-testing"
+
+    workflow = {
+        "workflow_id": "direct",
+        "recipe": "direct",
+        "steps": [step],
+        "capabilities": workflow_capabilities([step]),
+    }
+    state = {"steps": {"direct": {"status": "ready"}}}
+    payload = route_for_workflow(workflow, state, "direct", compact=compact)
+    payload["$schema"] = "autoflow/direct-route/1.0"
+    payload["execution_mode"] = "direct"
+    payload["workflow_files_created"] = False
+    payload["stop_gates"] = []
+    payload["output_policy"] = {
+        "location": "user_requested_or_current_workspace",
+        "managed_submit_required": False,
+        "minimum_requested_outputs": True,
+        "sidecars": "only_when_requested_or_required",
+        "sidecar_formats_are_one_artifact_family": True,
+    }
+    return payload
+
+
 def route_for_workflow(
     workflow: dict[str, Any], state: dict[str, Any], step_id: str | None = None, compact: bool = True
 ) -> dict[str, Any]:
@@ -2635,6 +2677,174 @@ def route_for_workflow(
         payload["step"] = routed_steps[0]
         payload.update(routed_steps[0])
     return payload
+
+
+def gate_review_packet(
+    workflow: dict[str, Any],
+    state: dict[str, Any],
+    manifest: dict[str, Any],
+    paths: dict[str, Path],
+    gate_name: str,
+) -> dict[str, Any]:
+    """Build the information packet that must be shown before requesting approval."""
+    if gate_name not in GATE_NAMES:
+        raise AutoFlowError(f"Unknown gate: {gate_name}")
+    gate = (state.get("gates") or {}).get(gate_name) or {}
+    if not gate.get("active"):
+        raise AutoFlowError(f"{gate_name.upper()}_STOP is not active")
+
+    packet: dict[str, Any] = {
+        "$schema": "autoflow/gate-review/1.0",
+        "workflow_id": workflow.get("workflow_id", ""),
+        "gate": gate_name,
+        "gate_status": gate.get("status", ""),
+        "must_show_before_approval": True,
+    }
+
+    if gate_name == "plan":
+        validate_workflow_definition(workflow)
+        validate_capabilities(workflow)
+        validate_work_plan(paths["work_plan"])
+        requirement_map = validate_requirement_map(paths["requirement_map"], workflow)
+        packet.update(
+            {
+                "title": "Execution plan review",
+                "summary": {
+                    "name": workflow.get("name", ""),
+                    "recipe": workflow.get("recipe", ""),
+                    "recipe_description": workflow.get("recipe_description", ""),
+                    "steps": [
+                        {
+                            "id": step["id"],
+                            "operation": f"{step['module']}.{step['action']}",
+                            "needs": step.get("needs", []),
+                            "outputs": step.get("outputs", []),
+                        }
+                        for step in workflow.get("steps", [])
+                    ],
+                    "required_requirements": [
+                        {
+                            "id": item.get("id", ""),
+                            "description": item.get("description", ""),
+                            "evidence_artifacts": item.get("evidence_artifacts", []),
+                        }
+                        for item in requirement_map.get("requirements", [])
+                        if item.get("required")
+                    ],
+                    "planned_figures": requirement_map.get("planned_figures", []),
+                },
+                "review_file": str(paths["work_plan"].resolve()),
+                "supporting_files": [
+                    str(paths["workflow"].resolve()),
+                    str(paths["requirement_map"].resolve()),
+                ],
+                "required_display": [
+                    "goal and scope",
+                    "recipe and ordered steps",
+                    "expected deliverables and paths or types",
+                    "important decisions, exclusions, and risks",
+                    "absolute WORK_PLAN.md path",
+                ],
+                "decision_prompt": "Approve this plan, or identify the step/scope/output that must change.",
+            }
+        )
+        return packet
+
+    if gate_name == "source":
+        source_status = validate_source_plan(paths["source_plan"])
+        source_plan = load_json(paths["source_plan"])
+        packet.update(
+            {
+                "title": "GitHub source selection review",
+                "source_status": source_status,
+                "queries": source_plan.get("queries", []),
+                "criteria": source_plan.get("criteria")
+                or [
+                    "requirement_fit",
+                    "modification_distance",
+                    "stack",
+                    "buildability",
+                    "maintenance",
+                    "license",
+                ],
+                "candidates": source_plan.get("candidates", []),
+                "fallback": source_plan.get("fallback", {}),
+                "review_file": str(paths["source_plan"].resolve()),
+                "required_display": [
+                    "real search queries",
+                    "three to five candidate names and repository links",
+                    "scores, license, pinned revision, fit, modification cost, and risks",
+                    "recommended candidate and why",
+                    "absolute source_candidates.json path",
+                ],
+                "decision_prompt": "Select a candidate rank, reject all candidates, or request a new search.",
+            }
+        )
+        return packet
+
+    visual_steps = {
+        step["id"]
+        for step in workflow.get("steps", [])
+        if step.get("module") in VISUAL_MODULES
+        and (state.get("steps", {}).get(step["id"]) or {}).get("status") == "completed"
+    }
+    visual_artifacts = [item for item in manifest.get("artifacts", []) if item.get("producer") in visual_steps]
+
+    if gate_name == "visual":
+        if not visual_artifacts:
+            raise AutoFlowError("VISUAL_STOP review requires completed visual artifacts")
+        artifact_errors = _validate_artifacts({"artifacts": visual_artifacts})
+        if artifact_errors:
+            raise AutoFlowError("Visual artifact validation failed: " + "; ".join(artifact_errors))
+        packet.update(
+            {
+                "title": "Visual artifact review",
+                "artifacts": visual_artifacts,
+                "required_display": [
+                    "the actual images, rendered slides, or sampled video frames",
+                    "purpose and downstream use of each artifact",
+                    "absolute artifact paths plus dimensions, page count, or duration when applicable",
+                    "validation results, visible issues, and changes since the previous review",
+                    "the exact items that need a visual decision",
+                ],
+                "decision_prompt": "Approve the displayed visual batch, or specify concrete revisions per artifact.",
+            }
+        )
+        return packet
+
+    validation_errors = validate_run(workflow, state, manifest, paths, deep=True)
+    requirement_map = load_json(paths["requirement_map"])
+    delivery_review = load_json(paths["delivery_review"])
+    packet.update(
+        {
+            "title": "Final delivery review",
+            "artifacts": manifest.get("artifacts", []),
+            "requirement_results": delivery_review.get("requirement_results", []),
+            "artifact_results": delivery_review.get("artifact_results", []),
+            "issues_found": delivery_review.get("issues_found", []),
+            "overall_pass": delivery_review.get("overall_pass", False),
+            "validation_errors": validation_errors,
+            "ready_for_decision": not validation_errors and delivery_review.get("overall_pass", False),
+            "review_file": str(paths["delivery_review"].resolve()),
+            "supporting_files": [
+                str(paths["manifest"].resolve()),
+                str(paths["requirement_map"].resolve()),
+            ],
+            "required_requirement_ids": [
+                item.get("id", "") for item in requirement_map.get("requirements", []) if item.get("required")
+            ],
+            "required_display": [
+                "final deliverable list with absolute paths",
+                "requirement-to-artifact mapping",
+                "build, test, render, media, and package validation results",
+                "archive contents and sensitive-file scan result when a package exists",
+                "known limitations or an explicit statement that none remain",
+                "absolute delivery_review.json path",
+            ],
+            "decision_prompt": "Sign off the final delivery, or identify the deliverable or requirement that must be revised.",
+        }
+    )
+    return packet
 
 
 def status_summary(

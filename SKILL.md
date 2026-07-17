@@ -1,30 +1,38 @@
 ---
 name: autoflow
-description: "Orchestrate multi-step artifact workflows by composing task, image, Word, PowerPoint, video, and packaging modules with durable state and mandatory human STOP gates. Use this skill whenever the user explicitly asks for autoflow, and also for substantial work that must produce multiple connected artifacts such as a runnable project plus screenshots and documentation, a report plus slides, or a complete submission package. Do not use it for simple questions or isolated one-step edits unless the user explicitly invokes autoflow."
+description: "Route artifact work through either a lightweight direct module or a managed multi-step workflow. Use direct mode for small single-module deliverables without dependencies or consequential choices; use managed task/image/Word/PowerPoint/video/package DAGs with durable state and human STOP reviews for connected or high-consequence work. Explicit autoflow invocation selects this Skill but does not force full workflow overhead."
 ---
 
 # AutoFlow
 
-AutoFlow turns a request into an explicit artifact DAG. The Agent plans and performs module work; deterministic scripts validate dependencies, state transitions, approvals, and outputs.
+AutoFlow has two execution modes. Small, low-risk, single-module requests run directly from the relevant module contract. Connected or consequential work becomes an explicit artifact DAG whose dependencies, state transitions, approvals, and outputs are validated by deterministic scripts.
 
 The repository layout and integration policy are documented in
 `references/directory-layout.md`. Read it when adding or routing a capability.
 
-Explicit invocation always wins: if the user asks for `autoflow`, use this workflow even for an unusual module combination.
+Explicit invocation always wins: if the user asks for `autoflow`, use this Skill. It selects AutoFlow routing, not automatically the managed workflow mode.
 
 ## Core principles
 
 - Compose only the modules the request needs: `task`, `image`, `word`, `ppt`, `video`, `package`.
-- Preserve decisions and evidence in files so another Agent can resume the run.
-- Treat `workflow.json` as a contract, not a narrative checklist.
+- Use direct mode for small work; do not create workflow files or STOP gates merely because AutoFlow was named.
+- Preserve decisions and evidence in files when the task actually needs a resumable managed workflow.
+- In managed mode, treat `workflow.json` as a contract, not a narrative checklist.
 - Complete real prerequisite work before writing downstream documents about it.
-- Never infer approval from silence. Respect PLAN, SOURCE, VISUAL, and DELIVERY STOP gates.
+- Managed mode never infers approval from silence. Every PLAN, SOURCE, VISUAL, or DELIVERY request must first show its complete review packet.
 - Register only real, validated artifacts. Placeholder code, mock evidence, and unverified deliverables do not count.
 - This is AutoFlow Schema 1.0. Do not run legacy AutoLab workflow files.
 
 ## Read before acting
 
 Always read:
+
+1. `references/execution-modes.md`
+2. The selected module file.
+
+For direct mode, read only the route-specific guidance required by that module and execute the task. Do not initialize a run.
+
+For managed mode, also read:
 
 1. `references/workflow-contract.md`
 2. `references/stop-gates.md`
@@ -83,7 +91,36 @@ Frontend project steps may additionally resolve the integrated `impeccable`
 design language and offline detector. Use the returned local adapter; never
 fall back to `npx impeccable`, a remote URL scan, or an uninstalled plugin.
 
-## Start a run
+## Choose the execution mode
+
+Make this decision before creating a request file, plan, run directory, or state file.
+
+Use **direct mode** only when all of these are true:
+
+- One module is sufficient.
+- The request has one semantic artifact family. Editable source plus exports of the same diagram, such as `.mmd + .svg + .png`, still count as one family.
+- There is no upstream/downstream dependency, GitHub source-selection decision, packaging contract, rubric-wide evidence map, or need to resume across steps.
+- The work is low-risk and does not require a consequential, destructive, public, financial, or security-sensitive decision.
+- The scope is already clear enough to execute without comparing materially different approaches.
+
+In direct mode:
+
+1. Do not run `autoflow init`.
+2. Do not create `workflow.json`, `WORK_PLAN.md`, requirement maps, manifests, `.autoflow/`, or `submit/` unless the user explicitly requested that directory.
+3. Resolve the checked-in local capability without a workflow:
+
+```bash
+python scripts/autoflow.py direct-route --module <module> --action <action> --json
+```
+
+4. Read the returned module and capability files, perform the real work, run the module's relevant quality check, and deliver the minimum requested output set at the user-requested path or current workspace. Do not expose extra source/export/report files unless requested or genuinely required.
+5. Do not trigger PLAN, SOURCE, VISUAL, or DELIVERY STOP. Show the finished artifact and concise validation result once. Ask a targeted question only if a missing decision truly blocks execution.
+
+Use **managed mode** when any direct-mode condition is false. Common triggers are multiple modules, dependent artifacts, GitHub-first project builds, packages/submission contracts, complex rubric or template evidence, multiple revision checkpoints, significant external side effects, or a user request for a resumable/auditable workflow.
+
+When unsure, do not inflate a clearly small request. Choose managed mode only when the unresolved complexity changes scope, safety, dependencies, or acceptance.
+
+## Start a managed run
 
 1. Inspect the request and all supplied files before asking discoverable questions.
 2. Choose the closest recipe:
@@ -116,7 +153,15 @@ python scripts/autoflow.py sync --workflow <workspace>/autoflow/.autoflow/config
 python scripts/autoflow.py validate --workflow <workspace>/autoflow/.autoflow/config/workflow.json
 ```
 
-9. Show the plan to the user and stop. After explicit approval, record it:
+9. Build the PLAN review packet, present its substantive contents and paths, then stop:
+
+```bash
+python scripts/autoflow.py review \
+  --workflow <workspace>/autoflow/.autoflow/config/workflow.json \
+  --gate plan
+```
+
+Do not ask only “approve?” or “continue?”. Tell the user the goal, scope, recipe, ordered steps, expected outputs, important decisions/risks, and the absolute `WORK_PLAN.md` path. After explicit approval, record it:
 
 ```bash
 python scripts/autoflow.py approve \
@@ -125,7 +170,7 @@ python scripts/autoflow.py approve \
   --note "<summary of the user's explicit approval>"
 ```
 
-Do not start module work before PLAN_STOP approval.
+Do not start managed module work before PLAN_STOP approval.
 
 ## Execute the DAG
 
@@ -185,7 +230,7 @@ Code and runnable project tasks use separate `task.research` and `task.build` st
 - Search and inspect GitHub before implementation.
 - Write `.autoflow/intermediate/plans/source_candidates.json` with real queries, scores, licenses, revisions, and judgments.
 - Completing discovery activates SOURCE_STOP when usable candidates exist.
-- Show 3–5 candidates and wait for the user's selection.
+- Run `autoflow.py review --workflow ... --gate source`, show the 3–5 candidate comparison and source plan path, then wait for the user's selection.
 - Record the selected candidate and revision before approving the gate.
 - Clone and modify only after approval.
 - If none are suitable, record rejected candidates and the reason for `from_scratch`; do not create a fake choice.
@@ -199,7 +244,7 @@ python scripts/autoflow.py approve \
 
 ## Visual review
 
-Any step with `gate_after: visual` activates VISUAL_STOP after completion. Show the actual new artifacts, not only filenames. Downstream Word, PPT, and packaging steps remain blocked until explicit approval.
+In managed mode, any step with `gate_after: visual` activates VISUAL_STOP after completion. Run `autoflow.py review --workflow ... --gate visual`. Show the actual new artifacts, their purpose, paths, dimensions/page count/duration where applicable, validation results, visible concerns, and the exact decision needed. A filename-only or “please approve” message is invalid. Downstream Word, PPT, and packaging steps remain blocked until explicit approval.
 
 ```bash
 python scripts/autoflow.py approve \
@@ -214,6 +259,7 @@ A later PPT or image batch reopens the same gate because it has not been reviewe
 
 When all steps complete, AutoFlow activates DELIVERY_STOP. Before asking for approval:
 
+- Run `autoflow.py review --workflow ... --gate delivery` and present the returned review packet.
 - Run `validate` and resolve every error.
 - Set `requirement_map.json.status` to `verified`, with every required item marked passed and backed by registered artifacts.
 - Complete `delivery_review.json` with one result per required requirement and one result per registered artifact.
@@ -221,6 +267,8 @@ When all steps complete, AutoFlow activates DELIVERY_STOP. Before asking for app
 - Inspect Word/PPT/media visually where applicable.
 - List archive contents rather than assuming packaging succeeded.
 - Confirm source code or applications actually run.
+- State known limitations, or explicitly state that none remain.
+- Provide the absolute `delivery_review.json` path. Never ask for sign-off with only a generic completion sentence.
 
 After the user signs off:
 
@@ -264,13 +312,24 @@ diagnosing a suspected cache defect.
 - Do not package the workspace or `.autoflow/` by habit.
 - Do not repeat full rendering, hashing, or packaging when inputs are unchanged.
 - Do not invent approvals, source candidates, tool calls, or evidence.
+- Do not turn a qualifying direct request into a managed run with control files and four STOP gates.
+- Do not request STOP approval before showing the gate-specific review packet and its file paths.
 
 Read `references/anti-patterns.md` for the complete replacement action for each prohibited state.
 
 ## Definition of done
 
+For direct mode:
+
+- The requested artifact family exists at the requested or clearly reported path.
+- The relevant module-level quality check passed.
+- No workflow control directory, plan, package, or STOP interaction was added without need.
+- The user receives the artifact, path, and concise validation result in one completion message.
+
+For managed mode:
+
 - The selected recipe or custom DAG matches the request.
-- Required STOP approvals are recorded from explicit user responses.
+- Every STOP request first presented its required information and review paths; required approvals are recorded from explicit user responses.
 - Every completed step has all declared artifacts.
 - Artifact paths exist and hashes validate.
 - Module-specific quality checks pass.

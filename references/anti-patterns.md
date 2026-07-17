@@ -4,6 +4,8 @@ These rules are hard failures, not suggestions.
 
 | Prohibited action | Required replacement |
 |---|---|
+| Initialize a managed run for a qualifying one-module, one-artifact-family request | Use `direct-route`, read the module rules, execute, validate, and deliver without control files or STOP gates. |
+| Ask for any STOP approval with only “ready/approve/continue” | Run `autoflow.py review --gate ...` and present the gate-specific information, artifacts, validation, and absolute review paths first. |
 | Hand-edit `run_state.json` or `artifact_manifest.json` | Use `transition`, `approve`, `gate`, or `revise`. |
 | Modify an artifact after registration | Run `autoflow.py revise --step ... --reason ...`; never refresh the hash by hand. |
 | Execute tests, migrations, installers, or applications in `submit/` | Test in `.autoflow/intermediate/verification/`, then package once. |

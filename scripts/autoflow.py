@@ -17,11 +17,13 @@ from autoflow_core import (
     detect_word_backend,
     evaluation_summary,
     integration_catalog,
+    gate_review_packet,
     initialize_run,
     load_run,
     parse_artifact_specs,
     refresh_ready,
     revise_step,
+    route_for_direct,
     route_for_workflow,
     save_json,
     save_run,
@@ -80,6 +82,24 @@ def parse_args():
     route_mode = route.add_mutually_exclusive_group()
     route_mode.add_argument("--compact", action="store_true", help="Load only required step guidance (default)")
     route_mode.add_argument("--full", action="store_true", help="Include optional methodology overlays")
+
+    direct_route = subparsers.add_parser(
+        "direct-route",
+        help="Resolve one local module without creating workflow files or STOP gates",
+    )
+    direct_route.add_argument("--module", required=True)
+    direct_route.add_argument("--action", required=True)
+    direct_route.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+    direct_mode = direct_route.add_mutually_exclusive_group()
+    direct_mode.add_argument("--compact", action="store_true", help="Load only required guidance (default)")
+    direct_mode.add_argument("--full", action="store_true", help="Include optional methodology overlays")
+
+    review = subparsers.add_parser(
+        "review",
+        help="Build the information packet that must be shown before requesting STOP approval",
+    )
+    review.add_argument("--workflow", required=True)
+    review.add_argument("--gate", required=True, choices=["plan", "source", "visual", "delivery"])
 
     transition = subparsers.add_parser("transition", help="Advance one workflow step")
     transition.add_argument("--workflow", required=True)
@@ -147,8 +167,21 @@ def main() -> int:
                 for item in payload["integrations"]:
                     print(f"{item['name']}: {item['status']} ({item.get('license', 'unknown')})")
             return 0
+        if args.command == "direct-route":
+            payload = route_for_direct(args.module, args.action, compact=not args.full)
+            if args.json:
+                emit(payload)
+            else:
+                print(f"{payload['module']}.{payload['action']} ({payload['execution_mode']})")
+                print(f"  module: {payload['module_file']}")
+                for path in payload.get("capability_files", []):
+                    print(f"  capability: {path}")
+            return 0
 
         workflow, state, manifest, paths = load_run(Path(args.workflow))
+        if args.command == "review":
+            emit(gate_review_packet(workflow, state, manifest, paths, args.gate))
+            return 0
         if args.command == "route":
             payload = route_for_workflow(workflow, state, args.step or None, compact=not args.full)
             if args.json:

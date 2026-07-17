@@ -2,6 +2,19 @@
 
 本项目的版本说明遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 的结构。
 
+## [Unreleased]
+
+### Added
+
+- 新增 Direct mode：单模块、低风险、单一语义产物可直接路由、执行和交付，不创建完整工作流或 STOP。
+- 新增 `autoflow.py direct-route` 与 `autoflow.py review`，分别用于轻量本地能力路由和四类 STOP 审核信息包。
+
+### Changed
+
+- 显式调用 AutoFlow 不再强制进入 Managed mode；只有依赖、多模块、源码选型、打包、复杂证据或重要决策才使用完整 DAG。
+- PLAN、SOURCE、VISUAL、DELIVERY 请求确认前必须展示对应计划、候选、实际视觉产物或交付清单及绝对路径。
+- Direct mode 默认最小交付，不再为一张图附带无必要的控制文件、多个导出格式和签收流程。
+
 ## [3.1.0] - 2026-07-17
 
 ### Added

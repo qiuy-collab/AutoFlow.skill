@@ -1,5 +1,7 @@
 # AutoFlow workflow contract
 
+This contract applies to managed mode only. Direct mode follows `references/execution-modes.md`, resolves one module with `direct-route`, and creates none of the run layout or state files below.
+
 ## Run layout
 
 Every new run is created below a user-visible `autoflow/` directory:

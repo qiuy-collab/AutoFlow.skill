@@ -43,6 +43,20 @@ AutoFlow 是一个面向多步骤交付任务的 Agent Skill。它不替 Agent �
 | `presentation` | 可选 task/image → ppt |
 | `custom` | 按需求生成任意 DAG |
 
+## 两种执行方式
+
+AutoFlow 不会把所有请求都塞进完整工作流。
+
+- **Direct mode**：一个模块、一个语义产物、没有依赖和关键选择时，直接读取模块规则、生成、检查并交付。例如只生成一张 ER 图时，默认只交付一个便于查看的成品；用户确实需要 `.mmd/.svg/.png` 多格式时，它们仍算同一个图，不因此创建计划、状态文件、`submit/` 或 STOP。
+- **Managed mode**：多个模块或上下游产物、GitHub 源码选型、提交包、复杂评分/模板映射、需要恢复与审计，或存在重要外部决策时，才初始化 DAG 和 STOP。
+
+显式写“使用 autoflow”表示使用 AutoFlow 来路由任务，不代表必须走 Managed mode。Direct mode 可以用下面的命令查看本地模块与渲染器，不会创建工作流文件：
+
+```bash
+python scripts/autoflow.py direct-route \
+  --module image --action diagram --json
+```
+
 ## 工作方式
 
 AutoFlow 把一次运行放在独立的 `autoflow/` 目录中：
@@ -59,12 +73,20 @@ autoflow/
 
 Agent 负责理解任务、调用工具和完成实际工作；Python CLI 负责检查 DAG、状态转换、审批门和产物哈希。核心 CLI 不提供“一键假装完成全部步骤”的 `run` 命令。
 
-四个 STOP 用来保留用户的决定权：
+Managed mode 的四个 STOP 用来保留用户的决定权。每次请求确认前，Agent 必须先展示可审核的信息和文件路径，不能只问“是否同意”：
 
 - `PLAN_STOP`：确认工作范围、步骤和预期产物后再开始。
 - `SOURCE_STOP`：代码任务找到合适的 GitHub 项目时，列出候选，用户选定后才克隆和改造。
 - `VISUAL_STOP`：图片、图表或视觉型 PPT 生成后先看效果，再交给下游文档使用。
 - `DELIVERY_STOP`：所有检查通过后展示交付清单，用户签收后才结束工作流。
+
+审核信息包可以由 CLI 生成：
+
+```bash
+python scripts/autoflow.py review \
+  --workflow autoflow/.autoflow/config/workflow.json \
+  --gate plan
+```
 
 如果没有合适的 GitHub 候选，AutoFlow 会保留查询和排除理由，然后从头实现，不会为了走流程虚构候选。
 

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +18,65 @@ SPEC.loader.exec_module(MODULE)
 
 
 class DiagramAssetTests(unittest.TestCase):
+    def test_direct_mode_defaults_to_one_png_without_source_svg_or_report(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            output = root / "output"
+            plan_path = root / "diagram-plan.json"
+            plan_path.write_text(
+                json.dumps(
+                    {
+                        "enabled": True,
+                        "diagrams": [
+                            {
+                                "name": "simple_er",
+                                "kind": "er_diagram",
+                                "entities": [
+                                    {
+                                        "name": "STUDENT",
+                                        "attributes": [
+                                            {"type": "int", "name": "id", "key": "PK"},
+                                            {"type": "string", "name": "name"},
+                                        ],
+                                    },
+                                    {
+                                        "name": "COURSE",
+                                        "attributes": [
+                                            {"type": "int", "name": "id", "key": "PK"},
+                                            {"type": "string", "name": "title"},
+                                        ],
+                                    },
+                                ],
+                                "relations": [
+                                    {"from": "STUDENT", "to": "COURSE", "label": "selects", "type": "}o--o{"}
+                                ],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def fake_render(_renderer, _source, svg_path, png_path):
+                self.assertIsNone(svg_path)
+                self.assertIsNotNone(png_path)
+                png_path.write_bytes(b"png")
+
+            args = SimpleNamespace(
+                check=False,
+                config=str(plan_path),
+                output_dir=str(output),
+                direct=True,
+                format=None,
+                keep_report=False,
+            )
+            with patch.object(MODULE, "parse_args", return_value=args), patch.object(
+                MODULE, "render_source", side_effect=fake_render
+            ):
+                MODULE.main()
+
+            self.assertEqual([path.name for path in output.iterdir()], ["simple_er.png"])
+
     def test_all_declared_diagram_types_build_editable_sources(self):
         plan = json.loads((ROOT / "examples" / "diagram_plan.all-types.json").read_text(encoding="utf-8"))
         builtins = [item for item in plan["diagrams"] if item["kind"] in MODULE.RENDERER_MAP]

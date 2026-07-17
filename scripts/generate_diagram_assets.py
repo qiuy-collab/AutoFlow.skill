@@ -56,6 +56,21 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Generate DSL-driven diagram assets for AutoFlow.")
     parser.add_argument("--config", help="Path to the diagram plan JSON")
     parser.add_argument("--output-dir", help="Directory for rendered diagram assets")
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="Generate a minimum direct-mode output set without a managed report",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["png", "svg", "source", "all"],
+        help="Direct-mode output format (default: png)",
+    )
+    parser.add_argument(
+        "--keep-report",
+        action="store_true",
+        help="Keep diagram_generation_report.json in direct mode",
+    )
     parser.add_argument("--check", action="store_true", help="Check whether required renderers are available.")
     args = parser.parse_args()
     if not args.check and (not args.config or not args.output_dir):
@@ -709,28 +724,36 @@ def run_command(command: list[str], description: str, cwd: Path | None = None):
         raise SystemExit(f"{description} failed.\nCommand: {' '.join(command)}\n{details}".rstrip())
 
 
-def render_mermaid(executable: str, source_path: Path, svg_path: Path, png_path: Path):
-    run_command([executable, "-i", str(source_path), "-o", str(svg_path), "-b", "transparent"], "Mermaid SVG render")
-    run_command([executable, "-i", str(source_path), "-o", str(png_path), "-b", "white"], "Mermaid PNG render")
+def render_mermaid(executable: str, source_path: Path, svg_path: Path | None, png_path: Path | None):
+    if svg_path:
+        run_command([executable, "-i", str(source_path), "-o", str(svg_path), "-b", "transparent"], "Mermaid SVG render")
+    if png_path:
+        run_command([executable, "-i", str(source_path), "-o", str(png_path), "-b", "white"], "Mermaid PNG render")
 
 
-def render_d2(executable: str, source_path: Path, svg_path: Path, png_path: Path):
-    run_command([executable, str(source_path), str(svg_path)], "D2 SVG render")
-    run_command([executable, str(source_path), str(png_path)], "D2 PNG render")
+def render_d2(executable: str, source_path: Path, svg_path: Path | None, png_path: Path | None):
+    if svg_path:
+        run_command([executable, str(source_path), str(svg_path)], "D2 SVG render")
+    if png_path:
+        run_command([executable, str(source_path), str(png_path)], "D2 PNG render")
 
 
-def render_plantuml(executable: str, source_path: Path, svg_path: Path, png_path: Path):
-    run_command([executable, "-charset", "UTF-8", "-tsvg", source_path.name], "PlantUML SVG render", cwd=source_path.parent)
-    run_command([executable, "-charset", "UTF-8", "-tpng", source_path.name], "PlantUML PNG render", cwd=source_path.parent)
-    expected_svg = source_path.with_suffix(".svg")
-    expected_png = source_path.with_suffix(".png")
-    if expected_svg.exists() and expected_svg != svg_path:
-        expected_svg.replace(svg_path)
-    if expected_png.exists() and expected_png != png_path:
-        expected_png.replace(png_path)
+def render_plantuml(executable: str, source_path: Path, svg_path: Path | None, png_path: Path | None):
+    if svg_path:
+        run_command([executable, "-charset", "UTF-8", "-tsvg", source_path.name], "PlantUML SVG render", cwd=source_path.parent)
+        expected_svg = source_path.with_suffix(".svg")
+        if expected_svg.exists() and expected_svg != svg_path:
+            expected_svg.replace(svg_path)
+    if png_path:
+        run_command([executable, "-charset", "UTF-8", "-tpng", source_path.name], "PlantUML PNG render", cwd=source_path.parent)
+        expected_png = source_path.with_suffix(".png")
+        if expected_png.exists() and expected_png != png_path:
+            expected_png.replace(png_path)
 
 
-def render_source(renderer: str, source_path: Path, svg_path: Path, png_path: Path):
+def render_source(renderer: str, source_path: Path, svg_path: Path | None, png_path: Path | None):
+    if not svg_path and not png_path:
+        return
     executable = resolve_executable(renderer)
     if not executable:
         raise SystemExit(
@@ -765,6 +788,8 @@ def main():
 
     if not args.config or not args.output_dir:
         raise SystemExit("--config and --output-dir are required unless --check is used")
+    if not args.direct and (args.format or args.keep_report):
+        raise SystemExit("--format and --keep-report are direct-mode options; add --direct")
     diagram_plan = load_json(Path(args.config).expanduser().resolve())
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -776,6 +801,8 @@ def main():
     if not diagrams:
         raise SystemExit("diagram_plan.json has no diagrams")
 
+    requested_format = args.format or ("png" if args.direct else "all")
+    formats = {"source", "svg", "png"} if requested_format == "all" else {requested_format}
     generated = []
     for diagram in diagrams:
         name = diagram.get("name")
@@ -786,23 +813,30 @@ def main():
         svg_path = output_dir / f"{name}.svg"
         png_path = output_dir / f"{name}.png"
         write_text(source_path, source_text)
-        render_source(renderer, source_path, svg_path, png_path)
-        generated.append(
-            {
-                "name": name,
-                "kind": diagram["kind"],
-                "renderer": renderer,
-                "source": str(source_path),
-                "svg": str(svg_path),
-                "png": str(png_path),
-            }
+        render_source(
+            renderer,
+            source_path,
+            svg_path if "svg" in formats else None,
+            png_path if "png" in formats else None,
         )
-        print(f"Generated diagram asset: {png_path}")
-        print(f"Generated diagram source: {source_path}")
+        record = {"name": name, "kind": diagram["kind"], "renderer": renderer}
+        if "source" in formats:
+            record["source"] = str(source_path)
+            print(f"Generated diagram source: {source_path}")
+        else:
+            source_path.unlink(missing_ok=True)
+        if "svg" in formats:
+            record["svg"] = str(svg_path)
+            print(f"Generated diagram asset: {svg_path}")
+        if "png" in formats:
+            record["png"] = str(png_path)
+            print(f"Generated diagram asset: {png_path}")
+        generated.append(record)
 
-    report_path = output_dir / "diagram_generation_report.json"
-    report_path.write_text(json.dumps({"generated": generated}, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Diagram report: {report_path}")
+    if not args.direct or args.keep_report:
+        report_path = output_dir / "diagram_generation_report.json"
+        report_path.write_text(json.dumps({"generated": generated}, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"Diagram report: {report_path}")
 
 
 if __name__ == "__main__":
