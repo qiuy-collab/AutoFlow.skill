@@ -1,12 +1,12 @@
 # Visual Review Rules (Human-only)
 
-This document defines the mandatory human visual review pass for `auto-lab`.
+This document defines the mandatory human `VISUAL_STOP` review for AutoFlow.
 
 ## Decision owner
 
 - **Visual review is a human decision step — NOT an agent step.**
 - The agent must STOP after image generation and present all generated images to the human user.
-- The agent must NOT self-evaluate image quality, mark review-complete flags, or proceed to DOCX insertion without explicit human approval.
+- The agent may run deterministic quality checks, but must not approve the gate or proceed to downstream consumers without explicit human approval.
 - The agent must wait for the human to explicitly confirm: "images approved" or provide fixup instructions.
 
 ## Workflow
@@ -14,13 +14,13 @@ This document defines the mandatory human visual review pass for `auto-lab`.
 ```
 [Image generation completes]
         ↓
-🔴 STOP #2 — Agent displays all generated images to human
+🔴 VISUAL_STOP — Agent displays all generated images to human
         ↓
 Human reviews images:
   ├─ Approved → Agent proceeds to DOCX insertion
-  ├─ Needs clarity fix → Agent runs img2img with fixed clarity prompt → back to STOP #2
-  ├─ Needs content fix → Agent runs img2img single-point replacement → back to STOP #2
-  └─ Needs full regeneration → Agent revises prompt_config.json → regenerates → back to STOP #2
+  ├─ Needs clarity fix → Agent runs img2img with fixed clarity prompt → back to VISUAL_STOP
+  ├─ Needs content fix → Agent runs img2img single-point replacement → back to VISUAL_STOP
+  └─ Needs full regeneration → Agent revises the image plan → regenerates → back to VISUAL_STOP
 ```
 
 ## Human review dimensions
@@ -86,6 +86,6 @@ When an image has a specific content error:
 
 ## Output contract
 
-- The agent must NOT set `ai_visual_review_completed`, `diagram_visual_review_completed`, or `browser_visual_review_completed` to `true` on its own.
-- These flags are set to `true` ONLY after the human explicitly approves all images.
-- The agent records the human's approval in `approval_checkpoints.json` and only then updates the review-completed flags needed by the workflow.
+- The Agent must not set `run_state.json.gates.visual.status=approved` on its own.
+- After explicit approval, run `autoflow.py approve --gate visual --note ...`; the note must summarize the user's actual response.
+- Completing a later image or PPT step activates VISUAL_STOP again for the new artifact hashes.

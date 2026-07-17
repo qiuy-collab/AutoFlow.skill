@@ -22,7 +22,7 @@ Create a blank template from this filled reference document.
 
 ## Tool policy
 
-- For structural DOCX operations, first read and prefer `vendor/minimax-docx/SKILL.md`.
+- For structural DOCX operations, first read and prefer `integrations/minimax-docx/SKILL.md`.
 - Use `python-docx` only for simple cleanup when the task is exactly body-content removal and the template has a clear first level-1 heading.
 - If the first level-1 heading cannot be detected, stop instead of guessing the body boundary.
 - Always save to a new file.

@@ -1,0 +1,44 @@
+{
+  "name": "lab-report",
+  "description": "Complete the practical task, review visual evidence, assemble a Word report, and package declared deliverables.",
+  "steps": [
+    {
+      "id": "task",
+      "module": "task",
+      "action": "execute",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["task.result"],
+      "validator": "artifacts_exist"
+    },
+    {
+      "id": "image",
+      "module": "image",
+      "action": "capture",
+      "capture_backend": "integrated-webapp-testing",
+      "needs": ["task"],
+      "inputs": ["task.result"],
+      "outputs": ["image.assets"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual"
+    },
+    {
+      "id": "word",
+      "module": "word",
+      "action": "fill",
+      "needs": ["task", "image"],
+      "inputs": ["request", "task.result", "image.assets"],
+      "outputs": ["word.document", "word.validation"],
+      "validator": "word_acceptance"
+    },
+    {
+      "id": "package",
+      "module": "package",
+      "action": "assemble",
+      "needs": ["word"],
+      "inputs": ["word.document"],
+      "outputs": ["package.bundle", "package.manifest"],
+      "validator": "package_acceptance"
+    }
+  ]
+}

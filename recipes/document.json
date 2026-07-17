@@ -1,0 +1,36 @@
+{
+  "name": "document",
+  "description": "Prepare source material when needed, optionally create visuals, and produce a Word document.",
+  "steps": [
+    {
+      "id": "task",
+      "module": "task",
+      "action": "research",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["task.result"],
+      "validator": "artifacts_exist",
+      "optional": true
+    },
+    {
+      "id": "image",
+      "module": "image",
+      "action": "diagram",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["image.assets"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual",
+      "optional": true
+    },
+    {
+      "id": "word",
+      "module": "word",
+      "action": "create",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["word.document", "word.validation"],
+      "validator": "word_acceptance"
+    }
+  ]
+}

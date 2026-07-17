@@ -1,0 +1,54 @@
+{
+  "name": "report-and-slides",
+  "description": "Create shared evidence, then build both a Word report and a presentation before packaging.",
+  "steps": [
+    {
+      "id": "task",
+      "module": "task",
+      "action": "execute",
+      "needs": [],
+      "inputs": ["request"],
+      "outputs": ["task.result"],
+      "validator": "artifacts_exist"
+    },
+    {
+      "id": "image",
+      "module": "image",
+      "action": "capture",
+      "capture_backend": "integrated-webapp-testing",
+      "needs": ["task"],
+      "inputs": ["task.result"],
+      "outputs": ["image.assets"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual"
+    },
+    {
+      "id": "word",
+      "module": "word",
+      "action": "create",
+      "needs": ["task", "image"],
+      "inputs": ["request", "task.result", "image.assets"],
+      "outputs": ["word.document", "word.validation"],
+      "validator": "word_acceptance"
+    },
+    {
+      "id": "ppt",
+      "module": "ppt",
+      "action": "create",
+      "needs": ["task", "image"],
+      "inputs": ["request", "task.result", "image.assets"],
+      "outputs": ["ppt.presentation"],
+      "validator": "artifacts_exist",
+      "gate_after": "visual"
+    },
+    {
+      "id": "package",
+      "module": "package",
+      "action": "assemble",
+      "needs": ["word", "ppt"],
+      "inputs": ["word.document", "ppt.presentation"],
+      "outputs": ["package.bundle", "package.manifest"],
+      "validator": "package_acceptance"
+    }
+  ]
+}

@@ -1,12 +1,12 @@
 # DOCX Fill Rules
 
-This document defines how `auto-lab` should fill the report template while preserving the template shell.
+This document defines how `AutoFlow word.fill` should preserve a supplied template shell.
 
 ## Core policy
 
 - Preserve the template structure and styling intent.
 - Save to a new output file, never overwrite the source template.
-- For structural DOCX work, read and prefer `vendor/minimax-docx/SKILL.md` before writing scripts.
+- For structural DOCX work, read and prefer `integrations/minimax-docx/SKILL.md` before writing scripts.
 - Use `python-docx` only for simple paragraph/table fills, simple body cleanup, inspection, or when minimax-docx is unavailable; record the fallback reason.
 - Plan figures before writing report text.
 - Default target tier is `excellent`.
@@ -15,25 +15,25 @@ This document defines how `auto-lab` should fill the report template while prese
 
 ## Route boundary
 
-Three figure routes may appear in the same report:
+Four image actions may appear in the same document:
 
-- `ai_simulated`
+- `image.ai`
   - terminal screenshots
   - command output screenshots
   - software/system configuration screenshots
 
-- `browser_capture`
+- `image.capture`
   - local frontend page screenshots
   - self-built app/web screenshots
   - development software practice screenshots for the user's own app/web flow
 
-- `diagram_assets`
+- `image.diagram` / `image.chart`
   - function diagrams
   - flowcharts
   - data flow diagrams
   - ER diagrams
 
-- `video_analysis` / `screen_recording`
+- `video.analyze` / `video.record`
   - existing operation videos
   - short local operation recordings
   - representative frame evidence
@@ -42,21 +42,13 @@ Three figure routes may appear in the same report:
 
 Before editing the document:
 1. Read the template and identify headings, body zones, tables, and figure anchors.
-2. Read `requirement_checklist.json` and confirm:
-   - target tier
-   - whether a pre-task is required
-   - whether images are required
-   - which routes are required
-   - minimum image count
-3. If a pre-task is required, complete it first and read `pre_task_plan.json`.
-4. If browser capture is required, read `browser_capture_plan.json`.
-5. If diagram assets are required, read `diagram_plan.json`.
-6. If video evidence is required, read `video_plan.json`.
-7. If a filled reference document must become a blank template, read `reference_template_cleanup.json` and `reference_template_cleanup_rules.md`.
-8. Ensure `copywriting.md`, `prompt_config.json`, `browser_capture_plan.json`, `diagram_plan.json`, `video_plan.json`, `reference_template_cleanup.json`, and `insert_config.json` are mutually consistent.
-9. When a pre-task exists, the report text must combine the original assignment requirements with the pre-task outputs rather than treating them separately.
-10. Before final validation, verify that AI screenshots, diagram assets, and video evidence have passed the visual review checklist.
-11. Review the template for directories, field-based tables of contents, sample text, formatting instructions, and reference wording that must be replaced or removed in the final output.
+2. Read `.autoflow/config/workflow.json` and `.autoflow/config/artifact_manifest.json`; use only inputs declared for the Word step.
+3. Confirm all upstream task steps are completed and all consumed artifacts still validate.
+4. If the document consumes image or PPT artifacts, confirm `VISUAL_STOP` is approved.
+5. Read the relevant module plans under `plans/` rather than assuming every route exists.
+6. If a filled reference document must become a blank template, read `reference_template_cleanup_rules.md`.
+7. Combine task outputs with the original request instead of writing a disconnected generic report.
+8. Review the template for directories, field-based tables of contents, sample text, formatting instructions, and reference wording that must be replaced or removed.
 
 ## Figure rules
 
@@ -74,9 +66,9 @@ The template-specific verify script should check at least:
 - no unresolved placeholders remain unless intentionally documented
 - the planned figure count is satisfied
 - route coverage is satisfied when multiple routes are required
-- video analysis/recording outputs exist when the checklist requires video evidence
+- declared video analysis/recording artifacts exist when the document consumes video evidence
 - filled-reference cleanup preserved cover/front matter and retained level-1/level-2 headings when required
-- pre-task results are reflected when the assignment depends on them
+- task artifacts are accurately reflected when the request depends on them
 - captions exist
 - figures are not dumped at the end without context
 - placeholder/sample text is removed

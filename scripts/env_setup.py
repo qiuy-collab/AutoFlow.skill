@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-auto-lab environment check & auto-install (check + supply).
+AutoFlow environment check & auto-install (check + supply).
 
 Usage:
     python env_setup.py              # check + auto-install missing deps
     python env_setup.py --check-only # only check, no install
-    python env_setup.py --route ai_simulated   # install deps for specific route
-    python env_setup.py --route diagram_assets
+    python env_setup.py --route ai             # install deps for a specific module action
+    python env_setup.py --route diagram
     python env_setup.py --route all            # install everything (default)
 """
 
@@ -94,8 +94,9 @@ def run_pip_install(packages: List[str], label: str) -> bool:
 
 PIP_REQUIRED = ["requests", "python-docx", "Pillow"]
 PIP_BROWSER = ["playwright"]
+PIP_CHART = ["numpy", "matplotlib"]
 PIP_VIDEO = ["av", "opencv-python", "numpy", "mss"]
-PIP_ALL = list(set(PIP_REQUIRED + PIP_BROWSER + PIP_VIDEO))
+PIP_ALL = list(set(PIP_REQUIRED + PIP_BROWSER + PIP_CHART + PIP_VIDEO))
 
 
 def install_playwright_browsers() -> bool:
@@ -116,7 +117,7 @@ def install_playwright_browsers() -> bool:
         ok("playwright chromium installed")
         return True
     except subprocess.CalledProcessError:
-        warn("playwright chromium install failed — browser_capture route may not work without it")
+        warn("playwright chromium install failed — image.capture may not work without it")
         return False
 
 
@@ -138,7 +139,7 @@ def _check_cmd(cmd: str, friendly: str, install_hint: str, auto_install: Optiona
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
-    warn(f"{friendly} unavailable — diagram_assets route needs it")
+    warn(f"{friendly} unavailable — image.diagram needs it")
     log(f"  manual install: {install_hint}")
     return False
 
@@ -192,24 +193,38 @@ def check_dsl_tools(dry_run: bool = False) -> dict:
     return result
 
 
-# ── phase 3: vendor skills ────────────────────────────────────────────────────
-VENDOR_SKILLS = [
-    ("minimax-docx", "vendor/minimax-docx/SKILL.md"),
-    ("baseline-ui", "vendor/baseline-ui/SKILL.md"),
-    ("frontend-design", "vendor/frontend-design/SKILL.md"),
-    ("webapp-testing", "vendor/webapp-testing/SKILL.md"),
-]
+# ── phase 3: integrated and optional Skill capabilities ──────────────────────
+SKILL_NAMES: list[str] = []
+INTEGRATED_PATHS = {
+    "minimax-docx": SKILL_ROOT / "integrations" / "minimax-docx" / "SKILL.md",
+    "webapp-testing": SKILL_ROOT / "integrations" / "webapp-testing" / "SKILL.md",
+    "impeccable": SKILL_ROOT / "integrations" / "impeccable" / "SKILL.md",
+    "engineering-quality": SKILL_ROOT / "integrations" / "engineering-quality" / "code-review-and-quality" / "SKILL.md",
+    "presentation-skill": SKILL_ROOT / "integrations" / "presentation-skill" / "SKILL.md",
+}
 
 
-def check_vendor_skills() -> bool:
-    all_ok = True
-    for name, rel_path in VENDOR_SKILLS:
-        if (SKILL_ROOT / rel_path).exists():
-            ok(f"vendor skill: {name}")
+def find_skill_file(name: str):
+    candidates = [
+        Path.home() / ".codex" / "skills" / name / "SKILL.md",
+        Path.home() / ".agents" / "skills" / name / "SKILL.md",
+    ]
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def check_skill_capabilities() -> bool:
+    for name, skill_file in INTEGRATED_PATHS.items():
+        if skill_file.is_file():
+            ok(f"integrated capability: {name} ({skill_file})")
         else:
-            fail(f"vendor skill missing: {name} ({rel_path})")
-            all_ok = False
-    return all_ok
+            warn(f"integrated capability missing: {name}; dependent workflows will stop at PLAN")
+    for name in SKILL_NAMES:
+        skill_file = find_skill_file(name)
+        if skill_file:
+            ok(f"skill capability: {name} ({skill_file})")
+        else:
+            warn(f"optional skill capability missing: {name}; workflows that need it will stop at PLAN")
+    return True
 
 
 # ── phase 4: .env ─────────────────────────────────────────────────────────────
@@ -218,7 +233,7 @@ def check_dotenv() -> bool:
     env_example = SKILL_ROOT / ".env.example"
 
     if not env_path.exists():
-        warn(".env missing — ai_simulated route needs BASEURL + APIKEY")
+        warn(".env missing — image.ai needs BASEURL + APIKEY")
         if env_example.exists():
             try:
                 shutil.copy(env_example, env_path)
@@ -246,7 +261,7 @@ def check_dotenv() -> bool:
         ok(".env contains BASEURL + APIKEY")
         return True
     elif baseurl or apikey:
-        warn(".env has incomplete API keys — ai_simulated may not work")
+        warn(".env has incomplete API keys — image.ai may not work")
         return False
     else:
         warn(".env exists but BASEURL/APIKEY are empty — fill them in")
@@ -277,10 +292,10 @@ def probe_upstream() -> bool:
 
 # ── main ──────────────────────────────────────────────────────────────────────
 def parse_args():
-    parser = argparse.ArgumentParser(description="auto-lab environment check & auto-install")
+    parser = argparse.ArgumentParser(description="AutoFlow environment check & auto-install")
     parser.add_argument("--check-only", action="store_true",
                         help="Only check, do not install anything")
-    parser.add_argument("--route", choices=["ai_simulated", "browser_capture", "diagram_assets", "video", "all"],
+    parser.add_argument("--route", choices=["ai", "capture", "diagram", "chart", "video", "all"],
                         default="all", help="Target route (default: all)")
     parser.add_argument("--no-probe", action="store_true",
                         help="Skip upstream API probe")
@@ -293,7 +308,7 @@ def main():
     route = args.route
 
     print("=" * 50)
-    print("auto-lab Environment Setup (check + supply)")
+    print("AutoFlow Environment Setup (check + supply)")
     print(f"Root: {SKILL_ROOT}")
     print(f"Mode: {'check-only' if dry_run else 'auto-install'}")
     print(f"Route: {route}")
@@ -314,10 +329,14 @@ def main():
     if not dry_run:
         run_pip_install(PIP_REQUIRED, "required")
 
-    if route in ("browser_capture", "all"):
+    if route in ("capture", "all"):
         if not dry_run:
-            run_pip_install(PIP_BROWSER, "browser_capture")
+            run_pip_install(PIP_BROWSER, "image.capture")
             install_playwright_browsers()
+
+    if route in ("chart", "all"):
+        if not dry_run:
+            run_pip_install(PIP_CHART, "image.chart")
 
     if route in ("video", "all"):
         if not dry_run:
@@ -325,14 +344,14 @@ def main():
     print()
 
     # ── 2: DSL tools ──
-    if route in ("diagram_assets", "all"):
+    if route in ("diagram", "all"):
         print("── DSL renderers ──")
         check_dsl_tools(dry_run=dry_run)
         print()
 
-    # ── 3: vendor skills ──
-    print("── vendor skills ──")
-    if not check_vendor_skills():
+    # ── 3: Skill capabilities ──
+    print("── Skill capabilities ──")
+    if not check_skill_capabilities():
         overall = False
     print()
 
@@ -342,7 +361,7 @@ def main():
     print()
 
     # ── 5: upstream probe ──
-    if route in ("ai_simulated", "all") and not args.no_probe:
+    if route in ("ai", "all") and not args.no_probe:
         print("── upstream probe ──")
         probe_upstream()
         print()

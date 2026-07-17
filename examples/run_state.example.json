@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "workflow_id": "af-example-project",
+  "status": "running",
+  "updated_at": "2026-07-16T00:05:00+00:00",
+  "steps": {
+    "source": {"status": "completed", "attempts": 1, "note": "Candidates inspected", "updated_at": "2026-07-16T00:03:00+00:00"},
+    "build": {"status": "ready", "attempts": 0, "note": "", "updated_at": "2026-07-16T00:05:00+00:00"},
+    "image": {"status": "pending", "attempts": 0, "note": "", "updated_at": "2026-07-16T00:00:00+00:00"},
+    "package": {"status": "pending", "attempts": 0, "note": "", "updated_at": "2026-07-16T00:00:00+00:00"}
+  },
+  "gates": {
+    "plan": {"required": true, "active": false, "status": "approved", "note": "User approved the plan", "updated_at": "2026-07-16T00:01:00+00:00", "history": []},
+    "source": {"required": true, "active": false, "status": "approved", "note": "User selected candidate 1", "updated_at": "2026-07-16T00:05:00+00:00", "history": []},
+    "visual": {"required": false, "active": false, "status": "not_applicable", "note": "", "updated_at": "2026-07-16T00:00:00+00:00", "history": []},
+    "delivery": {"required": true, "active": false, "status": "pending", "note": "", "updated_at": "2026-07-16T00:00:00+00:00", "history": []}
+  }
+}

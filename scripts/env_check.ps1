@@ -1,4 +1,4 @@
-# auto-lab environment check
+# AutoFlow environment check
 #Requires -Version 5.1
 
 param()
@@ -12,12 +12,11 @@ $VideoProcessPy = Join-Path $Root "scripts\video_process.py"
 $BlankTemplatePy = Join-Path $Root "scripts\prepare_blank_template.py"
 $ImageConcurrencyPy = Join-Path $Root "scripts\test_image_concurrency.py"
 $SubmissionPackagePy = Join-Path $Root "scripts\package_submission.py"
+$EnvironmentSetupPy = Join-Path $Root "scripts\environment_setup.py"
 $EnvFile = Join-Path $Root ".env"
 $EnvExample = Join-Path $Root ".env.example"
 $LocalFfmpeg = Join-Path $env:USERPROFILE "Tools\ffmpeg\bin\ffmpeg.exe"
 $LocalFfprobe = Join-Path $env:USERPROFILE "Tools\ffmpeg\bin\ffprobe.exe"
-$VendorFfmpeg = Join-Path $Root "vendor\ffmpeg\bin\ffmpeg.exe"
-$VendorFfprobe = Join-Path $Root "vendor\ffmpeg\bin\ffprobe.exe"
 $BrowserCandidates = @(
     "C:\Program Files\Google\Chrome\Application\chrome.exe",
     "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -47,24 +46,57 @@ function Read-EnvKeys([string]$Path) {
     return $map
 }
 
-Write-Host "=== auto-lab Environment Check ==="
+Write-Host "=== AutoFlow Environment Check ==="
 Write-Host "Root: $Root"
 Write-Host ""
 
-# Check vendor skills (shipped with repo)
-$VendorSkills = @(
-    @{Name="minimax-docx"; Path=Join-Path $Root "vendor\minimax-docx\SKILL.md"},
-    @{Name="baseline-ui"; Path=Join-Path $Root "vendor\baseline-ui\SKILL.md"},
-    @{Name="frontend-design"; Path=Join-Path $Root "vendor\frontend-design\SKILL.md"},
-    @{Name="webapp-testing"; Path=Join-Path $Root "vendor\webapp-testing\SKILL.md"}
-)
-
-foreach ($skill in $VendorSkills) {
-    if (Test-Path $skill.Path) {
-        Ok "vendor skill found: $($skill.Name)"
-    } else {
-        Fail "vendor skill missing: $($skill.Name)"
-    }
+# Check integrated capabilities first; optional Skills are resolved separately.
+$IntegratedWordSkill = Join-Path $Root "integrations\minimax-docx\SKILL.md"
+if (Test-Path $IntegratedWordSkill) {
+    Ok "integrated capability found: minimax-docx ($IntegratedWordSkill)"
+} else {
+    Fail "integrated capability missing: minimax-docx ($IntegratedWordSkill)"
+}
+$IntegratedWebAppSkill = Join-Path $Root "integrations\webapp-testing\SKILL.md"
+$IntegratedWebAppHelper = Join-Path $Root "integrations\webapp-testing\scripts\with_server.py"
+if ((Test-Path $IntegratedWebAppSkill) -and (Test-Path $IntegratedWebAppHelper)) {
+    Ok "integrated capability found: webapp-testing ($IntegratedWebAppSkill)"
+} else {
+    Fail "integrated capability incomplete: webapp-testing ($IntegratedWebAppSkill)"
+}
+$IntegratedImpeccableSkill = Join-Path $Root "integrations\impeccable\SKILL.md"
+$IntegratedImpeccableDetector = Join-Path $Root "integrations\impeccable\scripts\detect.mjs"
+$IntegratedImpeccableAdapter = Join-Path $Root "scripts\impeccable_adapter.mjs"
+if ((Test-Path $IntegratedImpeccableSkill) -and (Test-Path $IntegratedImpeccableDetector) -and (Test-Path $IntegratedImpeccableAdapter)) {
+    Ok "integrated capability found: impeccable ($IntegratedImpeccableSkill)"
+} else {
+    Fail "integrated capability incomplete: impeccable ($IntegratedImpeccableSkill)"
+}
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    Ok "node $(& node --version) for integrated impeccable"
+} else {
+    Warn "node not found; project execution must run environment_setup.py ensure before reporting a blocker"
+}
+$IntegratedQualitySkill = Join-Path $Root "integrations\engineering-quality\code-review-and-quality\SKILL.md"
+$IntegratedQualityAdapter = Join-Path $Root "scripts\engineering_quality_adapter.py"
+$IntegratedQualityManifest = Join-Path $Root "integrations\engineering-quality\integration_manifest.json"
+if ((Test-Path $IntegratedQualitySkill) -and (Test-Path $IntegratedQualityAdapter) -and (Test-Path $IntegratedQualityManifest)) {
+    Ok "integrated capability found: engineering-quality ($IntegratedQualitySkill)"
+} else {
+    Fail "integrated capability incomplete: engineering-quality ($IntegratedQualitySkill)"
+}
+$IntegratedPresentationSkill = Join-Path $Root "integrations\presentation-skill\SKILL.md"
+$IntegratedPresentationAdapter = Join-Path $Root "integrations\presentation-skill\scripts\presentation_adapter.py"
+$IntegratedPresentationManifest = Join-Path $Root "integrations\presentation-skill\integration_manifest.json"
+if ((Test-Path $IntegratedPresentationSkill) -and (Test-Path $IntegratedPresentationAdapter) -and (Test-Path $IntegratedPresentationManifest)) {
+    Ok "integrated capability found: presentation-skill ($IntegratedPresentationSkill)"
+} else {
+    Fail "integrated capability incomplete: presentation-skill ($IntegratedPresentationSkill)"
+}
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    Ok "node $(& node --version) for integrated presentation-skill"
+} else {
+    Warn "node not found; project execution must run environment_setup.py ensure before reporting a blocker"
 }
 
 if (Get-Command python -ErrorAction SilentlyContinue) {
@@ -86,6 +118,7 @@ if (Test-Path $VideoProcessPy) { Ok "scripts\video_process.py found" } else { Fa
 if (Test-Path $BlankTemplatePy) { Ok "scripts\prepare_blank_template.py found" } else { Fail "scripts\prepare_blank_template.py missing" }
 if (Test-Path $ImageConcurrencyPy) { Ok "scripts\test_image_concurrency.py found" } else { Fail "scripts\test_image_concurrency.py missing" }
 if (Test-Path $SubmissionPackagePy) { Ok "scripts\package_submission.py found" } else { Fail "scripts\package_submission.py missing" }
+if (Test-Path $EnvironmentSetupPy) { Ok "scripts\environment_setup.py found" } else { Fail "scripts\environment_setup.py missing" }
 
 
 if (Get-Command python -ErrorAction SilentlyContinue) {
@@ -129,20 +162,16 @@ if (Test-Path $LocalFfmpeg) {
     Ok "local ffmpeg available: $LocalFfmpeg"
 } elseif (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
     Ok "local ffmpeg available: $((Get-Command ffmpeg).Source)"
-} elseif (Test-Path $VendorFfmpeg) {
-    Ok "vendor ffmpeg available: $VendorFfmpeg"
 } else {
-    Warn "ffmpeg not found locally or in vendor; video fallback unavailable"
+    Warn "ffmpeg not found on PATH or in $env:USERPROFILE\Tools; video fallback unavailable"
 }
 
 if (Test-Path $LocalFfprobe) {
     Ok "local ffprobe available: $LocalFfprobe"
 } elseif (Get-Command ffprobe -ErrorAction SilentlyContinue) {
     Ok "local ffprobe available: $((Get-Command ffprobe).Source)"
-} elseif (Test-Path $VendorFfprobe) {
-    Ok "vendor ffprobe available: $VendorFfprobe"
 } else {
-    Warn "ffprobe not found locally or in vendor; metadata fallback unavailable"
+    Warn "ffprobe not found on PATH or in $env:USERPROFILE\Tools; metadata fallback unavailable"
 }
 
 $BrowserFound = $false
@@ -168,7 +197,7 @@ foreach ($tool in $DiagramTools) {
     if ($cmd) {
         Ok "$($tool.Description) available: $($cmd.Source)"
     } else {
-        Warn "$($tool.Description) not found; diagram_assets route needs it ($($tool.Hint))"
+        Warn "$($tool.Description) not found; image.diagram needs it ($($tool.Hint))"
     }
 }
 
@@ -181,26 +210,26 @@ if (Get-Command java -ErrorAction SilentlyContinue) {
 $envKeys = Read-EnvKeys $EnvFile
 if (Test-Path $EnvFile) {
     if ($envKeys.ContainsKey("BASEURL") -and $envKeys.ContainsKey("APIKEY")) {
-        Ok ".env contains BASEURL and APIKEY for ai_simulated route"
+        Ok ".env contains BASEURL and APIKEY for image.ai"
         try {
             $probeResult = & python (Join-Path $PSScriptRoot "generate_images.py") --check *> $null
             if ($LASTEXITCODE -eq 0) {
                 Ok "upstream image API probe succeeded"
             } else {
-                Warn "upstream image API probe failed; ai_simulated route may not work"
+                Warn "upstream image API probe failed; image.ai may not work"
             }
         } catch {
-            Warn "upstream image API probe failed; ai_simulated route may not work"
+            Warn "upstream image API probe failed; image.ai may not work"
         }
     } else {
-        Warn ".env exists but BASEURL/APIKEY are incomplete; ai_simulated route may not work"
+        Warn ".env exists but BASEURL/APIKEY are incomplete; image.ai may not work"
     }
 } else {
-    Warn ".env missing; diagram_assets and browser_capture can still run, but ai_simulated needs real values"
-    if (Test-Path $EnvExample) { Warn "copy .env.example to .env and fill real values before using ai_simulated" }
+    Warn ".env missing; image.diagram and image.capture can still run, but image.ai needs real values"
+    if (Test-Path $EnvExample) { Warn "copy .env.example to .env and fill real values before using image.ai" }
 }
 
-foreach ($scriptName in @("init_run.py", "run_workflow.py", "capture_frontend_screenshots.py", "generate_diagram_assets.py", "video_process.py", "prepare_blank_template.py", "test_image_concurrency.py", "package_submission.py")) {
+foreach ($scriptName in @("autoflow.py", "environment_setup.py", "capture_frontend_screenshots.py", "generate_diagram_assets.py", "video_process.py", "prepare_blank_template.py", "test_image_concurrency.py", "package_submission.py", "artifact_map.py")) {
     $scriptPath = Join-Path $PSScriptRoot $scriptName
     if (-not (Test-Path $scriptPath)) {
         Fail "$scriptName missing"

@@ -1,0 +1,41 @@
+{
+  "$schema": "autoflow/requirement-map/1.0",
+  "workflow_id": "af-example",
+  "status": "planning",
+  "target_tier": "rubric-full-credit",
+  "source_files": ["C:/assignment/requirements.docx", "C:/assignment/template.docx"],
+  "requirements": [
+    {
+      "id": "R1",
+      "source": "评分项 1",
+      "description": "系统实现学生、课程和选课 CRUD",
+      "required": true,
+      "weight": 40,
+      "acceptance": ["应用可启动", "CRUD 冒烟测试通过", "页面证据与实现一致"],
+      "evidence_artifacts": ["project.source", "task.result", "image.assets"],
+      "validation": {"status": "pending", "evidence": ""},
+      "notes": ""
+    },
+    {
+      "id": "R2",
+      "source": "评分项 2",
+      "description": "按模板提交完整课程设计报告",
+      "required": true,
+      "weight": 40,
+      "acceptance": ["模板结构保留", "无占位符", "图文对应", "学生口吻"],
+      "evidence_artifacts": ["word.document", "word.validation"],
+      "validation": {"status": "pending", "evidence": ""},
+      "notes": ""
+    }
+  ],
+  "planned_figures": [
+    {
+      "id": "F1",
+      "requirement_ids": ["R1"],
+      "route": "capture",
+      "purpose": "证明学生管理页面真实运行",
+      "expected_caption": "图3-1 学生管理页面"
+    }
+  ],
+  "updated_at": "2026-07-17T00:00:00+00:00"
+}

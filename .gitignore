@@ -13,5 +13,14 @@ generated_images/
 conversations/
 .probe_cache/
 test_output/
-vendor/*/**
-!vendor/**/.gitkeep
+# User run roots are disposable runtime data, not Skill source.
+/autoflow/
+**/.autoflow/
+**/submit/
+**/node_modules/
+**/.venv/
+**/venv/
+# External capabilities belong under integrations/.
+integrations/minimax-docx/**/bin/
+integrations/minimax-docx/**/obj/
+integrations/minimax-docx/.setup.log

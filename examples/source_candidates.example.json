@@ -1,0 +1,66 @@
+{
+  "status": "selected",
+  "queries": [
+    "course booking system React Spring Boot",
+    "course management CRUD MySQL"
+  ],
+  "criteria": ["requirement_fit", "modification_distance", "stack", "buildability", "maintenance", "license"],
+  "candidates": [
+    {
+      "rank": 1,
+      "name": "example/example-project",
+      "repository_url": "https://github.com/example/example-project",
+      "revision": "abc123",
+      "license": "MIT",
+      "scores": {
+        "requirement_fit": 5,
+        "modification_distance": 4,
+        "stack": 5,
+        "buildability": 4,
+        "maintenance": 3,
+        "license": 5
+      },
+      "judgment": "Best requirement fit with a buildable compatible stack."
+    },
+    {
+      "rank": 2,
+      "name": "example/runner-up-project",
+      "repository_url": "https://github.com/example/runner-up-project",
+      "revision": "def456",
+      "license": "Apache-2.0",
+      "scores": {
+        "requirement_fit": 4,
+        "modification_distance": 3,
+        "stack": 5,
+        "buildability": 4,
+        "maintenance": 4,
+        "license": 5
+      },
+      "judgment": "Compatible stack with more application-layer changes required."
+    },
+    {
+      "rank": 3,
+      "name": "example/third-project",
+      "repository_url": "https://github.com/example/third-project",
+      "revision": "ghi789",
+      "license": "MIT",
+      "scores": {
+        "requirement_fit": 4,
+        "modification_distance": 3,
+        "stack": 4,
+        "buildability": 3,
+        "maintenance": 4,
+        "license": 5
+      },
+      "judgment": "Usable fallback with a verified license and moderate adaptation cost."
+    }
+  ],
+  "selected_candidate": {
+    "name": "example/example-project",
+    "repository_url": "https://github.com/example/example-project",
+    "selected_revision": "abc123",
+    "selection_rationale": "User selected the highest-fit candidate after reviewing the comparison."
+  },
+  "user_choice": {"status": "confirmed", "selected_rank": 1},
+  "fallback": {"used": false, "reason": ""}
+}

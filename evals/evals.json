@@ -1,0 +1,65 @@
+{
+  "skill_name": "autoflow",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "用 autoflow 完成一个 JavaWeb 课程项目：先去 GitHub 找候选让我选，改造后生成运行截图、实验报告和提交包。",
+      "expected_output": "Select project-delivery or a custom DAG, stop at PLAN_STOP, perform GitHub-first discovery, stop at SOURCE_STOP when candidates exist, then route task/image/word/package with visual and delivery approvals.",
+      "files": [],
+      "assertions": [
+        "Does not clone or modify a GitHub candidate before explicit user selection",
+        "Uses separate source discovery and build steps",
+        "Maps project, screenshot, report, and package requirements to declared evidence artifacts",
+        "Records real artifacts and requires visual and delivery review"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "请用 autoflow 把这份需求做成 Word 报告和答辩 PPT，二者共用同一批图表，最后一起打包。",
+      "expected_output": "Use report-and-slides with shared task/image artifacts, Word and PPT branches, repeated visual review for the deck, and package assembly.",
+      "files": [],
+      "assertions": [
+        "Uses a DAG with Word and PPT branching from approved shared evidence",
+        "Invokes the local audited presentation-skill adapter without resolving a user-level PPT Skill",
+        "Declares a Word validation report and requirement-mapped package manifest",
+        "Reopens VISUAL_STOP after the presentation is produced"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "用 autoflow 只填写我给的 docx 模板，不需要做项目、截图、PPT 或压缩包。",
+      "expected_output": "Honor explicit AutoFlow invocation, use a minimal document recipe, skip unnecessary optional modules, preserve the template, and still require plan and delivery approval.",
+      "files": [],
+      "assertions": [
+        "Does not invent task, image, PPT, video, or package work",
+        "Uses the Word module with word.document and word.validation outputs",
+        "Maps the document requirement to evidence in requirement_map.json",
+        "Retains mandatory PLAN_STOP and DELIVERY_STOP"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "用 autoflow 填写这份课程实验报告模板。评分细则要求至少 4 张实验图，每张图前有引导句、下方有题注和结果分析，正文必须是学生口吻，模板原有目录、表格、页眉页脚和页面设置不能破坏。",
+      "expected_output": "Plan a strict Word template-fill workflow with rubric-to-evidence mapping, four planned figures, detailed Word plan, visual approval, word acceptance report, and final delivery review.",
+      "files": [],
+      "assertions": [
+        "Maps the rubric to evidence and records at least four planned figures with valid image routes",
+        "Requires caption pairing, lead-ins, analysis paragraphs, student voice, TOC, and template structure checks",
+        "Declares word.document and word.validation with the word_acceptance validator",
+        "Requires a completed requirement map and delivery review before final approval"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "用 autoflow 交付一个可运行项目、3 分钟演示视频和提交包。视频必须是真实操作录屏，压缩包只放需求要求的源码、说明和视频，不能带 .env、.git、缓存或临时文件。",
+      "expected_output": "Plan project execution, real recording, media analysis, requirement-mapped packaging, secret scanning, and delivery review with strict validation reports.",
+      "files": [],
+      "assertions": [
+        "Uses a video step that declares video.media and video.validation with video_acceptance",
+        "Requires duration, dimensions, codec, and sampled-frame validation for the real recording",
+        "Maps every package input to requirement ids and rejects secrets, VCS data, caches, and temporary files",
+        "Requires package.bundle and package.manifest with package_acceptance"
+      ]
+    }
+  ]
+}

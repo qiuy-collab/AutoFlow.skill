@@ -21,7 +21,12 @@ def main():
 
     config = json.loads(config_path.read_text(encoding="utf-8"))
     images = config.get("images", [])
-    output_dir = Path(config.get("output_dir") or (config_path.parent / "generated_images")).expanduser().resolve()
+    if config.get("output_dir"):
+        output_dir = Path(config["output_dir"]).expanduser().resolve()
+    elif config_path.parent.name == "config" and config_path.parent.parent.name == ".autoflow":
+        output_dir = (config_path.parent.parent / "intermediate" / "generated_images").resolve()
+    else:
+        output_dir = (config_path.parent / "generated_images").resolve()
     selected = set(args.names)
 
     if args.report:

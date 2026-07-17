@@ -1,0 +1,25 @@
+{
+  "$schema": "autoflow/word-plan/1.0",
+  "mode": "fill",
+  "requirement_ids": ["R2"],
+  "template_path": "C:/assignment/template.docx",
+  "minimum_image_count": 4,
+  "require_caption_pairing": true,
+  "require_lead_in": true,
+  "require_analysis_after_caption": true,
+  "require_sequential_captions": true,
+  "preserve_section_settings": true,
+  "preserve_table_structure": true,
+  "require_toc_if_template_has_toc": true,
+  "require_core_validation": true,
+  "require_student_voice": true,
+  "require_visual_review": true,
+  "student_voice_review": {
+    "status": "passed",
+    "evidence": "抽查引言、实现过程、结果分析和总结，均以学生实验叙述表达。"
+  },
+  "visual_review": {
+    "status": "passed",
+    "evidence": "渲染全部页面，无溢出、空白页、断图或异常分页。"
+  }
+}

@@ -1,5 +1,5 @@
 """
-Image Quality Checker for auto-lab.
+Image Quality Checker for AutoFlow.
 
 Checks each generated AI image for:
   1. Visual consistency (same environment across all images)

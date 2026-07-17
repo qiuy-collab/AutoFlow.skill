@@ -1,0 +1,36 @@
+{
+  "$schema": "autoflow/integration-manifest/1.0",
+  "name": "presentation-skill",
+  "upstream": "https://github.com/siril9/presentation-skill",
+  "revision": "3a22eed290fa2205a1e2de5549b4429c5fffd0",
+  "skill_version": "0.9.0",
+  "license": "MIT",
+  "mode": "integrated_local_runtime",
+  "self_contained": true,
+  "external_user_skill_required": false,
+  "source_checkout_required": false,
+  "runtime_bootstrap_copied": false,
+  "plugin_hooks_copied": false,
+  "network_access_required": false,
+  "skills": ["presentation-skill"],
+  "skill_paths": {"presentation-skill": "SKILL.md"},
+  "references": [
+    "outline_schema.md",
+    "model_adaptive_workflow.md",
+    "pptxgenjs.md",
+    "visual_qa_prompt.md",
+    "reproducible_workflow.md",
+    "editing.md",
+    "renderer_role_contracts_v2.json"
+  ],
+  "adapter_paths": [
+    "integrations/presentation-skill/AUTOFLOW_ADAPTER.md",
+    "integrations/presentation-skill/scripts/presentation_adapter.py"
+  ],
+  "runtime": {
+    "renderer": "Node.js + pptxgenjs",
+    "qa": "Python + python-pptx",
+    "render_review": "LibreOffice or unoserver + pdftoppm"
+  },
+  "curated": true
+}

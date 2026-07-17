@@ -1,0 +1,21 @@
+{
+  "$schema": "autoflow/integration-manifest/1.0",
+  "name": "webapp-testing",
+  "upstream": "https://github.com/anthropics/skills/tree/main/skills/webapp-testing",
+  "revision": "9d2f1ae187231d8199c64b5b762e1bdf2244733d",
+  "license": "Apache-2.0",
+  "mode": "integrated_local_runtime",
+  "self_contained": true,
+  "external_user_skill_required": false,
+  "source_checkout_required": false,
+  "runtime_bootstrap_copied": false,
+  "plugin_hooks_copied": false,
+  "network_access_required": false,
+  "skills": ["webapp-testing"],
+  "skill_paths": {"webapp-testing": "SKILL.md"},
+  "references": [],
+  "adapter_paths": [
+    "integrations/webapp-testing/scripts/with_server.py"
+  ],
+  "runtime": "Python + Playwright"
+}

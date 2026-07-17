@@ -1,0 +1,743 @@
+{
+  "enabled": true,
+  "generator": "dsl_renderers",
+  "diagrams": [
+    {
+      "name": "01_flowchart",
+      "kind": "flowchart",
+      "title": "Approval Flow",
+      "direction": "TD",
+      "nodes": [
+        {
+          "id": "start",
+          "label": "Start",
+          "shape": "start"
+        },
+        {
+          "id": "submit",
+          "label": "Submit",
+          "shape": "process"
+        },
+        {
+          "id": "check",
+          "label": "Approved?",
+          "shape": "decision"
+        },
+        {
+          "id": "end",
+          "label": "Complete",
+          "shape": "end"
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "submit"
+        },
+        {
+          "from": "submit",
+          "to": "check"
+        },
+        {
+          "from": "check",
+          "to": "end",
+          "label": "yes"
+        },
+        {
+          "from": "check",
+          "to": "submit",
+          "label": "revise"
+        }
+      ]
+    },
+    {
+      "name": "02_er_diagram",
+      "kind": "er_diagram",
+      "title": "Student Course ER",
+      "entities": [
+        {
+          "name": "STUDENT",
+          "attributes": [
+            {
+              "type": "int",
+              "name": "id",
+              "key": "PK"
+            },
+            {
+              "type": "string",
+              "name": "name"
+            }
+          ]
+        },
+        {
+          "name": "COURSE",
+          "attributes": [
+            {
+              "type": "int",
+              "name": "id",
+              "key": "PK"
+            },
+            {
+              "type": "string",
+              "name": "title"
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "STUDENT",
+          "to": "COURSE",
+          "type": "}o--o{",
+          "label": "enrolls"
+        }
+      ]
+    },
+    {
+      "name": "03_mindmap",
+      "kind": "mindmap",
+      "title": "AutoFlow Modules",
+      "root": {
+        "label": "AutoFlow",
+        "children": [
+          {
+            "label": "Task"
+          },
+          {
+            "label": "Image"
+          },
+          {
+            "label": "Word"
+          },
+          {
+            "label": "PPT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "04_timeline",
+      "kind": "timeline",
+      "title": "Release Timeline",
+      "events": [
+        {
+          "period": "Week 1",
+          "label": "Plan"
+        },
+        {
+          "period": "Week 2",
+          "label": "Build"
+        },
+        {
+          "period": "Week 3",
+          "label": "Deliver"
+        }
+      ]
+    },
+    {
+      "name": "05_gantt_chart",
+      "kind": "gantt_chart",
+      "title": "Project Schedule",
+      "tasks": [
+        {
+          "section": "Plan",
+          "name": "Requirements",
+          "id": "req",
+          "start": "2026-07-17",
+          "duration": "2d"
+        },
+        {
+          "section": "Build",
+          "name": "Implementation",
+          "id": "dev",
+          "start": "after req",
+          "duration": "3d"
+        }
+      ]
+    },
+    {
+      "name": "06_data_flow_diagram",
+      "kind": "data_flow_diagram",
+      "title": "Data Flow",
+      "direction": "LR",
+      "entities": [
+        {
+          "id": "student",
+          "label": "Student"
+        }
+      ],
+      "processes": [
+        {
+          "id": "manage",
+          "label": "Manage Records"
+        }
+      ],
+      "stores": [
+        {
+          "id": "records",
+          "label": "Student Records"
+        }
+      ],
+      "flows": [
+        {
+          "from": "student",
+          "to": "manage",
+          "label": "request"
+        },
+        {
+          "from": "manage",
+          "to": "records",
+          "label": "persist"
+        }
+      ]
+    },
+    {
+      "name": "07_function_diagram",
+      "kind": "function_diagram",
+      "title": "Function Diagram",
+      "direction": "LR",
+      "nodes": [
+        {
+          "id": "user",
+          "label": "User",
+          "shape": "actor"
+        },
+        {
+          "id": "service",
+          "label": "Core Service",
+          "shape": "service"
+        },
+        {
+          "id": "database",
+          "label": "Database",
+          "shape": "database"
+        }
+      ],
+      "edges": [
+        {
+          "from": "user",
+          "to": "service",
+          "label": "request"
+        },
+        {
+          "from": "service",
+          "to": "database",
+          "label": "read/write"
+        }
+      ]
+    },
+    {
+      "name": "08_architecture_diagram",
+      "kind": "architecture_diagram",
+      "title": "Architecture Diagram",
+      "direction": "LR",
+      "nodes": [
+        {
+          "id": "user",
+          "label": "User",
+          "shape": "actor"
+        },
+        {
+          "id": "service",
+          "label": "Core Service",
+          "shape": "service"
+        },
+        {
+          "id": "database",
+          "label": "Database",
+          "shape": "database"
+        }
+      ],
+      "edges": [
+        {
+          "from": "user",
+          "to": "service",
+          "label": "request"
+        },
+        {
+          "from": "service",
+          "to": "database",
+          "label": "read/write"
+        }
+      ]
+    },
+    {
+      "name": "09_module_diagram",
+      "kind": "module_diagram",
+      "title": "Module Diagram",
+      "direction": "LR",
+      "nodes": [
+        {
+          "id": "user",
+          "label": "User",
+          "shape": "actor"
+        },
+        {
+          "id": "service",
+          "label": "Core Service",
+          "shape": "service"
+        },
+        {
+          "id": "database",
+          "label": "Database",
+          "shape": "database"
+        }
+      ],
+      "edges": [
+        {
+          "from": "user",
+          "to": "service",
+          "label": "request"
+        },
+        {
+          "from": "service",
+          "to": "database",
+          "label": "read/write"
+        }
+      ]
+    },
+    {
+      "name": "10_database_schema_diagram",
+      "kind": "database_schema_diagram",
+      "title": "Database Schema",
+      "direction": "LR",
+      "tables": [
+        {
+          "name": "student",
+          "columns": [
+            {
+              "name": "id",
+              "type": "int",
+              "key": "PK",
+              "nullable": false
+            },
+            {
+              "name": "name",
+              "type": "varchar"
+            }
+          ]
+        },
+        {
+          "name": "score",
+          "columns": [
+            {
+              "name": "id",
+              "type": "int",
+              "key": "PK"
+            },
+            {
+              "name": "student_id",
+              "type": "int",
+              "key": "FK"
+            }
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "score",
+          "to": "student",
+          "label": "student_id"
+        }
+      ]
+    },
+    {
+      "name": "11_table_structure_diagram",
+      "kind": "table_structure_diagram",
+      "title": "Student Table",
+      "table_name": "student",
+      "columns": [
+        {
+          "name": "id",
+          "type": "int",
+          "key": "PK"
+        },
+        {
+          "name": "name",
+          "type": "varchar"
+        },
+        {
+          "name": "class_id",
+          "type": "int",
+          "key": "FK"
+        }
+      ]
+    },
+    {
+      "name": "12_network_topology",
+      "kind": "network_topology",
+      "title": "Network Topology",
+      "direction": "LR",
+      "nodes": [
+        {
+          "id": "user",
+          "label": "User",
+          "shape": "actor"
+        },
+        {
+          "id": "service",
+          "label": "Core Service",
+          "shape": "service"
+        },
+        {
+          "id": "database",
+          "label": "Database",
+          "shape": "database"
+        }
+      ],
+      "edges": [
+        {
+          "from": "user",
+          "to": "service",
+          "label": "request"
+        },
+        {
+          "from": "service",
+          "to": "database",
+          "label": "read/write"
+        }
+      ]
+    },
+    {
+      "name": "13_dependency_graph",
+      "kind": "dependency_graph",
+      "title": "Dependency Graph",
+      "direction": "LR",
+      "nodes": [
+        {
+          "id": "user",
+          "label": "User",
+          "shape": "actor"
+        },
+        {
+          "id": "service",
+          "label": "Core Service",
+          "shape": "service"
+        },
+        {
+          "id": "database",
+          "label": "Database",
+          "shape": "database"
+        }
+      ],
+      "edges": [
+        {
+          "from": "user",
+          "to": "service",
+          "label": "request"
+        },
+        {
+          "from": "service",
+          "to": "database",
+          "label": "read/write"
+        }
+      ]
+    },
+    {
+      "name": "14_wbs_diagram",
+      "kind": "wbs_diagram",
+      "title": "Work Breakdown Structure",
+      "root": {
+        "name": "Project",
+        "children": [
+          {
+            "name": "Planning",
+            "children": [
+              {
+                "name": "Requirements"
+              }
+            ]
+          },
+          {
+            "name": "Delivery",
+            "children": [
+              {
+                "name": "Package"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "15_file_tree_diagram",
+      "kind": "file_tree_diagram",
+      "title": "File Tree",
+      "root": {
+        "name": "autoflow",
+        "children": [
+          {
+            "name": ".autoflow",
+            "children": [
+              {
+                "name": "config"
+              }
+            ]
+          },
+          {
+            "name": "submit",
+            "children": [
+              {
+                "name": "report.docx"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "16_use_case_diagram",
+      "kind": "use_case_diagram",
+      "title": "Student System Use Cases",
+      "actors": [
+        {
+          "name": "Student"
+        },
+        {
+          "name": "Administrator"
+        }
+      ],
+      "use_cases": [
+        {
+          "name": "View Scores"
+        },
+        {
+          "name": "Manage Students"
+        }
+      ],
+      "associations": [
+        {
+          "from": "Student",
+          "to": "View Scores"
+        },
+        {
+          "from": "Administrator",
+          "to": "Manage Students"
+        }
+      ]
+    },
+    {
+      "name": "17_class_diagram",
+      "kind": "class_diagram",
+      "title": "Domain Classes",
+      "classes": [
+        {
+          "name": "Student",
+          "fields": [
+            "+id: int",
+            "+name: string"
+          ],
+          "methods": [
+            "+enroll()"
+          ]
+        },
+        {
+          "name": "Course",
+          "fields": [
+            "+id: int",
+            "+title: string"
+          ],
+          "methods": [
+            "+publish()"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "Student",
+          "to": "Course",
+          "type": "--> ",
+          "label": "enrolls"
+        }
+      ]
+    },
+    {
+      "name": "18_sequence_diagram",
+      "kind": "sequence_diagram",
+      "title": "Login Sequence",
+      "participants": [
+        {
+          "name": "User",
+          "type": "actor"
+        },
+        {
+          "name": "Web App"
+        },
+        {
+          "name": "Database",
+          "type": "database"
+        }
+      ],
+      "messages": [
+        {
+          "from": "User",
+          "to": "Web App",
+          "label": "login"
+        },
+        {
+          "from": "Web App",
+          "to": "Database",
+          "label": "verify"
+        },
+        {
+          "from": "Database",
+          "to": "Web App",
+          "label": "result",
+          "type": "-->"
+        }
+      ]
+    },
+    {
+      "name": "19_activity_diagram",
+      "kind": "activity_diagram",
+      "title": "Import Activity",
+      "actions": [
+        "Select file",
+        "Validate data",
+        "Save records",
+        "Show result"
+      ]
+    },
+    {
+      "name": "20_state_diagram",
+      "kind": "state_diagram",
+      "title": "Document State",
+      "states": [
+        {
+          "name": "Draft"
+        },
+        {
+          "name": "Review"
+        },
+        {
+          "name": "Published"
+        }
+      ],
+      "transitions": [
+        {
+          "from": "[*]",
+          "to": "Draft"
+        },
+        {
+          "from": "Draft",
+          "to": "Review",
+          "label": "submit"
+        },
+        {
+          "from": "Review",
+          "to": "Published",
+          "label": "approve"
+        },
+        {
+          "from": "Published",
+          "to": "[*]"
+        }
+      ]
+    },
+    {
+      "name": "21_component_diagram",
+      "kind": "component_diagram",
+      "title": "System Components",
+      "components": [
+        {
+          "name": "Web UI"
+        },
+        {
+          "name": "API"
+        },
+        {
+          "name": "Repository"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": "Web UI",
+          "to": "API"
+        },
+        {
+          "from": "API",
+          "to": "Repository"
+        }
+      ]
+    },
+    {
+      "name": "22_deployment_diagram",
+      "kind": "deployment_diagram",
+      "title": "Deployment",
+      "nodes": [
+        {
+          "id": "client_device",
+          "name": "Browser",
+          "type": "device"
+        },
+        {
+          "id": "application_node",
+          "name": "App Server",
+          "type": "node"
+        },
+        {
+          "id": "database_node",
+          "name": "DB Server",
+          "type": "database"
+        }
+      ],
+      "connections": [
+        {
+          "from": "Browser",
+          "to": "App Server",
+          "label": "HTTPS"
+        },
+        {
+          "from": "App Server",
+          "to": "DB Server",
+          "label": "JDBC"
+        }
+      ]
+    },
+    {
+      "name": "23_uml_diagram",
+      "kind": "uml_diagram",
+      "title": "Generic UML Adapter",
+      "classes": [
+        {
+          "name": "Controller",
+          "methods": [
+            "+handle()"
+          ]
+        },
+        {
+          "name": "Service",
+          "methods": [
+            "+execute()"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "from": "Controller",
+          "to": "Service",
+          "type": "-->",
+          "label": "calls"
+        }
+      ]
+    },
+    {
+      "name": "24_custom_mermaid",
+      "kind": "custom_state_machine",
+      "renderer": "mermaid",
+      "source": "stateDiagram-v2\n    [*] --> Ready\n    Ready --> Running\n    Running --> Completed\n    Completed --> [*]"
+    },
+    {
+      "name": "25_custom_d2",
+      "kind": "custom_container_map",
+      "renderer": "d2",
+      "source": "direction: right\nclient: Client\napi: API\nworker: Worker\nclient -> api: HTTPS\napi -> worker: Queue"
+    },
+    {
+      "name": "26_custom_plantuml",
+      "kind": "custom_object_diagram",
+      "renderer": "plantuml",
+      "source": "@startuml\nobject request\nobject workflow\nrequest --> workflow : initializes\n@enduml"
+    }
+  ]
+}

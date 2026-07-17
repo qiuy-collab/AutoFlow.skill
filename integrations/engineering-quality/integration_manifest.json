@@ -1,0 +1,31 @@
+{
+  "$schema": "autoflow/integration-manifest/1.0",
+  "name": "engineering-quality",
+  "upstream": "https://github.com/addyosmani/agent-skills",
+  "revision": "c1974de476a39cb002a3b8e51e6a7e8e57b808c6",
+  "license": "MIT",
+  "mode": "integrated_instruction_overlay",
+  "self_contained": true,
+  "external_user_skill_required": false,
+  "source_checkout_required": false,
+  "runtime_bootstrap_copied": false,
+  "plugin_hooks_copied": false,
+  "network_access_required": false,
+  "adapter_paths": ["scripts/engineering_quality_adapter.py"],
+  "skills": [
+    "code-review-and-quality",
+    "security-and-hardening",
+    "performance-optimization",
+    "shipping-and-launch",
+    "documentation-and-adrs",
+    "source-driven-development",
+    "spec-driven-development",
+    "incremental-implementation"
+  ],
+  "references": [
+    "security-checklist.md",
+    "performance-checklist.md",
+    "accessibility-checklist.md",
+    "definition-of-done.md"
+  ]
+}
