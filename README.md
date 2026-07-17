@@ -2,35 +2,37 @@
 
 # AutoFlow.skill
 
-**让 Agent 把多个步骤、多个 Skills 和多个交付物组织成一条可验证的工作流。**
+把代码、图表、文档、PPT、视频和交付包串成一条可检查、可中断、可继续的工作流。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-3.1-blue.svg)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/qiuy-collab/AutoFlow.skill)](https://github.com/qiuy-collab/AutoFlow.skill/releases)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
 </div>
 
----
+## 这是什么
 
-## AutoFlow 是什么
+AutoFlow 是一个面向多步骤交付任务的 Agent Skill。它不替 Agent 做判断，而是把容易散落在对话里的计划、依赖、审批和产物记录下来，让一次复杂任务能被检查，也能在中断后继续。
 
-AutoFlow 不再是一条固定的实验报告流水线。它把复杂任务拆成六类模块，再按需求组合成有依赖关系的工作流：
+例如，“完成一个学生管理系统，写论文，再做答辩 PPT”会被拆成源码调研、项目实现、截图、论文、演示文稿和打包几个步骤。每一步都有明确输入、输出和验收条件；源码选型、视觉效果和最终交付会在关键位置停下来等用户确认。
 
-- `task`：调研、GitHub 源码选型、项目改造、计算和真实执行
-- `image`：真实截图、AI 资产、图示和数据图表
-- `word`：Word 创建、编辑和模板填写
-- `ppt`：通过本地审计的 `presentation-skill` 集成创建或编辑演示文稿
-- `video`：分析、录屏、创建和处理视频
-- `package`：按需求整理交付目录和压缩包
+它也适合实验报告、项目交付、数据分析报告、演示文稿、视频作业，以及需要同时生成多种文件的自定义任务。只改一个文件或回答一个简单问题时，一般不需要 AutoFlow。
 
-Agent 负责理解任务和调用工具，Python 核心负责检查 DAG、步骤状态、STOP 和真实产物。这样既能灵活组合 Skills，也不会把关键选择藏在一段长对话里。
+## 六个模块
 
-AutoFlow 3.1 重新纳入 AutoLab 已验证的课程交付约束：需求/评分项必须映射到证据，Word 模板填写必须生成结构验收报告，视频必须记录媒体探测结果，打包文件必须映射需求并通过敏感文件扫描，最终交付必须逐项填写机器可检查的审查记录。
+| 模块 | 负责的事情 |
+| --- | --- |
+| `task` | 调研、GitHub 源码选型、项目改造、计算和真实执行 |
+| `image` | 截图、AI 图片、流程图/架构图、科研图和数据图表 |
+| `word` | DOCX 创建、编辑、模板填写和结构验收 |
+| `ppt` | PPTX 创建、编辑、渲染和视觉检查 |
+| `video` | 视频分析、录屏、生成、转码和媒体验收 |
+| `package` | 按交付要求整理 `submit/`、生成清单和压缩包 |
 
-## 典型组合
+模块可以自由组合。AutoFlow 内置了常见 recipe，也允许根据任务生成自定义 DAG：
 
-| Recipe | 工作流 |
-|---|---|
+| Recipe | 流程 |
+| --- | --- |
 | `lab-report` | task → image → word → package |
 | `report-and-slides` | task → image → word + ppt → package |
 | `project-delivery` | GitHub discovery → build → image → package |
@@ -39,145 +41,118 @@ AutoFlow 3.1 重新纳入 AutoLab 已验证的课程交付约束：需求/评分
 | `video-delivery` | video → package |
 | `document` | 可选 task/image → word |
 | `presentation` | 可选 task/image → ppt |
-| `custom` | Agent 根据需求生成任意 DAG |
+| `custom` | 按需求生成任意 DAG |
 
-## 四类 STOP
+## 工作方式
 
-- `PLAN_STOP`：先展示完整工作流和交付范围，用户确认后执行。
-- `SOURCE_STOP`：GitHub 有合适候选时列出 3–5 个，让用户选定后再克隆和改造。
-- `VISUAL_STOP`：新图片、图表或 PPT 生成后先展示，批准后才进入下游。
-- `DELIVERY_STOP`：全部校验通过后展示交付清单，用户签收后完成。
-
-没有合适 GitHub 项目时，AutoFlow 会记录查询和排除理由，然后从头实现，不制造凑数候选。
-
-## Quick Start
-
-把下面这段发给 Agent：
+AutoFlow 把一次运行放在独立的 `autoflow/` 目录中：
 
 ```text
-请使用 autoflow 完成这个任务。
-
-先读取 SKILL.md，根据需求选择 recipe 或使用 `recipe auto` 生成可解释的 recipe 推荐。
-生成 WORK_PLAN.md 后停下来让我确认；不要绕过源码、视觉和交付 STOP。
+autoflow/
+├── .autoflow/
+│   ├── config/          # workflow、状态、审批和需求映射
+│   ├── intermediate/    # 计划、中间产物、日志和验证报告
+│   ├── runtime/         # 自动补齐的隔离运行环境
+│   └── scripts/         # 本次任务专用脚本
+└── submit/              # 最终交付文件
 ```
 
-手动初始化一个运行目录：
+Agent 负责理解任务、调用工具和完成实际工作；Python CLI 负责检查 DAG、状态转换、审批门和产物哈希。核心 CLI 不提供“一键假装完成全部步骤”的 `run` 命令。
+
+四个 STOP 用来保留用户的决定权：
+
+- `PLAN_STOP`：确认工作范围、步骤和预期产物后再开始。
+- `SOURCE_STOP`：代码任务找到合适的 GitHub 项目时，列出候选，用户选定后才克隆和改造。
+- `VISUAL_STOP`：图片、图表或视觉型 PPT 生成后先看效果，再交给下游文档使用。
+- `DELIVERY_STOP`：所有检查通过后展示交付清单，用户签收后才结束工作流。
+
+如果没有合适的 GitHub 候选，AutoFlow 会保留查询和排除理由，然后从头实现，不会为了走流程虚构候选。
+
+## 快速开始
+
+把下面这句话和你的任务一起交给 Agent：
+
+```text
+请使用 autoflow 完成这个任务。先读取 SKILL.md，根据需求选择 recipe，
+生成 WORK_PLAN.md 后等我确认；不要绕过源码、视觉和交付 STOP。
+```
+
+也可以手动初始化：
 
 ```bash
 python scripts/autoflow.py init \
   --request-file request.md \
   --output-dir autoflow \
-  --recipe lab-report
+  --recipe auto
 
-python scripts/autoflow.py status --workflow autoflow/.autoflow/config/workflow.json
-python scripts/autoflow.py validate --workflow autoflow/.autoflow/config/workflow.json
+python scripts/autoflow.py status \
+  --workflow autoflow/.autoflow/config/workflow.json
+
+python scripts/autoflow.py validate \
+  --workflow autoflow/.autoflow/config/workflow.json
 ```
 
-AutoFlow 没有“一键执行全部”的 `run` 命令。Agent 根据 ready steps 调用对应模块，核心 CLI 只验证和推进状态：
+查看当前可执行步骤和本地能力路由：
 
 ```bash
-python scripts/autoflow.py next --workflow autoflow/.autoflow/config/workflow.json
+python scripts/autoflow.py next \
+  --workflow autoflow/.autoflow/config/workflow.json
+
+python scripts/autoflow.py route \
+  --workflow autoflow/.autoflow/config/workflow.json \
+  --step <step-id> --json --compact
+
 python scripts/autoflow.py integrations --json
-python scripts/autoflow.py route --workflow autoflow/.autoflow/config/workflow.json --step build --json
-python scripts/engineering_quality_adapter.py route --module task --action build --json
-node scripts/impeccable_adapter.mjs detect --json src/
-python scripts/autoflow.py transition --workflow autoflow/.autoflow/config/workflow.json --step task --to running
-python scripts/autoflow.py transition --workflow autoflow/.autoflow/config/workflow.json --step task --to completed --artifact task.result=C:/absolute/result.json
 ```
 
-## 运行目录
+旧版 AutoLab 的 `workflow.json` 与 AutoFlow Schema 1.0 不兼容，需要重新初始化。
 
-```text
-autoflow/
-├── .autoflow/
-│   ├── scripts/              # 本次任务专用脚本
-│   ├── runtime/              # 自动补齐的隔离运行环境，不进入交付包
-│   ├── intermediate/         # 中间产物、验证报告、日志和计划
-│   │   ├── plans/            # GitHub、图片、Word、PPT、视频、打包计划
-│   │   ├── artifacts/        # 截图、图表、Word/PPT 验收报告等
-│   │   └── verification/     # 源码隔离复测区，禁止在 submit 中运行
-│   └── config/               # workflow、状态、需求映射、审批和请求副本
-└── submit/                   # 最终源码、论文、PPT、视频和 ZIP
-```
+## 内置能力
 
-旧版 AutoLab `workflow.json` 不兼容，需要重新初始化。
+AutoFlow 把运行所需的关键能力收进仓库，并记录上游地址、revision、许可证和本地适配器。这样换一台设备时不必假设某个外部 Skill 已安装，也能避免只在文字里声称“调用成功”。
 
-## 环境检查
+当前集成包括：
+
+- `minimax-docx`：DOCX/OpenXML 创建、模板处理和结构验证。
+- `nature-figure`：科研示意图与科学图表类型。
+- `presentation-skill`：PPTX 生成、渲染和视觉 QA。
+- `webapp-testing`：基于 Playwright 的网页测试与截图证据。
+- `impeccable`：前端设计规则和离线质量检测。
+- `superpowers`、`agent-skills`、`engineering-quality`：规划、调试、测试、安全、性能和发布方法。
+
+AI 图片直接读取 AutoFlow 的 `.env` 上游配置，不依赖 OpenRouter。普通缺失环境由模块在 `.autoflow/runtime/` 中自动准备，不写进最终交付目录。
+
+环境检查：
 
 ```bash
 python scripts/env_setup.py --check-only --route all --no-probe
 ```
 
-按模块准备环境：
-
-```bash
-python scripts/env_setup.py --route capture
-python scripts/env_setup.py --route diagram
-python scripts/env_setup.py --route video
-python scripts/env_setup.py --route ai
-```
-
-AI 图片需要 `.env` 中的 `BASEURL` 和 `APIKEY`。Word 模块使用仓库内 `integrations/minimax-docx` 的集成内核，浏览器证据使用仓库内 `integrations/webapp-testing`，PPT 模块使用仓库内 `integrations/presentation-skill` 的 renderer 与 QA；缺少 Node/Python 依赖时会在 PLAN 阶段阻断，不调用用户级或插件 Skill。
-
-Word 生成完成后必须运行内置验证器：
-
-```bash
-python scripts/validate_word.py \
-  --document autoflow/.autoflow/intermediate/artifacts/report.docx \
-  --template template.docx \
-  --plan autoflow/.autoflow/intermediate/plans/word.json \
-  --report autoflow/.autoflow/intermediate/artifacts/word_validation.json
-```
-
-Word 步骤只有同时提交 `word.document` 和通过的 `word.validation` 才能完成。
-
-## 项目结构
+## 仓库结构
 
 ```text
 autoflow/
-├── SKILL.md                  # 精简路由入口
-├── modules/                  # 六个能力模块
-├── references/               # Workflow 与 STOP 协议
-├── recipes/                  # 内置 DAG 模板
-├── examples/                 # Schema、计划和交付示例
-├── scripts/
-│   ├── autoflow.py           # 状态与校验 CLI
-│   ├── autoflow_core.py      # DAG、Gate、artifact 核心
-│   ├── validate_word.py      # DOCX 模板、TOC、题注、口吻和结构验收
-│   ├── generate_images.py
-│   ├── capture_frontend_screenshots.py
-│   ├── generate_diagram_assets.py
-│   ├── video_process.py
-│   ├── engineering_quality_adapter.py
-│   ├── impeccable_adapter.mjs
-│   └── package_submission.py
-├── tests/                    # 标准库单元与集成测试
-├── evals/                    # Skill 场景评测
-├── docs/                     # 规则和 GitHub Pages
-└── integrations/             # 已审计、可复现的集成内核与外部 Skill 来源记录
-    ├── minimax-docx/         # 集成的 DOCX/OpenXML 内核、规则和 XSD
-    ├── nature-figure/        # nature-figure 来源、许可证和适配说明
-    ├── webapp-testing/       # 集成的 Playwright 网页测试与浏览器证据 Skill
-    ├── superpowers/          # 集成的规划、TDD、调试、审查和验证方法 Skill
-    ├── impeccable/           # 集成的前端设计规则、命令和离线质量检测器
-    ├── engineering-quality/  # 集成的代码审查、安全、性能和发布质量 Skill
-    ├── agent-skills/         # 集成的规划、接口、前端、调试、观测和交付增强 Skill
-    └── presentation-skill/   # 集成的 PPTX renderer、模板和几何/视觉 QA
+├── SKILL.md             # 路由入口
+├── modules/             # task / image / word / ppt / video / package
+├── recipes/             # 内置 DAG 模板
+├── references/          # Workflow、STOP、验收和环境协议
+├── integrations/        # 已审计并固定版本的内置能力
+├── scripts/             # 状态机、适配器和各模块后端
+├── tests/               # 单元与集成测试
+├── evals/               # 场景评估
+├── examples/            # 示例配置和真实交付样例
+└── docs/                # GitHub Pages 与效果图
 ```
 
-各目录职责和外部能力集成策略见 `references/directory-layout.md`。
+更详细的目录职责见 [`references/directory-layout.md`](references/directory-layout.md)，工作流字段见 [`references/workflow-contract.md`](references/workflow-contract.md)。
 
-运行时数据不属于 Skill 包：每个任务的持久化工作流放在用户工作区的 `autoflow/.autoflow/`，最终交付放在 `autoflow/submit/`；Skill 根目录下的测试和后端缓存目录只在运行时临时创建，发布时不应保留。
-
-## 当前效果示例
-
-原 AutoLab 的报告能力现在是 `lab-report` recipe，用来验证 task/image/word/package 组合仍能完成真实交付。
+## 效果示例
 
 ### 生成的文档
 
 ![生成的文档截图](docs/效果图/生成的文档截图.png)
 
-### 交付文件
+### 最终交付目录
 
 ![交付文件](docs/效果图/交付文件.png)
 
@@ -185,18 +160,15 @@ autoflow/
 
 ```bash
 python -m unittest discover -s tests -v
-python -m py_compile scripts/*.py tests/*.py
+python -m compileall -q scripts tests
 ```
 
-The CLI regression suite includes a real “student management system + paper +
-defense slides” planning smoke. It verifies the compound recipe, keeps
-`PLAN_STOP` pending, routes every step to local Skill files, and does not fake
-SOURCE_STOP or user approval.
+测试覆盖 DAG 和循环依赖、状态转换、四类 STOP、GitHub 有/无候选、环境自动补齐、Word/PPT/视频验收、图片与科研图路由、敏感文件拒绝、隔离复测以及只包含声明产物的打包流程。
 
-测试覆盖 DAG 循环、状态转换、四类 STOP、GitHub 有/无候选、需求证据映射、Word 强验收、视频/包报告、敏感文件拒绝、视觉阻断、产物哈希、旧格式拒绝和 CLI 初始化。
+## 版本记录
+
+版本变化见 [`CHANGELOG.md`](CHANGELOG.md)。
 
 ## License
 
-MIT License © [qiuy-collab](https://github.com/qiuy-collab)
-
-项目地址：[qiuy-collab/AutoFlow.skill](https://github.com/qiuy-collab/AutoFlow.skill)
+[MIT License](LICENSE) © [qiuy-collab](https://github.com/qiuy-collab)
