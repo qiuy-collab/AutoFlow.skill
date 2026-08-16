@@ -7,6 +7,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/qiuy-collab/AutoFlow.skill)](https://github.com/qiuy-collab/AutoFlow.skill/releases)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![CI](https://github.com/qiuy-collab/AutoFlow.skill/actions/workflows/ci.yml/badge.svg)](https://github.com/qiuy-collab/AutoFlow.skill/actions)
+
+**English: [README.en.md](README.en.md) · 简体中文**
 
 </div>
 
