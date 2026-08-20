@@ -112,9 +112,9 @@
         "project.source",
         "task.result",
         "image.assets",
-        "office.document",
-        "office.validation",
-        "office.document"
+        "word::office.document",
+        "word::office.validation",
+        "ppt::office.document"
       ],
       "outputs": [
         "package.bundle",

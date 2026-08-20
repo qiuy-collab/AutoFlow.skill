@@ -995,8 +995,23 @@ def validate_workflow_definition(workflow: dict[str, Any]) -> None:
                 raise AutoFlowError(f"Step {step_id} depends on unknown step: {dependency}")
             if dependency == step_id:
                 raise AutoFlowError(f"Step {step_id} cannot depend on itself")
+        step_ids = {s["id"] for s in steps}
         for artifact_id in step.get("inputs", []):
-            if artifact_id != "request" and artifact_id not in produced:
+            if artifact_id == "request":
+                continue
+            producer_id, _, base_id = artifact_id.partition("::")
+            if "::" in artifact_id:
+                if base_id not in produced:
+                    raise AutoFlowError(
+                        f"Step {step_id} consumes unknown artifact: {artifact_id}"
+                    )
+                if producer_id not in step_ids or base_id not in next(
+                    s["outputs"] for s in steps if s["id"] == producer_id
+                ):
+                    raise AutoFlowError(
+                        f"Step {step_id} consumes unknown producer artifact: {artifact_id}"
+                    )
+            elif artifact_id not in produced:
                 raise AutoFlowError(f"Step {step_id} consumes unknown artifact: {artifact_id}")
 
     visiting: set[str] = set()
@@ -1403,7 +1418,14 @@ def register_step_artifacts(
         f"{item['producer']}::{item['id']}": item for item in manifest.get("artifacts", [])
     }
     consumers = {
-        artifact_id: [candidate["id"] for candidate in workflow["steps"] if artifact_id in candidate.get("inputs", [])]
+        artifact_id: [
+            candidate["id"]
+            for candidate in workflow["steps"]
+            if any(
+                (base_id := raw.partition("::")[2] or raw) == artifact_id
+                for raw in candidate.get("inputs", [])
+            )
+        ]
         for artifact_id in expected
     }
     for artifact_id, path in artifacts.items():

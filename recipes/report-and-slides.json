@@ -81,8 +81,8 @@
         "ppt"
       ],
       "inputs": [
-        "office.document",
-        "office.document"
+        "word::office.document",
+        "ppt::office.document"
       ],
       "outputs": [
         "package.bundle",

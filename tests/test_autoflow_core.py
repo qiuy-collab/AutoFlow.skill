@@ -23,6 +23,7 @@ from autoflow_core import (  # noqa: E402
     load_json,
     load_run,
     refresh_ready,
+    register_step_artifacts,
     recommend_recipe,
     revise_step,
     save_json,
@@ -535,6 +536,117 @@ class AutoFlowTestCase(unittest.TestCase):
         workflow["steps"][0]["needs"] = ["task"]
         with self.assertRaisesRegex(AutoFlowError, "cannot depend on itself|cycle"):
             validate_workflow_definition(workflow)
+
+    def test_producer_qualified_inputs_are_accepted(self):
+        workflow_path = initialize_run(self.request, self.root / "prod-qualified", "custom")
+        workflow = load_json(workflow_path)
+        workflow["steps"] = [
+            {
+                "id": "word",
+                "module": "office",
+                "action": "create",
+                "format": "word",
+                "needs": [],
+                "inputs": ["request"],
+                "outputs": ["office.document", "office.validation"],
+                "validator": "office_acceptance",
+            },
+            {
+                "id": "ppt",
+                "module": "office",
+                "action": "create",
+                "format": "ppt",
+                "needs": [],
+                "inputs": ["request"],
+                "outputs": ["office.document", "office.validation"],
+                "validator": "office_acceptance",
+            },
+            {
+                "id": "package",
+                "module": "package",
+                "action": "assemble",
+                "needs": ["word", "ppt"],
+                "inputs": ["word::office.document", "ppt::office.document"],
+                "outputs": ["package.bundle", "package.manifest"],
+                "validator": "package_acceptance",
+            },
+        ]
+        validate_workflow_definition(workflow)
+
+    def test_producer_qualified_inputs_reject_unknown_producer(self):
+        workflow_path = initialize_run(self.request, self.root / "prod-bad", "custom")
+        workflow = load_json(workflow_path)
+        workflow["steps"] = [
+            {
+                "id": "word",
+                "module": "office",
+                "action": "create",
+                "format": "word",
+                "needs": [],
+                "inputs": ["request"],
+                "outputs": ["office.document", "office.validation"],
+                "validator": "office_acceptance",
+            },
+            {
+                "id": "package",
+                "module": "package",
+                "action": "assemble",
+                "needs": ["word"],
+                "inputs": ["mystery::office.document"],
+                "outputs": ["package.bundle", "package.manifest"],
+                "validator": "package_acceptance",
+            },
+        ]
+        with self.assertRaisesRegex(AutoFlowError, "unknown producer artifact"):
+            validate_workflow_definition(workflow)
+
+    def test_producer_qualified_inputs_record_consumers(self):
+        workflow = {
+            "steps": [
+                {
+                    "id": "word",
+                    "module": "office",
+                    "action": "create",
+                    "format": "word",
+                    "needs": [],
+                    "inputs": ["request"],
+                    "outputs": ["office.document", "office.validation"],
+                    "validator": "office_acceptance",
+                },
+                {
+                    "id": "ppt",
+                    "module": "office",
+                    "action": "create",
+                    "format": "ppt",
+                    "needs": [],
+                    "inputs": ["request"],
+                    "outputs": ["office.document", "office.validation"],
+                    "validator": "office_acceptance",
+                },
+                {
+                    "id": "package",
+                    "module": "package",
+                    "action": "assemble",
+                    "needs": ["word", "ppt"],
+                    "inputs": ["word::office.document", "ppt::office.document"],
+                    "outputs": ["package.bundle", "package.manifest"],
+                    "validator": "package_acceptance",
+                },
+            ]
+        }
+        manifest = {"artifacts": [], "updated_at": ""}
+        step = workflow["steps"][0]
+        with tempfile.TemporaryDirectory() as td:
+            document = Path(td) / "report.docx"
+            document.write_bytes(b"docx-content")
+            report = Path(td) / "validation.json"
+            report.write_bytes(b"{}")
+            register_step_artifacts(
+                workflow, manifest, step, {"office.document": document, "office.validation": report}
+            )
+        records = {f"{item['producer']}::{item['id']}": item for item in manifest["artifacts"]}
+        self.assertIn("package", records["word::office.document"]["consumers"])
+        self.assertEqual(records["word::office.validation"]["consumers"], [])
 
     def test_custom_dag_can_sync_before_plan_only(self):
         workflow_path = initialize_run(self.request, self.root / "sync", "custom")

@@ -64,7 +64,7 @@ local anti-pattern detection to the bundled Impeccable adapter. A selector is
 a capability requirement, not permission to silently substitute another
 external tool.
 
-`needs` controls execution order. `inputs` and `outputs` are artifact IDs. `request` is the only built-in input. Output IDs must be unique across the workflow.
+`needs` controls execution order. `inputs` and `outputs` are artifact IDs. `request` is the only built-in input. Output IDs must be unique across the workflow. When two steps produce the same artifact ID (two office steps both emit `office.document`), an input may disambiguate with `producer::artifact` — for example `word::office.document` — and the CLI accepts the same `producer::artifact=PATH` form when completing a step. The producer must be the step that actually declared that output.
 
 When `init --recipe auto` is used, `workflow.json.recipe_selection` records the
 selected recipe, matched request signals, selection mode, and reason. This is a
