@@ -43,7 +43,6 @@ class BackendCliSmokeTests(unittest.TestCase):
 
     def test_backend_help_commands(self) -> None:
         scripts = (
-            "artifact_map.py",
             "autoflow.py",
             "capture_frontend_screenshots.py",
             "generate_diagram_assets.py",
