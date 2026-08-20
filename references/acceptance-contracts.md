@@ -23,7 +23,7 @@ Write `.autoflow/intermediate/plans/office.json` using schema `autoflow/office-p
 ```bash
 python scripts/office_engine.py validate \
   --document <output.docx> --format word \
-  --template <template.docx> \
+  --template <template.docx> --source <source.docx> \
   --report <run>/.autoflow/intermediate/artifacts/office_engine_validation.json
 ```
 
