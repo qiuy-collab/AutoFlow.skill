@@ -72,7 +72,8 @@ The human reviewer should check each image for:
 
 When an image is blurry or pixelated:
 
-- Use the fixed clarity-enhancement prompt from `C:\Users\ASUS\Desktop\补图提示词--不清晰.md`
+- Write a clarity-enhancement prompt that keeps the original content and
+  composition unchanged and only increases sharpness and readability
 - Run img2img with the blurry original as `reference_image`
 - The prompt ensures: original content unchanged, only sharpness/readability enhanced
 
