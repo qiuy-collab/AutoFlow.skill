@@ -64,10 +64,14 @@ To audit all checked-in external capabilities before planning, use:
 python scripts/autoflow.py integrations --json
 ```
 
-The command validates each integration manifest, declared Skill/reference
-files, provenance fields, and adapter paths. A workflow must use the local
-paths reported by `route`; a manifest or runtime marked unavailable is a hard
-capability signal, not permission to invent a tool call.
+The command validates each integration manifest against
+`autoflow/integration-manifest/2.0` (name, type, capabilities, check entry,
+provenance fields) and runs the package's own check script to verify local run
+conditions, reporting `available`/`missing`/`incomplete` plus declared
+capabilities. Usage knowledge stays inside each package's SKILL.md — AutoFlow
+never re-writes it. A workflow must use the local paths reported by `route`; a
+manifest or runtime marked unavailable is a hard capability signal, not
+permission to invent a tool call.
 
 Compact routing includes the module file, fresh verification, and required
 capability adapters. It does not load every available methodology Skill.
