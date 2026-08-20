@@ -4,7 +4,7 @@ This matrix prevents the modular AutoFlow architecture from silently dropping pr
 
 | AutoLab capability | AutoFlow owner | Enforcement |
 |---|---|---|
-| Environment check and dependency setup | core / module backends | `env_setup.py`, backend capability reports |
+| Environment check and dependency setup | core / module backends | `environment_setup.py ensure`, backend capability reports |
 | Requirement and rubric analysis | core | `.autoflow/config/WORK_PLAN.md` plus `.autoflow/config/requirement_map.json` |
 | Pre-task detection and execution | task | Explicit DAG step; no convenience-only invented task |
 | GitHub project selection | task | `task.research`, `SOURCE_STOP`, `task.build` |
