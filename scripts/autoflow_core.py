@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -116,51 +117,94 @@ def save_json(path: Path, data: dict[str, Any]) -> None:
     temp.replace(path)
 
 
-def integration_catalog() -> list[dict[str, Any]]:
-    """Discover and validate every checked-in integration manifest.
+INTEGRATION_MANIFEST_SCHEMA = "autoflow/integration-manifest/2.0"
 
-    The catalog is intentionally filesystem-only. It tells the Agent which
-    external capability is actually present, where its provenance record is,
-    and whether its declared local files exist before a workflow route uses it.
+
+def _integration_manifest_root() -> Path:
+    return Path(__file__).resolve().parent.parent / "integrations"
+
+
+def _run_integration_check(directory: Path, check: dict[str, Any]) -> dict[str, Any]:
+    """Run a package check entry; returns {"status", "version", "message"}."""
+    script = directory / check["entry"]
+    runtime = str(check.get("runtime", "python")).lower()
+    if not script.is_file():
+        return {"status": "blocked", "version": None, "message": f"check entry not found: {check['entry']}"}
+    runner = {
+        "python": [sys.executable],
+        "node": [shutil.which("node") or "node"],
+    }.get(runtime)
+    if runtime not in ("python", "node"):
+        return {"status": "blocked", "version": None, "message": f"unsupported check runtime: {runtime}"}
+    if runtime == "node" and not shutil.which("node"):
+        return {"status": "blocked", "version": None, "message": "Node.js not found in PATH"}
+    try:
+        result = subprocess.run([*runner, str(script)], capture_output=True, text=True, timeout=30)
+    except Exception as exc:  # pragma: no cover - subprocess failure path
+        return {"status": "blocked", "version": None, "message": str(exc)}
+    output = (result.stdout or "").strip()
+    if not output:
+        return {"status": "blocked", "version": None, "message": "check script produced no output"}
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError as exc:
+        return {"status": "blocked", "version": None, "message": f"check script did not emit valid JSON: {exc}"}
+    status = data.get("status")
+    if status not in ("available", "missing", "blocked"):
+        return {"status": "blocked", "version": None, "message": f"invalid check status: {status!r}"}
+    return {"status": status, "version": data.get("version"), "message": data.get("error") or ""}
+
+
+def integration_catalog() -> list[dict[str, Any]]:
+    """Discover and verify every checked-in integration package.
+
+    Package contract: integrations/<name>/manifest.json ($schema
+    autoflow/integration-manifest/2.0). Discovery is filesystem-only; the
+    catalog tells the Agent which external capabilities are present, whether
+    the local run conditions hold (via the package's own check script), and
+    where the package's SKILL.md lives. Usage knowledge stays in the package;
+    AutoFlow never re-writes it.
     """
-    root = Path(__file__).resolve().parent.parent
-    integration_root = root / "integrations"
+    integration_root = _integration_manifest_root()
     entries: list[dict[str, Any]] = []
-    for directory in sorted((path for path in integration_root.iterdir() if path.is_dir()), key=lambda p: p.name):
-        manifest_path = directory / "integration_manifest.json"
+    for directory in sorted(
+        (path for path in integration_root.iterdir() if path.is_dir()),
+        key=lambda p: p.name,
+    ):
+        manifest_path = directory / "manifest.json"
         entry: dict[str, Any] = {
             "name": directory.name,
             "root": str(directory.resolve()),
             "manifest_file": str(manifest_path.resolve()) if manifest_path.is_file() else "",
         }
         if not manifest_path.is_file():
-            entries.append(
-                {
-                    **entry,
-                    "status": "missing_manifest",
-                    "missing": ["integration_manifest.json"],
-                    "message": "Add a manifest before routing this integration.",
-                }
-            )
+            entries.append({**entry, "status": "missing_manifest", "message": "Add a manifest.json before routing this package."})
             continue
         try:
             manifest = load_json(manifest_path)
         except AutoFlowError as exc:
-            entries.append({**entry, "status": "invalid_manifest", "missing": [], "message": str(exc)})
+            entries.append({**entry, "status": "invalid_manifest", "message": str(exc)})
             continue
 
         errors: list[str] = []
-        if manifest.get("$schema") != "autoflow/integration-manifest/1.0":
-            errors.append("unsupported manifest schema")
+        if manifest.get("$schema") != INTEGRATION_MANIFEST_SCHEMA:
+            errors.append(f"unsupported manifest schema (expected {INTEGRATION_MANIFEST_SCHEMA})")
         if manifest.get("name") != directory.name:
             errors.append("manifest name does not match directory")
+        pkg_type = manifest.get("type", "")
+        if pkg_type not in ("tool", "knowledge-only"):
+            errors.append("type must be 'tool' or 'knowledge-only'")
+        capabilities = manifest.get("capabilities", {})
+        if not isinstance(capabilities, dict) or not capabilities:
+            errors.append("capabilities must be a non-empty object")
+        check = manifest.get("check")
+        if pkg_type == "tool" and not (isinstance(check, dict) and check.get("entry") and check.get("runtime")):
+            errors.append("tool packages must declare a check entry with runtime")
+        if pkg_type == "knowledge-only" and check is not None:
+            errors.append("knowledge-only packages must not declare a check entry")
         for field in ("upstream", "revision", "license"):
             if not str(manifest.get(field, "")).strip():
                 errors.append(f"missing {field}")
-        mode = str(manifest.get("mode", ""))
-        allowed_modes = {"integrated_local_runtime", "integrated_instruction_overlay"}
-        if mode not in allowed_modes:
-            errors.append(f"mode must be one of: {', '.join(sorted(allowed_modes))}")
         if manifest.get("self_contained") is not True:
             errors.append("self_contained must be true")
         if manifest.get("external_user_skill_required") is not False:
@@ -168,73 +212,35 @@ def integration_catalog() -> list[dict[str, Any]]:
         if manifest.get("source_checkout_required") is not False:
             errors.append("source_checkout_required must be false")
 
-        skills = manifest.get("skills", [])
-        references = manifest.get("references", [])
-        if not isinstance(skills, list) or not all(isinstance(name, str) for name in skills):
-            errors.append("skills must be an array of strings")
-            skills = []
-        if not isinstance(references, list) or not all(isinstance(name, str) for name in references):
-            errors.append("references must be an array of strings")
-            references = []
-        skill_paths = manifest.get("skill_paths", {})
-        if not isinstance(skill_paths, dict):
-            errors.append("skill_paths must be an object")
-            skill_paths = {}
-        missing: list[str] = []
-        for name in skills:
-            relative = str(skill_paths.get(name, f"{name}/SKILL.md"))
-            resolved = (directory / relative).resolve()
-            if not resolved.is_relative_to(directory.resolve()):
-                missing.append(f"unsafe-skill-path:{relative}")
-            elif not resolved.is_file():
-                missing.append(relative)
-        for name in references:
-            relative = f"references/{name}"
-            resolved = (directory / relative).resolve()
-            if not resolved.is_relative_to(directory.resolve()):
-                missing.append(f"unsafe-reference-path:{relative}")
-            elif not resolved.is_file():
-                missing.append(relative)
-        adapter_paths = manifest.get("adapter_paths", [])
-        if not isinstance(adapter_paths, list) or not all(isinstance(path, str) for path in adapter_paths):
-            errors.append("adapter_paths must be an array of strings")
-            adapter_paths = []
-        for relative in adapter_paths:
-            resolved = (root / relative).resolve()
-            if not resolved.is_relative_to(root.resolve()):
-                missing.append(f"unsafe-adapter-path:{relative}")
-                continue
-            if not resolved.is_file():
-                missing.append(f"adapter:{relative}")
-                continue
-            if resolved.suffix.lower() in {".py", ".js", ".mjs", ".cjs", ".ps1", ".md"}:
-                source = resolved.read_text(encoding="utf-8", errors="ignore").casefold()
-                forbidden = [
-                    marker
-                    for marker in ("autoflow-workspace", ".codex/skills/", ".codex\\skills\\", ".agents/skills/", ".agents\\skills\\")
-                    if marker in source
-                ]
-                if forbidden:
-                    errors.append(f"adapter depends on external checkout/user Skill path: {relative}")
-        if missing:
-            errors.append("declared local files are missing")
+        check_status = "available"
+        version = None
+        check_message = ""
+        if pkg_type == "tool":
+            if not errors:
+                check_result = _run_integration_check(directory, check)
+                check_status, version, check_message = (
+                    check_result["status"],
+                    check_result["version"],
+                    check_result["message"],
+                )
+        else:
+            if not (directory / "SKILL.md").is_file():
+                check_status, check_message = "missing", "SKILL.md not found in package"
+
+        manifest_errors = bool(errors)
         entries.append(
             {
                 **entry,
-                "status": "available" if not errors else "incomplete",
+                "status": "available" if not manifest_errors and check_status == "available" else ("incomplete" if manifest_errors else check_status),
+                "type": pkg_type,
+                "role": manifest.get("role", "capability"),
+                "capabilities": sorted(capabilities.keys()),
+                "version": version,
+                "check_status": check_status,
+                "check_message": check_message,
                 "upstream": manifest.get("upstream", ""),
                 "revision": manifest.get("revision", ""),
                 "license": manifest.get("license", ""),
-                "network_access_required": bool(manifest.get("network_access_required", False)),
-                "mode": mode,
-                "self_contained": manifest.get("self_contained") is True,
-                "external_user_skill_required": manifest.get("external_user_skill_required"),
-                "source_checkout_required": manifest.get("source_checkout_required"),
-                "runtime_bootstrap_copied": bool(manifest.get("runtime_bootstrap_copied", False)),
-                "skills": skills,
-                "references": references,
-                "adapter_paths": adapter_paths,
-                "missing": missing,
                 "errors": errors,
             }
         )
@@ -327,6 +333,7 @@ def detect_office_backend() -> dict[str, Any]:
         }
     return {
         **report,
+        "integration_root": str((root / "integrations" / "officecli").resolve()),
         "engine_script": str(engine_script.resolve()),
         "validator_script": str(validator_script.resolve()),
     }
@@ -497,52 +504,32 @@ def image_capability_for_action(image: dict[str, Any], action: str) -> dict[str,
 
 
 def detect_impeccable_backend() -> dict[str, Any]:
-    root = Path(__file__).resolve().parent.parent
-    integration = root / "integrations" / "impeccable"
+    integration_root = _integration_manifest_root()
+    integration = integration_root / "impeccable"
     skill_file = integration / "SKILL.md"
-    detector = integration / "scripts" / "detect.mjs"
-    context = integration / "scripts" / "context.mjs"
-    signals = integration / "scripts" / "context-signals.mjs"
-    palette = integration / "scripts" / "palette.mjs"
-    metadata = integration / "scripts" / "command-metadata.json"
-    adapter = root / "scripts" / "impeccable_adapter.mjs"
-    node = shutil.which("node")
-    required_files = (skill_file, detector, context, signals, palette, metadata, adapter)
-    missing = [str(path) for path in required_files if not path.is_file()]
-    if not missing:
-        return {
-            "status": "available" if node else "blocked",
-            "backend": "integrated-impeccable",
-            "integration_root": str(integration.resolve()),
-            "skill_file": str(skill_file.resolve()),
-            "detector_script": str(detector.resolve()),
-            "context_script": str(context.resolve()),
-            "signals_script": str(signals.resolve()),
-            "palette_script": str(palette.resolve()),
-            "command_metadata": str(metadata.resolve()),
-            "adapter_file": str(adapter.resolve()),
-            "runtime": node or "",
-            "network_update_check": False,
-            "external_skill_required": False,
-            **({} if node else {"message": "The integrated Impeccable backend requires Node.js."}),
-        }
-    return {
-        "status": "missing",
+    common = {
         "backend": "integrated-impeccable",
         "integration_root": str(integration.resolve()),
         "skill_file": str(skill_file.resolve()) if skill_file.is_file() else "",
-        "detector_script": str(detector.resolve()) if detector.is_file() else "",
-        "context_script": str(context.resolve()) if context.is_file() else "",
-        "signals_script": str(signals.resolve()) if signals.is_file() else "",
-        "palette_script": str(palette.resolve()) if palette.is_file() else "",
-        "command_metadata": str(metadata.resolve()) if metadata.is_file() else "",
-        "adapter_file": str(adapter.resolve()) if adapter.is_file() else "",
-        "runtime": node or "",
+        "runtime": shutil.which("node") or "",
         "network_update_check": False,
         "external_skill_required": False,
-        "missing": missing,
-        "message": "AutoFlow's integrated Impeccable backend is incomplete. Repair integrations/impeccable.",
     }
+    entry = next((item for item in integration_catalog() if item["name"] == "impeccable"), None)
+    if entry is None:
+        return {**common, "status": "missing", "message": "integrations/impeccable is not present."}
+    status = entry.get("status", "missing")
+    if status == "available":
+        return {**common, "status": "available"}
+    if status == "incomplete":
+        return {
+            **common,
+            "status": "missing",
+            "errors": entry.get("errors", []),
+            "message": "integrations/impeccable manifest is invalid. Repair integrations/impeccable.",
+        }
+    message = entry.get("check_message") or entry.get("message", "integrations/impeccable is unavailable.")
+    return {**common, "status": status, "message": message}
 
 
 def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:

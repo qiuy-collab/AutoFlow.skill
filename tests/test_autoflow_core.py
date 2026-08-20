@@ -739,15 +739,71 @@ class AutoFlowTestCase(unittest.TestCase):
         catalog = integration_catalog()
         self.assertEqual(
             {item["name"] for item in catalog},
-            {"impeccable", "nature-figure"},
+            {"impeccable", "nature-figure", "officecli"},
         )
         self.assertTrue(all(item["status"] == "available" for item in catalog))
-        self.assertTrue(all(item["self_contained"] for item in catalog))
-        self.assertTrue(all(item["external_user_skill_required"] is False for item in catalog))
-        self.assertTrue(all(item["source_checkout_required"] is False for item in catalog))
-        self.assertTrue(
-            all(item["mode"] in {"integrated_local_runtime", "integrated_instruction_overlay"} for item in catalog)
-        )
+        for item in catalog:
+            self.assertIn(item["type"], {"tool", "knowledge-only"})
+            self.assertGreaterEqual(len(item["capabilities"]), 1)
+        self.assertEqual({item["name"] for item in catalog if item["role"] == "engine"}, {"officecli"})
+        self.assertTrue(all(item["check_status"] == "available" for item in catalog))
+
+    def _make_manifest(self, directory: Path, name: str, pkg_type: str, check: bool = True) -> None:
+        manifest = {
+            "$schema": "autoflow/integration-manifest/2.0",
+            "name": name,
+            "type": pkg_type,
+            "capabilities": {"demo-cap": {"description": "demo"}},
+            "upstream": "https://example.com/repo",
+            "revision": "abc123",
+            "license": "MIT",
+            "self_contained": True,
+            "external_user_skill_required": False,
+            "source_checkout_required": False,
+        }
+        if check:
+            manifest["check"] = {"entry": "scripts/check.py", "runtime": "python"}
+        (directory / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+
+    def test_integration_catalog_reports_missing_and_invalid_manifests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "nomanifest").mkdir()
+            (root / "badmanifest").mkdir()
+            (root / "badmanifest" / "manifest.json").write_text("{not json", encoding="utf-8")
+            with patch("autoflow_core._integration_manifest_root", return_value=root):
+                catalog = integration_catalog()
+        by_name = {item["name"]: item for item in catalog}
+        self.assertEqual(by_name["nomanifest"]["status"], "missing_manifest")
+        self.assertEqual(by_name["badmanifest"]["status"], "invalid_manifest")
+
+    def test_integration_catalog_runs_package_check_and_knowledge_only_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tool_pkg = root / "toolpkg"
+            tool_pkg.mkdir()
+            self._make_manifest(tool_pkg, "toolpkg", "tool")
+            (tool_pkg / "scripts").mkdir()
+            (tool_pkg / "scripts" / "check.py").write_text(
+                'import json; print(json.dumps({"status": "missing", "version": None, "error": "dep not installed"}))',
+                encoding="utf-8",
+            )
+            know_pkg = root / "knowledge"
+            know_pkg.mkdir()
+            self._make_manifest(know_pkg, "knowledge", "knowledge-only", check=False)
+            with patch("autoflow_core._integration_manifest_root", return_value=root):
+                catalog = integration_catalog()
+            by_name = {item["name"]: item for item in catalog}
+            self.assertEqual(by_name["toolpkg"]["status"], "missing")
+            self.assertEqual(by_name["toolpkg"]["check_status"], "missing")
+            self.assertIn("dep not installed", by_name["toolpkg"]["check_message"])
+            self.assertEqual(by_name["knowledge"]["status"], "missing")  # no SKILL.md yet
+            (know_pkg / "SKILL.md").write_text("# knowledge\n", encoding="utf-8")
+            with patch("autoflow_core._integration_manifest_root", return_value=root):
+                catalog = integration_catalog()
+            by_name = {item["name"]: item for item in catalog}
+            self.assertEqual(by_name["knowledge"]["status"], "available")
+            self.assertEqual(by_name["knowledge"]["type"], "knowledge-only")
 
     def test_auto_recipe_recommends_project_report_and_slides_transparently(self):
         selection = recommend_recipe("学生管理系统源码、论文和答辩PPT")
@@ -855,8 +911,8 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertEqual(backend["backend"], "integrated-impeccable")
         self.assertFalse(backend["network_update_check"])
         self.assertTrue(Path(backend["skill_file"]).is_file())
-        self.assertTrue(Path(backend["detector_script"]).is_file())
-        self.assertTrue(Path(backend["adapter_file"]).is_file())
+        package = Path(backend["integration_root"])
+        self.assertTrue((package / "scripts" / "impeccable_adapter.mjs").is_file())
 
 
 if __name__ == "__main__":

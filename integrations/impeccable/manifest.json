@@ -1,0 +1,17 @@
+{
+  "$schema": "autoflow/integration-manifest/2.0",
+  "name": "impeccable",
+  "type": "tool",
+  "capabilities": {
+    "frontend-design": {"description": "Frontend design craft, critique, audit, polish and remediation via the local impeccable command reference and offline detector"}
+  },
+  "check": {"entry": "scripts/check.py", "runtime": "python"},
+  "upstream": "https://github.com/pbakaus/impeccable",
+  "revision": "8259c28209b92792005cec14dad573df39f68eaf",
+  "skill_version": "3.9.1",
+  "license": "Apache-2.0",
+  "self_contained": true,
+  "external_user_skill_required": false,
+  "source_checkout_required": false,
+  "notes": "Usage knowledge lives in SKILL.md and reference/. Entry point is scripts/impeccable_adapter.mjs (offline only: no npx, no URL scans, no update checks)."
+}

@@ -170,11 +170,14 @@ R1 要求文档真实生成并通过验证，证据对应 office.document 与 of
         self.assertEqual(completed.returncode, 0, completed.stderr)
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["$schema"], "autoflow/integrations/1.0")
-        self.assertEqual({item["name"] for item in payload["integrations"]}, {"impeccable", "nature-figure"})
+        self.assertEqual(
+            {item["name"] for item in payload["integrations"]},
+            {"impeccable", "nature-figure", "officecli"},
+        )
         self.assertTrue(all(item["status"] == "available" for item in payload["integrations"]))
-        self.assertTrue(all(item["self_contained"] for item in payload["integrations"]))
-        self.assertTrue(all(item["external_user_skill_required"] is False for item in payload["integrations"]))
-        self.assertTrue(all(item["source_checkout_required"] is False for item in payload["integrations"]))
+        for item in payload["integrations"]:
+            self.assertIn(item["type"], {"tool", "knowledge-only"})
+            self.assertGreaterEqual(len(item["capabilities"]), 1)
 
     def test_capabilities_reports_integrated_backends(self):
         completed = subprocess.run(

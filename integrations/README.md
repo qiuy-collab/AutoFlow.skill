@@ -1,27 +1,61 @@
 # AutoFlow integrations
 
-This directory contains capabilities that AutoFlow has deliberately integrated
-and audited from external Skills or projects. It is not a runtime cache.
+Third-party capability packages, checked in under `integrations/`. Each package
+is self-contained: its knowledge (SKILL.md) and its tools (scripts/) travel
+together. AutoFlow does not re-write third-party usage guidance — the agent
+reads the package's own SKILL.md and follows it. AutoFlow only does three
+things: **discover** (scan directories), **verify** (run each package's check),
+and **dispatch** (module docs map needs to capabilities).
 
-Run `python scripts/autoflow.py integrations --json` to audit the complete
-catalog. Every integration carries a manifest with its upstream revision,
-license, local Skill/reference files, and adapter paths.
+Run `python scripts/autoflow.py integrations --json` to audit the catalog.
 
-## Layout
+## Package contract (manifest 2.0)
 
-- `nature-figure/`: Apache-2.0 provenance and adaptation notes for the
-  scientific-figure validator and backend. Image generation itself stays in
-  AutoFlow's `scripts/` and uses the configured `.env` upstream.
-- `impeccable/`: Apache-2.0 frontend design language, command references, and
-  local anti-pattern detector. AutoFlow disables its update check and exposes
-  only the local adapter.
+Every package directory must contain a `manifest.json`:
 
-Office document processing (DOCX/PPTX/XLSX) is handled by the unified office
-module backed by `officecli` (scripts/office_engine.py + scripts/validate_office.py).
-It is not a checked-in integration directory — the binary is installed from
-https://d.officecli.ai and requires no backend integration manifest.
+| Field | Meaning |
+|---|---|
+| `$schema` | `autoflow/integration-manifest/2.0` |
+| `name` | Must match the directory name |
+| `type` | `tool` (ships runnable tools) or `knowledge-only` (pure methodology, SKILL.md only) |
+| `role` | `engine` (AutoFlow's own managed runtime, e.g. officecli) or `capability` (default) |
+| `capabilities` | Map of capability names this package provides (what a module can dispatch on) |
+| `check` | `{"entry": "...", "runtime": "python"}` — the script that probes local availability; `null` for `knowledge-only` |
+| `upstream` / `revision` / `license` | Provenance, pinned for auditability |
+| `self_contained` | Must be `true`: no network, no external skill, no separate checkout |
 
-User-level Skills and plugins are not runtime dependencies of the integrated
-routes. If a local integration or its declared runtime is unavailable, the
-corresponding capability is reported as `blocked`; AutoFlow never treats an
-unverified external package as available.
+**What the manifest does not contain:** usage instructions, parameters, or
+command details. Usage knowledge lives in the package's own `SKILL.md`; the
+agent reads it directly.
+
+## check scripts
+
+Each `tool` package provides a check entry (run with its declared runtime)
+that prints one JSON object and exits:
+
+```json
+{"status": "available", "version": "1.0.144"}
+```
+
+`status` is `available` | `missing` (not installed) | `blocked` (present but
+unusable). The check only verifies **local run conditions** (binary in PATH,
+runtime importable, package files present) — never internal file structure of
+the skill. `knowledge-only` packages need no check: availability means
+`SKILL.md` exists.
+
+## Current packages
+
+- `officecli/` (role: engine): the office document binary plus its official
+  SKILL.md. AutoFlow's `scripts/office_engine.py` is a thin call wrapper
+  (check/validate orchestration and report parsing) on top of the binary —
+  operating knowledge stays in the package's SKILL.md.
+- `nature-figure/`: Apache-2.0 scientific figure skill. Knowledge in
+  `SKILL.md`, tools in `scripts/plot_templates.py` (and AutoFlow's own
+  schematic/validator scripts referenced from it).
+- `impeccable/`: Apache-2.0 frontend design language. Knowledge in `SKILL.md`
+  plus its `reference/` docs; tools in `scripts/` (context, palette, offline
+  detector, `impeccable_adapter.mjs` entry). All offline; no npx, no URL
+  scans, no update checks.
+
+Adding a new package = copy the directory in, write a 15-line manifest, add a
+check script. Core and module docs do not change.

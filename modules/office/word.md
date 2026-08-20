@@ -2,6 +2,8 @@
 
 Dispatched from `modules/office.md` when `format=word`. All edits run through
 `officecli`; validation follows `scripts/office_engine.py` + `scripts/validate_office.py`.
+Read the official operating manual in `integrations/officecli/SKILL.md` first —
+this submodule applies it to DOCX workflows, it does not replace it.
 
 ## Workflow (per action)
 

@@ -37,10 +37,12 @@ For code, websites, applications, systems, databases, or runnable project reques
 An unmodified clone is not a completed build.
 
 For frontend project builds, use the integrated `impeccable` route when the
-step declares `design_backend: integrated-impeccable`. Resolve its command
-reference and local detector through `scripts/impeccable_adapter.mjs` (in
-`integrations/impeccable/`); do not
-run `npx impeccable`, URL scans, update checks, or plugin hooks.
+step declares `design_backend: integrated-impeccable`. Read
+`integrations/impeccable/SKILL.md` and follow its command reference and
+local tools — usage knowledge lives in the package, AutoFlow does not
+re-document it. Its offline entry point is
+`integrations/impeccable/scripts/impeccable_adapter.mjs`; do not run
+`npx impeccable`, URL scans, update checks, or plugin hooks.
 
 ## Source plan contract
 

@@ -1,0 +1,18 @@
+{
+  "$schema": "autoflow/integration-manifest/2.0",
+  "name": "officecli",
+  "type": "tool",
+  "role": "engine",
+  "capabilities": {
+    "office-word": {"description": "DOCX create/inspect/edit/validate via the officecli binary"},
+    "office-ppt": {"description": "PPTX create/inspect/edit/validate via the officecli binary"},
+    "office-excel": {"description": "XLSX create/inspect/edit/validate via the officecli binary"}
+  },
+  "check": {"entry": "scripts/check.py", "runtime": "python"},
+  "upstream": "https://d.officecli.ai",
+  "revision": "1.0.144",
+  "license": "Proprietary",
+  "self_contained": true,
+  "external_user_skill_required": false,
+  "source_checkout_required": false
+}

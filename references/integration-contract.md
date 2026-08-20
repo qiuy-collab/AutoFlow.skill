@@ -1,25 +1,46 @@
 # AutoFlow integration self-containment contract
 
-Every directory under `integrations/` is part of the AutoFlow package. Once an
-upstream capability is integrated, normal routing must not depend on a
-user-level Skill installation, a temporary source checkout, or an undeclared
-adapter file.
+Every directory under `integrations/` is a self-contained third-party
+capability package. Its knowledge (`SKILL.md`) and its tools (`scripts/`)
+travel together; AutoFlow never re-writes third-party usage guidance. The
+agent reads the package's own documentation and follows it.
 
-Each `integration_manifest.json` must declare:
+## Package contract (manifest 2.0)
 
-- `mode`: `integrated_local_runtime` or `integrated_instruction_overlay`;
-- `self_contained: true`;
-- `external_user_skill_required: false`;
-- `source_checkout_required: false`;
-- every routed Skill, reference, and adapter path needed by AutoFlow;
-- upstream revision and license for provenance only.
+Each package directory must contain `manifest.json` declaring:
+
+- `$schema`: `autoflow/integration-manifest/2.0`;
+- `name`: must match the directory name;
+- `type`: `tool` (ships runnable tools) or `knowledge-only` (pure methodology);
+- `role`: `engine` for AutoFlow's own managed runtimes (e.g. officecli),
+  `capability` otherwise;
+- `capabilities`: non-empty map of capability names the package provides —
+  the only thing module docs may dispatch on;
+- `check`: `{"entry": "...", "runtime": "python"}` for `tool` packages — the
+  script that probes local run conditions; `null`/absent for `knowledge-only`;
+- `upstream`, `revision`, `license`: provenance, pinned for auditability;
+- `self_contained: true`, `external_user_skill_required: false`,
+  `source_checkout_required: false`.
+
+The manifest must NOT contain usage instructions, parameters, or command
+details. Usage knowledge lives in the package's `SKILL.md`.
+
+## check semantics
+
+A `tool` package's check script prints one JSON object:
+`{"status": "available"|"missing"|"blocked", "version": ...}`. It only verifies
+local run conditions (binary in PATH, runtime importable, package files
+present) — never the package's internal structure. `knowledge-only` packages
+need no check: availability means `SKILL.md` exists.
+
+## Enforcement
+
+`autoflow.py integrations --json` validates every package against the
+contract above and runs each `tool` package's check. A package is `available`
+only when its manifest is valid AND its check passes. A new package is not
+routable until the catalog reports `available`.
 
 Operating-system runtimes and language dependencies may remain provisioned
 dependencies when bundling them would be inappropriate. AutoFlow must detect
 and automatically provision them through its environment layer; this does not
 permit resolving executable code from another Skill directory.
-
-`autoflow.py integrations --json` rejects missing declarations, unsafe paths,
-files outside the package, and adapter source that points at known user-Skill
-or source-checkout locations. A new integration is not routable until the
-catalog reports `available`.

@@ -37,16 +37,18 @@ Read only the route-specific guidance needed:
   locally reachable first; a missing or unreachable browser runtime is a
   `blocked` capability, not a reason to fabricate screenshots.
 - Frontend visual quality: when the step declares
-  `design_backend: integrated-impeccable`, use the local Impeccable command
-  reference and detector via `scripts/impeccable_adapter.mjs` (in
-  `integrations/impeccable/`). The adapter is offline-only and scans local
-  files; any visual findings become evidence or remediation inputs, not an
-  automatic approval.
+  `design_backend: integrated-impeccable`, read
+  `integrations/impeccable/SKILL.md` and follow its command reference and
+  local tools — usage knowledge lives in the package, AutoFlow does not
+  re-document it. Its offline entry point is
+  `integrations/impeccable/scripts/impeccable_adapter.mjs`; any visual
+  findings become evidence or remediation inputs, not an automatic approval.
 - Diagrams: `docs/prompts/diagram_asset_rules.md`, then use `generate_diagram_assets.py`.
 - Scientific schematics: use `generate_scientific_schematic.py` and validate with `validate_scientific_figure.py`.
-- Publication charts: read `integrations/nature-figure/SKILL.md`, then run its
-  local `scripts/plot_templates.py`; do not invoke a user-level nature-figure
-  Skill or depend on the separate source checkout.
+- Publication charts: read `integrations/nature-figure/SKILL.md` and follow
+  it, running the package's own `scripts/plot_templates.py` — usage knowledge
+  lives in the package, AutoFlow does not re-document it. Do not invoke a
+  user-level nature-figure Skill or depend on the separate source checkout.
 - Human visual review: `docs/prompts/visual_review_rules.md` — the mandatory
   human decision step. `VISUAL_STOP` is human-only; the agent must present the
   images and wait for explicit approval, and must never approve the gate or

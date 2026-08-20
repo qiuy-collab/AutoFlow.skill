@@ -5,8 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INTEGRATION = path.join(ROOT, "integrations", "impeccable");
+const INTEGRATION = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SKILL = path.join(INTEGRATION, "SKILL.md");
 const DETECTOR = path.join(INTEGRATION, "scripts", "detect.mjs");
 const CONTEXT = path.join(INTEGRATION, "scripts", "context.mjs");

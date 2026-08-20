@@ -27,12 +27,17 @@ outputs with `scripts/validate_office.py`; it does not silently call another bac
 If `officecli` is missing, report a blocked capability and stop. Read
 `workflow.json.capabilities.office` for the detected exe/version.
 
+The official operating manual is `integrations/officecli/SKILL.md` (checked-in
+package copy) — read it before working; the sections below only distill the
+constraints that prevent costly mistakes and do not replace the official
+documentation.
+
 The module accepts the original request plus any approved task and image artifacts.
 It must not consume images while `VISUAL_STOP` is pending or rejected. Read
 `references/acceptance-contracts.md` and write `.autoflow/intermediate/plans/office.json`
 before editing.
 
-## officecli operating rules
+## officecli key constraints
 
 - **Layers**: L1 read/inspect → L2 DOM edit → L3 raw XML. Prefer higher layers; add
   `--json` for structured output.

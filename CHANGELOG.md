@@ -6,7 +6,25 @@
 
 ### Added
 
-- 新增 Direct mode：单模块、低风险、单一语义产物可直接路由、执行和交付，不创建完整工作流或 STOP。
+- 新增 `integrations/` 包契约（manifest 2.0）：每个包声明 `type`（tool/knowledge-only）、`capabilities`（能力名列表）、`check` 入口（仅探测本地运行条件）；核心层 `IntegrationRegistry` 自动发现所有包，`integration_catalog()` 依赖注册表输出，不再硬编码 detect 函数。
+- 新增 `integrations/officecli/` 包：officecli 官方 SKILL.md 迁入集成目录，manifest 声明 `role: engine` + 三个 office 能力，check 脚本探测本机二进制版本。
+- 新增 `integrations/nature-figure/scripts/check.py` 与 `integrations/impeccable/scripts/check.py`：分别探测 Python 依赖和 Node.js 可用性（manifest 2.0 升级）。
+- 新增 `references/integration-contract.md` 文档（旧版从 `integration_manifest.json` 契约更新为 2.0 合约）。
+- 新增注册表单元测试：missing/invalid manifest、check 运行、knowledge-only 包语义。
+
+### Changed
+
+- `integrations/` 架构从"被审查的文件拷贝"升级为"插件化能力包仓库"：AutoFlow 只做三件事（发现、校验 check、分发），用法知识留在包内 SKILL.md，agent 自行阅读；AutoFlow 不再重写第三方用法或提供 adapter 封装。
+- `scripts/impeccable_adapter.mjs` 移入 `integrations/impeccable/scripts/`（作为包内离线入口），包内文档的引用自动适配；`AUTOFLOW_ADAPTER.md` 删除。
+- `detect_impeccable_backend()` 从硬编码文件列表改为注册表查询（`integration_catalog` 过滤），输出保持 `status/backend/integration_root/skill_file/runtime` 兼容。
+- `detect_office_backend()` 的 `integration_root` 指向 `integrations/officecli/`。
+- 模块文档改写为纯分发语义：`modules/image.md`（Frontend visual quality → 读包内 SKILL.md；Publication charts → 用法在包内）、`modules/task.md`（impeccable 段指向包内文档）、`modules/office.md`（官方手册在包内，本模块只提炼关键约束）、`modules/office/{word,ppt,excel}.md`（指向包内官方手册）。
+- 测试：`test_autoflow_core.py` 的 catalog 断言更新为 3 个包 + 新字段（type/capabilities/check_status/role），移除旧字段（self_contained/mode/external_user_skill_required/source_checkout_required）；`test_autoflow_cli.py` 的 integrations 命令断言同步；`test_backend_cli.py` 的 adapter 路径更新为 `integrations/impeccable/scripts/impeccable_adapter.mjs`。
+
+### Removed
+
+- 删除 `integrations/impeccable/AUTOFLOW_ADAPTER.md`（adapter 模式已废弃）。
+- 删除 `integrations/impeccable/integration_manifest.json` 与 `integrations/nature-figure/integration_manifest.json`（1.0 旧契约，以 `manifest.json` 2.0 取代）。
 - 新增 `autoflow.py direct-route` 与 `autoflow.py review`，分别用于轻量本地能力路由和四类 STOP 审核信息包。
 
 ### Changed

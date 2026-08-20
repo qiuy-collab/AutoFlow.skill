@@ -1,0 +1,17 @@
+{
+  "$schema": "autoflow/integration-manifest/2.0",
+  "name": "nature-figure",
+  "type": "tool",
+  "capabilities": {
+    "publication-charts": {"description": "Volcano, ROC, dot, marginal, and paired publication charts (plot_templates.py)"},
+    "scientific-figure-validation": {"description": "Preflight validation for scientific figures (validate_scientific_figure.py)"}
+  },
+  "check": {"entry": "scripts/check.py", "runtime": "python"},
+  "upstream": "https://github.com/Yuan1z0825/nature-skills/tree/main/skills/nature-figure",
+  "revision": "fb3bffa0b5d299b939fae959786e222bf699bd25",
+  "license": "Apache-2.0",
+  "self_contained": true,
+  "external_user_skill_required": false,
+  "source_checkout_required": false,
+  "notes": "Usage knowledge lives in SKILL.md. AutoFlow's own schematic generator and validator (scripts/generate_scientific_schematic.py, scripts/validate_scientific_figure.py) are AutoFlow engine scripts, not part of this package."
+}

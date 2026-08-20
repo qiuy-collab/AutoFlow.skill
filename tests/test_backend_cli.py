@@ -12,8 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class BackendCliSmokeTests(unittest.TestCase):
     def test_impeccable_adapter_check(self) -> None:
+        adapter = ROOT / "integrations" / "impeccable" / "scripts" / "impeccable_adapter.mjs"
         result = subprocess.run(
-            ["node", str(ROOT / "scripts" / "impeccable_adapter.mjs"), "check"],
+            ["node", str(adapter), "check"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -26,8 +27,9 @@ class BackendCliSmokeTests(unittest.TestCase):
         self.assertIn("integrated-impeccable", result.stdout)
 
     def test_impeccable_adapter_rejects_remote_url_scans(self) -> None:
+        adapter = ROOT / "integrations" / "impeccable" / "scripts" / "impeccable_adapter.mjs"
         result = subprocess.run(
-            ["node", str(ROOT / "scripts" / "impeccable_adapter.mjs"), "detect", "https://example.com"],
+            ["node", str(adapter), "detect", "https://example.com"],
             cwd=ROOT,
             capture_output=True,
             text=True,
