@@ -9,6 +9,10 @@ Pillow>=9.0.0
 # Browser capture (optional, for image.capture)
 # playwright>=1.30.0
 
+# Publication charts and scientific schematics (optional, for image.chart / nature-figure)
+# matplotlib>=3.5.0
+# numpy>=1.21.0
+
 # Video processing (optional, for video route)
 # opencv-python>=4.5.0
 # numpy>=1.21.0
