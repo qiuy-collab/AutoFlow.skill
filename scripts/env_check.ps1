@@ -9,8 +9,7 @@ $GeneratePy = Join-Path $Root "scripts\generate_images.py"
 $BrowserCapturePy = Join-Path $Root "scripts\capture_frontend_screenshots.py"
 $DiagramAssetsPy = Join-Path $Root "scripts\generate_diagram_assets.py"
 $VideoProcessPy = Join-Path $Root "scripts\video_process.py"
-$BlankTemplatePy = Join-Path $Root "scripts\prepare_blank_template.py"
-$ImageConcurrencyPy = Join-Path $Root "scripts\test_image_concurrency.py"
+$ImageConcurrencyPy = Join-Path $Root "tests\test_image_concurrency.py"
 $SubmissionPackagePy = Join-Path $Root "scripts\package_submission.py"
 $EnvironmentSetupPy = Join-Path $Root "scripts\environment_setup.py"
 $EnvFile = Join-Path $Root ".env"
@@ -53,7 +52,7 @@ Write-Host ""
 # Check integrated capabilities first; optional Skills are resolved separately.
 $IntegratedImpeccableSkill = Join-Path $Root "integrations\impeccable\SKILL.md"
 $IntegratedImpeccableDetector = Join-Path $Root "integrations\impeccable\scripts\detect.mjs"
-$IntegratedImpeccableAdapter = Join-Path $Root "scripts\impeccable_adapter.mjs"
+$IntegratedImpeccableAdapter = Join-Path $Root "integrations\impeccable\scripts\impeccable_adapter.mjs"
 if ((Test-Path $IntegratedImpeccableSkill) -and (Test-Path $IntegratedImpeccableDetector) -and (Test-Path $IntegratedImpeccableAdapter)) {
     Ok "integrated capability found: impeccable ($IntegratedImpeccableSkill)"
 } else {
@@ -71,18 +70,11 @@ if (Get-Command python -ErrorAction SilentlyContinue) {
     Fail "python not found"
 }
 
-if (Get-Command dotnet -ErrorAction SilentlyContinue) {
-    Ok "dotnet $(& dotnet --version 2>&1)"
-} else {
-    Fail "dotnet not found"
-}
-
 if (Test-Path $GeneratePy) { Ok "scripts\generate_images.py found" } else { Fail "scripts\generate_images.py missing" }
 if (Test-Path $BrowserCapturePy) { Ok "scripts\capture_frontend_screenshots.py found" } else { Fail "scripts\capture_frontend_screenshots.py missing" }
 if (Test-Path $DiagramAssetsPy) { Ok "scripts\generate_diagram_assets.py found" } else { Fail "scripts\generate_diagram_assets.py missing" }
 if (Test-Path $VideoProcessPy) { Ok "scripts\video_process.py found" } else { Fail "scripts\video_process.py missing" }
-if (Test-Path $BlankTemplatePy) { Ok "scripts\prepare_blank_template.py found" } else { Fail "scripts\prepare_blank_template.py missing" }
-if (Test-Path $ImageConcurrencyPy) { Ok "scripts\test_image_concurrency.py found" } else { Fail "scripts\test_image_concurrency.py missing" }
+if (Test-Path $ImageConcurrencyPy) { Ok "tests\test_image_concurrency.py found" } else { Fail "tests\test_image_concurrency.py missing" }
 if (Test-Path $SubmissionPackagePy) { Ok "scripts\package_submission.py found" } else { Fail "scripts\package_submission.py missing" }
 if (Test-Path $EnvironmentSetupPy) { Ok "scripts\environment_setup.py found" } else { Fail "scripts\environment_setup.py missing" }
 
@@ -195,7 +187,7 @@ if (Test-Path $EnvFile) {
     if (Test-Path $EnvExample) { Warn "copy .env.example to .env and fill real values before using image.ai" }
 }
 
-foreach ($scriptName in @("autoflow.py", "environment_setup.py", "capture_frontend_screenshots.py", "generate_diagram_assets.py", "video_process.py", "prepare_blank_template.py", "test_image_concurrency.py", "package_submission.py", "artifact_map.py")) {
+foreach ($scriptName in @("autoflow.py", "environment_setup.py", "capture_frontend_screenshots.py", "generate_diagram_assets.py", "video_process.py", "package_submission.py")) {
     $scriptPath = Join-Path $PSScriptRoot $scriptName
     if (-not (Test-Path $scriptPath)) {
         Fail "$scriptName missing"

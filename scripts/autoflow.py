@@ -75,13 +75,13 @@ def parse_args():
     integrations = subparsers.add_parser("integrations", help="List and audit checked-in integrations")
     integrations.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
 
-    route = subparsers.add_parser("route", help="Resolve local module and methodology Skills for a workflow step")
+    route = subparsers.add_parser("route", help="Resolve local module, backend, and capability files for a workflow step")
     route.add_argument("--workflow", required=True)
     route.add_argument("--step", default="")
     route.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     route_mode = route.add_mutually_exclusive_group()
     route_mode.add_argument("--compact", action="store_true", help="Load only required step guidance (default)")
-    route_mode.add_argument("--full", action="store_true", help="Include optional methodology overlays")
+    route_mode.add_argument("--full", action="store_true", help="Compat alias of compact routing (no methodology overlay loader exists)")
 
     direct_route = subparsers.add_parser(
         "direct-route",
@@ -97,7 +97,7 @@ def parse_args():
     direct_route.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     direct_mode = direct_route.add_mutually_exclusive_group()
     direct_mode.add_argument("--compact", action="store_true", help="Load only required guidance (default)")
-    direct_mode.add_argument("--full", action="store_true", help="Include optional methodology overlays")
+    direct_mode.add_argument("--full", action="store_true", help="Compat alias of compact routing (no methodology overlay loader exists)")
 
     review = subparsers.add_parser(
         "review",
