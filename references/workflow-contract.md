@@ -105,10 +105,11 @@ Complete a step with one `--artifact ID=PATH` for every declared output. AutoFlo
 
 ## Agent-led execution
 
-Normal execution uses compact routing. Optional methodology overlays are
-loaded only with an explicit full route. Run independent ready deterministic
-backends concurrently when they do not share output paths; separate office
-steps (e.g. a word report and a ppt deck) are the primary example.
+Normal execution uses compact routing. Route returns the module file plus the
+declared capability adapter paths only; it never loads a methodology overlay
+or every available Skill. Run independent ready deterministic backends
+concurrently when they do not share output paths; separate office steps (e.g.
+a word report and a ppt deck) are the primary example.
 
 Use `validate --fast` during iteration and `validate --deep` at STOP gates.
 Use `status --timings` to separate active-step time from user gate wait time.
@@ -124,4 +125,7 @@ is eligible for a full end-to-end test claim.
 
 AutoFlow does not contain a generic `run` command. The Agent reads the relevant module file, performs the work with the appropriate tool or Skill, and uses the CLI only to validate and advance state. This keeps human choices and cross-Skill operations visible while preserving deterministic gates and artifact contracts.
 
-Use compact routing by default. It returns the module and minimum required guidance. Use `route --full` only for an explicitly needed methodology overlay; do not load every integrated Skill for every step.
+Use compact routing by default. It returns the module file and the minimum
+required capability guidance. `route --full` exists only as a compat alias of
+compact routing — there is no methodology overlay loader — so call compact
+routing for every step.

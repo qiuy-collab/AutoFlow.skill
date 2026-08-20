@@ -74,9 +74,9 @@ manifest or runtime marked unavailable is a hard capability signal, not
 permission to invent a tool call.
 
 Compact routing includes the module file, fresh verification, and required
-capability adapters. It does not load every available methodology Skill.
-Independent or cross-model review is not part of the default route. Read only
-the local paths returned by the selected route.
+capability adapters. There is no methodology overlay loader — `route --full`
+is a compat alias of compact routing and no longer loads additional files.
+Read only the local paths returned by the selected route.
 
 Frontend project steps may additionally resolve the integrated `impeccable`
 design language and offline detector when the step declares
@@ -180,7 +180,7 @@ Ask AutoFlow which steps are ready:
 python scripts/autoflow.py next --workflow <request-file-dir>/.autoflow/config/workflow.json
 ```
 
-Resolve the local module and methodology route before acting on a ready step:
+Resolve the local module and capability route before acting on a ready step:
 
 ```bash
 python scripts/autoflow.py route --workflow <request-file-dir>/.autoflow/config/workflow.json --step <step-id> --json --compact
