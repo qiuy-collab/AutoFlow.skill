@@ -31,6 +31,11 @@ Use this when the assignment requires a final hand-in archive.
 
 ## Exclusions
 
+The authoritative forbidden list lives in `modules/package.md` (compiled
+programs, build output, editor/tool metadata, AutoFlow run metadata, and
+any other hard rejections enforced by `package_submission.py`). These
+rules complement it:
+
 - Do not include temporary files, lock files, editor leftovers, or logs unless the prompt explicitly requires them.
 - Do not include duplicate intermediate outputs when the prompt only asks for the final deliverables.
 - Do not guess broad packaging scopes such as "zip the whole folder" unless the prompt actually says that.
