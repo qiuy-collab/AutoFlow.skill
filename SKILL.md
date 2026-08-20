@@ -121,7 +121,6 @@ When unsure, do not inflate a clearly small request. Choose managed mode only wh
    - `document`: optional task/image → office(word)
    - `presentation`: optional task/image → office(ppt)
    - `custom`: Agent-authored DAG
-   - `custom`: Agent-authored DAG
 3. Put the durable user request in a UTF-8 file **inside the task project directory** (the directory that owns this task, which may be a subdirectory of the session workspace). Do not rely on conversation memory alone.
 4. Initialize. The run is anchored to the **request file's directory**, not the session workspace root — this keeps `.autoflow/` and `submit/` inside the task project:
 
