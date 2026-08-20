@@ -303,6 +303,23 @@ cache defect.
 - A DELIVERY_STOP-approved run is immutable. Initialize a new revision run for later changes.
 - If the integrated presentation runtime is missing, stop with a capability report rather than silently substituting a user-level or lower-quality backend.
 
+### Failure and recovery
+
+When any command or validation fails, use this table before inventing a workaround. Each row names the trigger, the first-line fix, and the fallback when that fix is not enough.
+
+| Trigger | First-line fix | Fallback if still failing |
+|---|---|---|
+| `init` fails or the recipe cannot be matched | Correct the request file or recipe name and rerun `init` | If `.autoflow/config/` is corrupt or partial, remove the run directory and re-init; never hand-edit generated config |
+| `route` reports a capability `blocked`/`missing` | Run `integrations --json` and repair the declared package (reinstall the binary, restore files) | Stop with a capability report; never substitute a user-level skill or an uninspected external tool |
+| `transition --to completed` rejects an artifact | Recheck the artifact id against `artifact_manifest.json` and pass the exact absolute path | Regenerate the artifact from the module and retry; if the step cannot complete, `--to failed --note ...` and revise the plan |
+| `validate` reports workflow errors | Fix the offending step definition per `workflow-contract.md` and rerun `validate` | Use `validate --deep` to localize the error; restart the step with `revise --step ... --reason ...` if needed |
+| officecli binary or runtime is missing | Install it, then rerun the engine check | Stop with a capability report; never silently fall back to a different document backend |
+| Artifact hash mismatch after completion | Regenerate the artifact by rerunning its module | Use `revise` to supersede the stale artifact; never refresh the manifest hash by hand |
+| A STOP gate is rejected by the user | Record it with `gate --to rejected`, then `revise --step ... --reason ...` before regenerating | If DELIVERY_STOP was already approved, start a new revision run; the approved run is immutable |
+| `sync` fails after editing workflow steps | Fix the step edits and rerun `sync` | Validate with `--deep`; if unrecoverable, re-init with the same request file and re-apply the plan |
+
+See `references/anti-patterns.md` for the complete replacement action for each prohibited state.
+
 ## Prohibited actions and dangerous states
 
 - Do not run tests, migrations, installers, or applications inside `submit/`.
