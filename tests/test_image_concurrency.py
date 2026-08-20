@@ -1,8 +1,12 @@
 import argparse
 import json
+import sys
 import tempfile
 import time
 from pathlib import Path
+
+SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 import generate_images
 

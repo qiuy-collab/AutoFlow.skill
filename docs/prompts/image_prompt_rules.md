@@ -56,6 +56,6 @@ Before writing prompts:
 - Use `2048x1152` for `2K 16:9`.
 - Use `3840x2160` for `4K 16:9`.
 - Do not assume maximum concurrency is supported upstream.
-- Test 2K/4K 16:9 with `scripts/test_image_concurrency.py` when a batch run will be expensive or time-sensitive.
+- Test 2K/4K 16:9 with `tests/test_image_concurrency.py` when a batch run will be expensive or time-sensitive.
 - If high concurrency fails, reduce to the highest passing worker count and record whether the failure came from upstream API rejection, timeout/rate limits, or a local script/config issue.
 - If only part of a batch fails or only a subset needs regeneration after visual review, create and use a supplement config instead of rerunning the full batch.
