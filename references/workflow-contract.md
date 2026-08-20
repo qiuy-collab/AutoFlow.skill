@@ -4,10 +4,11 @@ This contract applies to managed mode only. Direct mode follows `references/exec
 
 ## Run layout
 
-Every new run is created below a user-visible `autoflow/` directory:
+Every new run is created inside the task project directory — the request
+file's directory — with `.autoflow/` directly anchored there:
 
 ```text
-autoflow/
+<task-project>/
 ├── .autoflow/
 │   ├── scripts/                 # task-specific scripts
 │   ├── runtime/                 # managed environments, never packaged
@@ -17,6 +18,8 @@ autoflow/
 │   └── config/                  # workflow and mutable control state
 └── submit/                      # only final deliverables and delivery bundles
 ```
+
+Pass `--output-dir` to place the run elsewhere explicitly.
 
 `workflow.json.directories` is the authoritative path map for the run. Agents
 must use it instead of inventing sibling folders.

@@ -23,7 +23,7 @@ workspace root, so runs land inside the task project even when the workspace
 root is a parent directory. Pass `--output-dir` to place a run elsewhere:
 
 ```text
-<task-project>/autoflow/
+<task-project>/
 ├── .autoflow/
 │   ├── scripts/
 │   ├── runtime/
