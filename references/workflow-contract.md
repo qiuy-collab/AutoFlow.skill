@@ -63,12 +63,6 @@ external tool.
 
 `needs` controls execution order. `inputs` and `outputs` are artifact IDs. `request` is the only built-in input. Output IDs must be unique across the workflow.
 
-Superpowers collaboration routes are opt-in step fields: `parallelizable` or
-`independent_tasks` adds parallel/subagent guidance, `git_worktree` adds
-worktree isolation guidance, and `review_feedback` adds review-reception
-guidance. The flags are recorded in `workflow.json` and resolved to local
-files by `autoflow.py route`.
-
 When `init --recipe auto` is used, `workflow.json.recipe_selection` records the
 selected recipe, matched request signals, selection mode, and reason. This is a
 transparent starting recommendation; it does not approve the plan or bypass
