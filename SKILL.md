@@ -304,7 +304,7 @@ cache defect.
 - If the user rejects a STOP, record it with `autoflow.py gate --to rejected`, then use `autoflow.py revise --step <id> --reason <reason>` before regenerating terminal steps.
 - If an artifact changes after registration, never refresh its hash by hand. Use `revise`; it supersedes target/downstream artifacts, resets requirement evidence, and reopens affected gates.
 - A DELIVERY_STOP-approved run is immutable. Initialize a new revision run for later changes.
-- If the integrated presentation runtime is missing, stop with a capability report rather than silently substituting a user-level or lower-quality backend.
+- If an integrated capability (for example the `officecli` runtime) is missing, stop with a capability report rather than silently substituting a user-level or lower-quality backend.
 
 ### Failure and recovery
 

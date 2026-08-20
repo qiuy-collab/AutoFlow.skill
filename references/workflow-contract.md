@@ -33,8 +33,8 @@ must use it instead of inventing sibling folders.
 - `.autoflow/config/delivery_review.json` records final correctness for every requirement and artifact.
 - `.autoflow/config/WORK_PLAN.md` is the human-readable plan reviewed at `PLAN_STOP`.
 - `.autoflow/intermediate/plans/` contains module-specific plans such as `source_candidates.json` and `package.json`.
-- `workflow.json.capabilities` records the integrated methodology and backend
-  paths resolved during initialization; route decisions must use those paths.
+- `workflow.json.capabilities` records the integrated capability backends and
+  their resolved local paths; route decisions must use those paths.
 - `autoflow.py integrations --json` is the repository-level catalog. It must
   report every directory under `integrations/` with a valid manifest before a
   new external capability is considered routable.
