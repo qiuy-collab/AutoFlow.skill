@@ -38,21 +38,20 @@ root is a parent directory. Pass `--output-dir` to place a run elsewhere:
 ## Integration policy
 
 `integrations/` is the only place for an external Skill or tool that AutoFlow
-has reviewed and made locally callable. Each integration carries its
-upstream/license record and exposes an AutoFlow adapter when its upstream
-entrypoint is not deterministic.
+has reviewed and made locally callable. Each package is self-contained:
+its knowledge (SKILL.md) and its tools (scripts/) travel together, and it
+declares a manifest (`autoflow/integration-manifest/2.0`) with provenance,
+capabilities, and a check entry that probes local run conditions. AutoFlow
+does not re-write usage guidance — the agent reads the package's own SKILL.md.
 
-Current integrated capability families include `nature-figure` and
-`impeccable`. Office document work is not an integration: it runs through the
-external `officecli` binary detected by `scripts/office_engine.py`.
-
-User-level Skills and plugins may be detected as optional adapters, but
-AutoFlow never treats an uninstalled or unverified external package as
-available.
+Current packages: `officecli` (role: engine — the office document binary plus
+its official SKILL.md; `scripts/office_engine.py` is AutoFlow's thin call
+wrapper on top of it), `nature-figure`, and `impeccable`.
 
 Read `references/integration-contract.md` before adding or updating an
-integration. All checked-in integrations must satisfy its self-containment
-fields; partial provenance-only entries are not routable.
+integration. A package whose check reports `missing` or whose manifest is
+invalid is a hard capability signal, never a hint to substitute a user-level
+Skill or plugin.
 
 ## Runtime data
 
