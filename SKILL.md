@@ -64,6 +64,13 @@ To audit all checked-in external capabilities before planning, use:
 python scripts/autoflow.py integrations --json
 ```
 
+To inspect the resolved backend status of every module (office/image/video
+plus the impeccable capability, each with local file paths), use:
+
+```bash
+python scripts/autoflow.py capabilities --json
+```
+
 The command validates each integration manifest against
 `autoflow/integration-manifest/2.0` (name, type, capabilities, check entry,
 provenance fields) and runs the package's own check script to verify local run
