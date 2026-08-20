@@ -8,8 +8,12 @@
       "action": "research",
       "source_policy": "github_first",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["source.plan"],
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "source.plan"
+      ],
       "validator": "source_plan",
       "gate_after": "source"
     },
@@ -19,49 +23,103 @@
       "action": "build",
       "source_policy": "github_first",
       "design_backend": "integrated-impeccable",
-      "needs": ["source"],
-      "inputs": ["request", "source.plan"],
-      "outputs": ["project.source", "task.result", "task.environment"],
+      "needs": [
+        "source"
+      ],
+      "inputs": [
+        "request",
+        "source.plan"
+      ],
+      "outputs": [
+        "project.source",
+        "task.result",
+        "task.environment"
+      ],
       "validator": "artifacts_exist"
     },
     {
       "id": "image",
       "module": "image",
       "action": "capture",
-      "capture_backend": "integrated-webapp-testing",
       "design_backend": "integrated-impeccable",
-      "needs": ["build"],
-      "inputs": ["project.source", "task.result"],
-      "outputs": ["image.assets"],
+      "needs": [
+        "build"
+      ],
+      "inputs": [
+        "project.source",
+        "task.result"
+      ],
+      "outputs": [
+        "image.assets"
+      ],
       "validator": "artifacts_exist",
       "gate_after": "visual"
     },
     {
       "id": "word",
-      "module": "word",
+      "module": "office",
       "action": "create",
-      "needs": ["build", "image"],
-      "inputs": ["request", "project.source", "task.result", "image.assets"],
-      "outputs": ["word.document", "word.validation"],
-      "validator": "word_acceptance"
+      "needs": [
+        "build",
+        "image"
+      ],
+      "inputs": [
+        "request",
+        "project.source",
+        "task.result",
+        "image.assets"
+      ],
+      "outputs": [
+        "office.document",
+        "office.validation"
+      ],
+      "validator": "office_acceptance",
+      "format": "word"
     },
     {
       "id": "ppt",
-      "module": "ppt",
+      "module": "office",
       "action": "create",
-      "needs": ["build", "image"],
-      "inputs": ["request", "project.source", "task.result", "image.assets"],
-      "outputs": ["ppt.presentation"],
-      "validator": "artifacts_exist",
-      "gate_after": "visual"
+      "needs": [
+        "build",
+        "image"
+      ],
+      "inputs": [
+        "request",
+        "project.source",
+        "task.result",
+        "image.assets"
+      ],
+      "outputs": [
+        "office.document",
+        "office.validation"
+      ],
+      "validator": "office_acceptance",
+      "gate_after": "visual",
+      "format": "ppt"
     },
     {
       "id": "package",
       "module": "package",
       "action": "assemble",
-      "needs": ["build", "image", "word", "ppt"],
-      "inputs": ["project.source", "task.result", "image.assets", "word.document", "word.validation", "ppt.presentation"],
-      "outputs": ["package.bundle", "package.manifest"],
+      "needs": [
+        "build",
+        "image",
+        "word",
+        "ppt"
+      ],
+      "inputs": [
+        "project.source",
+        "task.result",
+        "image.assets",
+        "office.document",
+        "office.validation",
+        "office.document"
+      ],
+      "outputs": [
+        "package.bundle",
+        "package.manifest"
+      ],
       "validator": "package_acceptance"
     }
   ]

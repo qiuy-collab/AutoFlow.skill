@@ -14,7 +14,7 @@
       "id": "R2",
       "present": true,
       "correct": true,
-      "evidence_artifacts": ["word.document", "word.validation"],
+      "evidence_artifacts": ["office.document", "office.validation"],
       "notes": "Word 验证和渲染检查通过。"
     }
   ],
@@ -22,8 +22,8 @@
     {"id": "project.source", "present": true, "correct": true, "notes": "可运行项目"},
     {"id": "task.result", "present": true, "correct": true, "notes": "验证记录"},
     {"id": "image.assets", "present": true, "correct": true, "notes": "已批准截图"},
-    {"id": "word.document", "present": true, "correct": true, "notes": "最终报告"},
-    {"id": "word.validation", "present": true, "correct": true, "notes": "报告验收记录"}
+    {"id": "office.document", "present": true, "correct": true, "notes": "最终报告"},
+    {"id": "office.validation", "present": true, "correct": true, "notes": "报告验收记录"}
   ],
   "issues_found": [],
   "overall_pass": true,

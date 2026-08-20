@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 
 
 FORBIDDEN_DIRS = {
+    # VCS / environment / cache
     ".git",
     ".hg",
     ".svn",
@@ -22,6 +23,21 @@ FORBIDDEN_DIRS = {
     ".ruff_cache",
     "node_modules",
     "sent_mails",
+    # compiled build output — never deliverable unless explicitly requested
+    "dist",
+    "build",
+    "target",
+    "out",
+    "bin",
+    "obj",
+    ".next",
+    ".nuxt",
+    ".gradle",
+    # editor / tool metadata
+    ".idea",
+    ".vscode",
+    "coverage",
+    "htmlcov",
 }
 FORBIDDEN_NAMES = {
     ".env",
@@ -31,8 +47,16 @@ FORBIDDEN_NAMES = {
     "db.sqlite3",
     "baseline.sqlite3",
     "production-check.sqlite3",
+    # AutoFlow run metadata must never be published as deliverable content
+    "manifest.json",
+    "artifact_manifest.json",
+    "run_state.json",
+    "delivery_review.json",
+    "requirement_map.json",
+    "workflow.json",
 }
-FORBIDDEN_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".pyc", ".pyo")
+FORBIDDEN_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".pyc", ".pyo", ".exe", ".dll", ".so", ".dylib", ".class", ".o", ".obj")
+FORBIDDEN_NAME_GLOBS = ("*_manifest.json", "*.manifest.json", "*.plan.json")
 
 
 def parse_args():
@@ -80,6 +104,8 @@ def forbidden_reason(rel_path: str) -> str:
         return "sensitive_or_runtime_file"
     if name.endswith(FORBIDDEN_SUFFIXES):
         return "sensitive_or_cache_suffix"
+    if any(fnmatch.fnmatchcase(name, pattern) for pattern in FORBIDDEN_NAME_GLOBS):
+        return "intermediate_metadata"
     return ""
 
 
@@ -175,7 +201,9 @@ def validate_package_plan(config_path: Path, config: dict) -> dict:
 def package_paths(config_path: Path, config: dict) -> tuple[Path, Path, Path]:
     output_zip = normalize_path(config_path.parent, config.get("output_zip", "submit.zip"))
     output_folder = normalize_path(config_path.parent, config.get("output_folder", str(output_zip.parent / "submit")))
-    manifest_path = output_zip.with_name(output_zip.stem + "_manifest.json")
+    # Manifest stays in the run managed area (.autoflow/intermediate/plans/),
+    # not inside submit/ — submit contains only final deliverable content.
+    manifest_path = config_path.parent / (output_zip.stem + "_manifest.json")
     return output_folder, output_zip, manifest_path
 
 
@@ -206,13 +234,14 @@ def verify_package(config_path: Path, config: dict) -> dict:
     with zipfile.ZipFile(output_zip) as archive:
         archive_names = sorted(archive.namelist())
         bad_member = archive.testzip()
-    forbidden = [name for name in archive_names if forbidden_reason(name)]
+    forbidden_folder = [item["archive_path"] for item in folder_records if forbidden_reason(item["archive_path"])]
+    forbidden_archive = [name for name in archive_names if forbidden_reason(name)]
     checks = {
         "manifest_overall_pass": bool(manifest.get("overall_pass")),
         "folder_manifest_match": folder_records == manifest_records,
         "folder_archive_match": folder_names == archive_names,
         "zip_integrity": bad_member is None,
-        "no_sensitive_files": not forbidden,
+        "no_sensitive_files": not forbidden_folder and not forbidden_archive,
     }
     result = {
         "$schema": "autoflow/package-verification/1.0",
@@ -222,6 +251,10 @@ def verify_package(config_path: Path, config: dict) -> dict:
         "manifest": str(manifest_path),
         "file_count": len(folder_names),
         "checks": checks,
+        "forbidden": {
+            "folder": forbidden_folder,
+            "archive": forbidden_archive,
+        },
         "overall_pass": all(checks.values()),
     }
     if not result["overall_pass"]:

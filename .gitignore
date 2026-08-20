@@ -24,3 +24,4 @@ test_output/
 integrations/minimax-docx/**/bin/
 integrations/minimax-docx/**/obj/
 integrations/minimax-docx/.setup.log
+.claude/

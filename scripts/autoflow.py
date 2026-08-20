@@ -3,18 +3,14 @@ import json
 import sys
 from pathlib import Path
 
+from autoflow_core import OFFICE_FORMATS
 from autoflow_core import (
     AutoFlowError,
-    detect_agent_skills_backend,
     approve_gate,
-    detect_engineering_quality_backend,
     detect_impeccable_backend,
     detect_image_backend,
-    detect_ppt_backend,
-    detect_superpowers_backend,
+    detect_office_backend,
     detect_video_backend,
-    detect_webapp_testing_backend,
-    detect_word_backend,
     evaluation_summary,
     integration_catalog,
     gate_review_packet,
@@ -41,7 +37,11 @@ def parse_args():
 
     init = subparsers.add_parser("init", help="Create a new AutoFlow run directory")
     init.add_argument("--request-file", required=True)
-    init.add_argument("--output-dir", required=True)
+    init.add_argument(
+        "--output-dir",
+        default=None,
+        help="Run root directory (defaults to the request file's directory)",
+    )
     init.add_argument("--recipe", default="auto")
 
     for name in ("status", "next", "sync"):
@@ -89,6 +89,11 @@ def parse_args():
     )
     direct_route.add_argument("--module", required=True)
     direct_route.add_argument("--action", required=True)
+    direct_route.add_argument(
+        "--format",
+        choices=sorted(OFFICE_FORMATS),
+        help="Required when --module office: word, ppt, or excel",
+    )
     direct_route.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     direct_mode = direct_route.add_mutually_exclusive_group()
     direct_mode.add_argument("--compact", action="store_true", help="Load only required guidance (default)")
@@ -134,20 +139,16 @@ def main() -> int:
     args = parse_args()
     try:
         if args.command == "init":
-            path = initialize_run(Path(args.request_file), Path(args.output_dir), args.recipe)
+            output_dir = Path(args.output_dir) if args.output_dir else None
+            path = initialize_run(Path(args.request_file), output_dir, args.recipe)
             emit({"status": "initialized", "workflow": str(path)})
             return 0
         if args.command == "capabilities":
             payload = {
                 "$schema": "autoflow/capabilities/1.0",
                     "capabilities": {
-                    "word": detect_word_backend(),
-                    "webapp_testing": detect_webapp_testing_backend(),
-                    "superpowers": detect_superpowers_backend(),
-                    "agent_skills": detect_agent_skills_backend(),
-                    "engineering_quality": detect_engineering_quality_backend(),
+                    "office": detect_office_backend(),
                     "impeccable": detect_impeccable_backend(),
-                    "ppt": detect_ppt_backend(),
                     "video": detect_video_backend(),
                     "image": detect_image_backend(),
                 },
@@ -168,7 +169,7 @@ def main() -> int:
                     print(f"{item['name']}: {item['status']} ({item.get('license', 'unknown')})")
             return 0
         if args.command == "direct-route":
-            payload = route_for_direct(args.module, args.action, compact=not args.full)
+            payload = route_for_direct(args.module, args.action, args.format, compact=not args.full)
             if args.json:
                 emit(payload)
             else:

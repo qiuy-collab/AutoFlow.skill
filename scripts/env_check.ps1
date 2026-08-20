@@ -51,19 +51,6 @@ Write-Host "Root: $Root"
 Write-Host ""
 
 # Check integrated capabilities first; optional Skills are resolved separately.
-$IntegratedWordSkill = Join-Path $Root "integrations\minimax-docx\SKILL.md"
-if (Test-Path $IntegratedWordSkill) {
-    Ok "integrated capability found: minimax-docx ($IntegratedWordSkill)"
-} else {
-    Fail "integrated capability missing: minimax-docx ($IntegratedWordSkill)"
-}
-$IntegratedWebAppSkill = Join-Path $Root "integrations\webapp-testing\SKILL.md"
-$IntegratedWebAppHelper = Join-Path $Root "integrations\webapp-testing\scripts\with_server.py"
-if ((Test-Path $IntegratedWebAppSkill) -and (Test-Path $IntegratedWebAppHelper)) {
-    Ok "integrated capability found: webapp-testing ($IntegratedWebAppSkill)"
-} else {
-    Fail "integrated capability incomplete: webapp-testing ($IntegratedWebAppSkill)"
-}
 $IntegratedImpeccableSkill = Join-Path $Root "integrations\impeccable\SKILL.md"
 $IntegratedImpeccableDetector = Join-Path $Root "integrations\impeccable\scripts\detect.mjs"
 $IntegratedImpeccableAdapter = Join-Path $Root "scripts\impeccable_adapter.mjs"
@@ -74,27 +61,6 @@ if ((Test-Path $IntegratedImpeccableSkill) -and (Test-Path $IntegratedImpeccable
 }
 if (Get-Command node -ErrorAction SilentlyContinue) {
     Ok "node $(& node --version) for integrated impeccable"
-} else {
-    Warn "node not found; project execution must run environment_setup.py ensure before reporting a blocker"
-}
-$IntegratedQualitySkill = Join-Path $Root "integrations\engineering-quality\code-review-and-quality\SKILL.md"
-$IntegratedQualityAdapter = Join-Path $Root "scripts\engineering_quality_adapter.py"
-$IntegratedQualityManifest = Join-Path $Root "integrations\engineering-quality\integration_manifest.json"
-if ((Test-Path $IntegratedQualitySkill) -and (Test-Path $IntegratedQualityAdapter) -and (Test-Path $IntegratedQualityManifest)) {
-    Ok "integrated capability found: engineering-quality ($IntegratedQualitySkill)"
-} else {
-    Fail "integrated capability incomplete: engineering-quality ($IntegratedQualitySkill)"
-}
-$IntegratedPresentationSkill = Join-Path $Root "integrations\presentation-skill\SKILL.md"
-$IntegratedPresentationAdapter = Join-Path $Root "integrations\presentation-skill\scripts\presentation_adapter.py"
-$IntegratedPresentationManifest = Join-Path $Root "integrations\presentation-skill\integration_manifest.json"
-if ((Test-Path $IntegratedPresentationSkill) -and (Test-Path $IntegratedPresentationAdapter) -and (Test-Path $IntegratedPresentationManifest)) {
-    Ok "integrated capability found: presentation-skill ($IntegratedPresentationSkill)"
-} else {
-    Fail "integrated capability incomplete: presentation-skill ($IntegratedPresentationSkill)"
-}
-if (Get-Command node -ErrorAction SilentlyContinue) {
-    Ok "node $(& node --version) for integrated presentation-skill"
 } else {
     Warn "node not found; project execution must run environment_setup.py ensure before reporting a blocker"
 }

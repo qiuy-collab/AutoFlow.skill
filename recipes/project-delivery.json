@@ -8,8 +8,12 @@
       "action": "research",
       "source_policy": "github_first",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["source.plan"],
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "source.plan"
+      ],
       "validator": "source_plan",
       "gate_after": "source"
     },
@@ -19,20 +23,35 @@
       "action": "build",
       "source_policy": "github_first",
       "design_backend": "integrated-impeccable",
-      "needs": ["source"],
-      "inputs": ["request", "source.plan"],
-      "outputs": ["project.source", "task.result", "task.environment"],
+      "needs": [
+        "source"
+      ],
+      "inputs": [
+        "request",
+        "source.plan"
+      ],
+      "outputs": [
+        "project.source",
+        "task.result",
+        "task.environment"
+      ],
       "validator": "artifacts_exist"
     },
     {
       "id": "image",
       "module": "image",
       "action": "capture",
-      "capture_backend": "integrated-webapp-testing",
       "design_backend": "integrated-impeccable",
-      "needs": ["build"],
-      "inputs": ["project.source", "task.result"],
-      "outputs": ["image.assets"],
+      "needs": [
+        "build"
+      ],
+      "inputs": [
+        "project.source",
+        "task.result"
+      ],
+      "outputs": [
+        "image.assets"
+      ],
       "validator": "artifacts_exist",
       "gate_after": "visual"
     },
@@ -40,9 +59,19 @@
       "id": "package",
       "module": "package",
       "action": "assemble",
-      "needs": ["build", "image"],
-      "inputs": ["project.source", "task.result", "image.assets"],
-      "outputs": ["package.bundle", "package.manifest"],
+      "needs": [
+        "build",
+        "image"
+      ],
+      "inputs": [
+        "project.source",
+        "task.result",
+        "image.assets"
+      ],
+      "outputs": [
+        "package.bundle",
+        "package.manifest"
+      ],
       "validator": "package_acceptance"
     }
   ]

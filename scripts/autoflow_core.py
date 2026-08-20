@@ -17,7 +17,7 @@ SCHEMA_VERSION = "1.0"
 RUN_LAYOUT_SCHEMA = "autoflow/run-layout/1.0"
 REQUIREMENT_MAP_SCHEMA = "autoflow/requirement-map/1.0"
 DELIVERY_REVIEW_SCHEMA = "autoflow/delivery-review/1.0"
-WORD_VALIDATION_SCHEMA = "autoflow/word-validation/1.0"
+OFFICE_VALIDATION_SCHEMA = "autoflow/office-validation/1.0"
 VIDEO_VALIDATION_SCHEMA = "autoflow/video-validation/1.0"
 PACKAGE_MANIFEST_SCHEMA = "autoflow/package-manifest/1.0"
 ENVIRONMENT_REPORT_SCHEMA = "autoflow/environment-report/1.0"
@@ -27,19 +27,19 @@ GATE_NAMES = ("plan", "source", "visual", "delivery")
 VALIDATORS = {
     "artifacts_exist",
     "source_plan",
-    "word_acceptance",
+    "office_acceptance",
     "video_acceptance",
     "package_acceptance",
 }
 MODULE_ACTIONS = {
     "task": {"research", "build", "compute", "execute"},
     "image": {"capture", "ai", "diagram", "chart"},
-    "word": {"create", "edit", "fill"},
-    "ppt": {"create", "edit"},
+    "office": {"create", "edit", "fill"},
     "video": {"analyze", "record", "create", "process"},
     "package": {"assemble"},
 }
-VISUAL_MODULES = {"image", "ppt", "video"}
+OFFICE_FORMATS = {"word", "ppt", "excel"}
+VISUAL_MODULES = {"image", "office", "video"}
 HASH_EXCLUDED_DIRS = {
     ".git",
     ".hg",
@@ -52,48 +52,6 @@ HASH_EXCLUDED_DIRS = {
     ".mypy_cache",
     ".ruff_cache",
 }
-SUPERPOWERS_SKILL_NAMES = (
-    "brainstorming",
-    "writing-plans",
-    "test-driven-development",
-    "systematic-debugging",
-    "verification-before-completion",
-    "requesting-code-review",
-    "executing-plans",
-    "finishing-a-development-branch",
-    "dispatching-parallel-agents",
-    "subagent-driven-development",
-    "using-git-worktrees",
-    "receiving-code-review",
-    "using-superpowers",
-)
-ENGINEERING_QUALITY_SKILL_NAMES = (
-    "code-review-and-quality",
-    "security-and-hardening",
-    "performance-optimization",
-    "shipping-and-launch",
-    "documentation-and-adrs",
-    "source-driven-development",
-    "spec-driven-development",
-    "incremental-implementation",
-)
-AGENT_SKILLS_SKILL_NAMES = (
-    "api-and-interface-design",
-    "browser-testing-with-devtools",
-    "ci-cd-and-automation",
-    "code-simplification",
-    "context-engineering",
-    "debugging-and-error-recovery",
-    "deprecation-and-migration",
-    "doubt-driven-development",
-    "frontend-ui-engineering",
-    "git-workflow-and-versioning",
-    "idea-refine",
-    "interview-me",
-    "observability-and-instrumentation",
-    "planning-and-task-breakdown",
-    "using-agent-skills",
-)
 PLAN_REQUIRED_SECTIONS = (
     "## 目标",
     "## 需求与证据",
@@ -338,97 +296,39 @@ def _recipe_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "recipes"
 
 
-def _node_module_status(module: str, root: Path) -> tuple[bool, str]:
-    node = shutil.which("node")
-    if not node:
-        return False, "Node.js executable not found"
-    configured = os.environ.get("PPTX_NODE_MODULES", "").strip()
-    candidates = [Path(configured).expanduser()] if configured else []
-    candidates.extend(
-        [
-            root / "node_modules",
-            Path.cwd() / "node_modules",
-            Path.home() / "codex" / "CascadeProjects" / "pptx_ab_comparison" / "node_modules",
-        ]
-    )
-    paths = [str(path) for path in dict.fromkeys(candidates) if path.is_dir()]
-    env = os.environ.copy()
-    existing = env.get("NODE_PATH", "").strip()
-    env["NODE_PATH"] = os.pathsep.join([*paths, existing]) if paths or existing else ""
-    try:
-        result = subprocess.run(
-            [node, "-e", f"require.resolve({module!r})"],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return False, f"Unable to probe Node module {module}: {exc}"
-    if result.returncode:
-        return False, f'Node module "{module}" is not resolvable'
-    return True, result.stdout.strip()
-
-
-def detect_ppt_backend() -> dict[str, Any]:
+def detect_office_backend() -> dict[str, Any]:
+    """Detect the unified office backend: the officecli binary driven by office_engine.py."""
     root = Path(__file__).resolve().parent.parent
-    integration = root / "integrations" / "presentation-skill"
-    skill_file = integration / "SKILL.md"
-    adapter = integration / "scripts" / "presentation_adapter.py"
-    renderer = integration / "scripts" / "build_deck_pptxgenjs.js"
-    qa = integration / "scripts" / "qa_gate.py"
-    missing_files = [
-        str(path.relative_to(root))
-        for path in (skill_file, adapter, renderer, qa)
-        if not path.is_file()
-    ]
-    if missing_files:
+    engine_script = root / "scripts" / "office_engine.py"
+    validator_script = root / "scripts" / "validate_office.py"
+    if not engine_script.is_file() or not validator_script.is_file():
         return {
             "status": "missing",
-            "backend": "integrated-presentation-skill",
-            "integration_root": str(integration.resolve()),
-            "skill_file": str(skill_file.resolve()) if skill_file.is_file() else "",
-            "adapter": str(adapter.resolve()) if adapter.is_file() else "",
-            "renderer": str(renderer.resolve()) if renderer.is_file() else "",
-            "qa": str(qa.resolve()) if qa.is_file() else "",
+            "backend": "officecli",
+            "integration_root": str(root.resolve()),
+            "engine_script": str(engine_script.resolve()) if engine_script.is_file() else "",
+            "validator_script": str(validator_script.resolve()) if validator_script.is_file() else "",
             "external_skill_required": False,
-            "network_access_required": False,
-            "missing": missing_files,
-            "message": "AutoFlow's integrated presentation-skill files are incomplete.",
+            "message": "AutoFlow's office engine scripts are incomplete. Repair scripts/office_engine.py and scripts/validate_office.py.",
         }
-    node_ok, node_detail = _node_module_status("pptxgenjs", integration)
-    python_pptx_ok = importlib.util.find_spec("pptx") is not None
-    missing_runtime: list[str] = []
-    if not node_ok:
-        missing_runtime.append("pptxgenjs")
-    if not python_pptx_ok:
-        missing_runtime.append("python-pptx")
-    optional_missing = [
-        module
-        for module in ("react", "react-dom/server", "react-icons", "sharp")
-        if not _node_module_status(module, integration)[0]
-    ]
+    try:
+        import office_engine
+
+        report = office_engine.capability()
+    except Exception as exc:  # pragma: no cover - defensive; capability() is deterministic
+        return {
+            "status": "blocked",
+            "backend": "officecli",
+            "integration_root": str(root.resolve()),
+            "engine_script": str(engine_script.resolve()),
+            "validator_script": str(validator_script.resolve()),
+            "external_skill_required": False,
+            "message": f"officecli backend probe failed: {exc}",
+        }
     return {
-        "status": "available" if not missing_runtime else "blocked",
-        "backend": "integrated-presentation-skill",
-        "integration_root": str(integration.resolve()),
-        "skill_file": str(skill_file.resolve()),
-        "adapter": str(adapter.resolve()),
-        "renderer": str(renderer.resolve()),
-        "qa": str(qa.resolve()),
-        "runtime": {
-            "node": shutil.which("node") or "",
-            "pptxgenjs": node_detail,
-            "python_pptx": python_pptx_ok,
-            "soffice": shutil.which("soffice") or "",
-            "pdftoppm": shutil.which("pdftoppm") or "",
-        },
-        "optional_missing": optional_missing,
-        "external_skill_required": False,
-        "network_access_required": False,
-        "missing": missing_runtime,
-        "message": "ready" if not missing_runtime else "Missing runtime: " + ", ".join(missing_runtime),
+        **report,
+        "engine_script": str(engine_script.resolve()),
+        "validator_script": str(validator_script.resolve()),
     }
 
 
@@ -521,12 +421,12 @@ def _image_action_report(action: str, root: Path) -> dict[str, Any]:
         report["missing"] = [] if configured else ["BASEURL", "APIKEY"]
         report["message"] = detail
     elif action == "capture":
-        browser = detect_webapp_testing_backend()
-        report["browser_backend"] = browser
-        report["status"] = browser.get("status", "blocked")
-        report["missing"] = list(browser.get("missing", []))
-        report["message"] = browser.get("message") or (
-            "ready" if report["status"] == "available" else "Browser capture capability is unavailable."
+        playwright_available = importlib.util.find_spec("playwright") is not None
+        report["playwright_available"] = playwright_available
+        report["status"] = "available" if playwright_available else "blocked"
+        report["missing"] = [] if playwright_available else ["playwright"]
+        report["message"] = (
+            "ready" if playwright_available else "Browser capture requires Playwright (pip install playwright)."
         )
     elif action == "diagram":
         renderers = {
@@ -596,285 +496,6 @@ def image_capability_for_action(image: dict[str, Any], action: str) -> dict[str,
     }
 
 
-def detect_word_backend() -> dict[str, Any]:
-    root = Path(__file__).resolve().parent.parent
-    integration = root / "integrations" / "minimax-docx"
-    skill_file = integration / "SKILL.md"
-    project = integration / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli" / "MiniMaxAIDocx.Cli.csproj"
-    engine_script = root / "scripts" / "word_engine.py"
-    dotnet = shutil.which("dotnet")
-    if skill_file.is_file() and project.is_file() and engine_script.is_file():
-        return {
-            "status": "available" if dotnet else "blocked",
-            "backend": "integrated-minimax-docx-core",
-            "integration_root": str(integration.resolve()),
-            "skill_file": str(skill_file.resolve()),
-            "engine_script": str(engine_script.resolve()),
-            "project": str(project.resolve()),
-            "runtime": dotnet or "",
-            "external_skill_required": False,
-            **({} if dotnet else {"message": "The integrated Word core requires the .NET runtime/SDK."}),
-        }
-    return {
-        "status": "missing",
-        "backend": "",
-        "integration_root": str((root / "integrations" / "minimax-docx").resolve()),
-        "skill_file": "",
-        "engine_script": "",
-        "external_skill_required": False,
-        "message": "AutoFlow's integrated minimax-docx core is incomplete. Repair the integrations/minimax-docx directory.",
-    }
-
-
-def detect_webapp_testing_backend() -> dict[str, Any]:
-    root = Path(__file__).resolve().parent.parent
-    integration = root / "integrations" / "webapp-testing"
-    skill_file = integration / "SKILL.md"
-    helper = integration / "scripts" / "with_server.py"
-    playwright_available = importlib.util.find_spec("playwright") is not None
-    if skill_file.is_file() and helper.is_file():
-        return {
-            "status": "available" if playwright_available else "blocked",
-            "backend": "integrated-webapp-testing",
-            "integration_root": str(integration.resolve()),
-            "skill_file": str(skill_file.resolve()),
-            "helper_script": str(helper.resolve()),
-            "playwright_available": playwright_available,
-            **(
-                {}
-                if playwright_available
-                else {"message": "The integrated webapp-testing route requires the Playwright Python package."}
-            ),
-        }
-    return {
-        "status": "missing",
-        "backend": "",
-        "integration_root": str(integration.resolve()),
-        "skill_file": "",
-        "helper_script": "",
-        "playwright_available": playwright_available,
-        "message": "AutoFlow's integrated webapp-testing capability is incomplete. Repair integrations/webapp-testing.",
-    }
-
-
-def detect_superpowers_backend() -> dict[str, Any]:
-    root = Path(__file__).resolve().parent.parent
-    integration = root / "integrations" / "superpowers"
-    skill_files = {
-        name: str((integration / name / "SKILL.md").resolve())
-        for name in SUPERPOWERS_SKILL_NAMES
-    }
-    missing = [name for name, path in skill_files.items() if not Path(path).is_file()]
-    adapter = integration / "AUTOFLOW_ADAPTER.md"
-    manifest = integration / "integration_manifest.json"
-    if not missing and adapter.is_file() and manifest.is_file():
-        return {
-            "status": "available",
-            "backend": "integrated-superpowers",
-            "integration_root": str(integration.resolve()),
-            "skills": list(SUPERPOWERS_SKILL_NAMES),
-            "skill_files": skill_files,
-            "adapter_file": str(adapter.resolve()),
-            "manifest_file": str(manifest.resolve()),
-            "external_skill_required": False,
-        }
-    return {
-        "status": "missing",
-        "backend": "integrated-superpowers",
-        "integration_root": str(integration.resolve()),
-        "skills": list(SUPERPOWERS_SKILL_NAMES),
-        "skill_files": skill_files,
-        "adapter_file": str(adapter.resolve()) if adapter.is_file() else "",
-        "manifest_file": str(manifest.resolve()) if manifest.is_file() else "",
-        "external_skill_required": False,
-        "missing": missing or ["AUTOFLOW_ADAPTER.md", "integration_manifest.json"],
-        "message": "AutoFlow's integrated superpowers subset is incomplete. Repair integrations/superpowers.",
-    }
-
-
-def engineering_quality_skill_names(step: dict[str, Any], status: str = "pending") -> list[str]:
-    """Return the quality guidance appropriate for one workflow step."""
-    del status  # reserved for future state-specific quality routes
-    module = step.get("module")
-    action = step.get("action")
-    if module == "task" and action == "research":
-        return ["spec-driven-development", "source-driven-development"]
-    if module == "task" and action == "build":
-        return [
-            "spec-driven-development",
-            "source-driven-development",
-            "incremental-implementation",
-            "code-review-and-quality",
-            "security-and-hardening",
-            "documentation-and-adrs",
-        ]
-    if module == "task" and action == "execute":
-        return [
-            "source-driven-development",
-            "incremental-implementation",
-            "code-review-and-quality",
-            "security-and-hardening",
-            "documentation-and-adrs",
-        ]
-    if module == "task" and action == "compute":
-        return ["performance-optimization"]
-    if module == "package" and action == "assemble":
-        return ["shipping-and-launch", "documentation-and-adrs"]
-    return []
-
-
-def agent_skills_skill_names(step: dict[str, Any], status: str = "pending") -> list[str]:
-    """Return the curated agent-skills overlay for one routed step.
-
-    A recipe may provide an explicit ``agent_skills`` list for a specialized
-    DAG. Otherwise the resolver supplies a small, deterministic set based on
-    the module/action. This keeps the CLI useful without making the Agent read
-    every integrated Skill for every step.
-    """
-    requested = step.get("agent_skills")
-    if requested is not None:
-        if not isinstance(requested, list) or not all(isinstance(name, str) for name in requested):
-            raise AutoFlowError("Step agent_skills must be an array of Skill names")
-        unknown = sorted(set(requested) - set(AGENT_SKILLS_SKILL_NAMES))
-        if unknown:
-            raise AutoFlowError("Unsupported agent-skills route: " + ", ".join(unknown))
-        names = list(requested)
-    else:
-        module = step.get("module")
-        action = step.get("action")
-        names = ["using-agent-skills"]
-        if module == "task" and action == "research":
-            names.extend(
-                ["interview-me", "idea-refine", "planning-and-task-breakdown", "doubt-driven-development"]
-            )
-        elif module == "task" and action == "build":
-            names.extend(
-                [
-                    "context-engineering",
-                    "planning-and-task-breakdown",
-                    "api-and-interface-design",
-                    "git-workflow-and-versioning",
-                ]
-            )
-            if step.get("design_backend") or step.get("frontend") or step.get("ui"):
-                names.append("frontend-ui-engineering")
-            if step.get("runtime_observability"):
-                names.append("observability-and-instrumentation")
-        elif module == "task" and action == "execute":
-            names.extend(["context-engineering", "observability-and-instrumentation"])
-            if step.get("capture_backend") or step.get("browser_testing"):
-                names.append("browser-testing-with-devtools")
-        elif module == "image" and action == "capture":
-            names.append("browser-testing-with-devtools")
-        elif module == "package" and action == "assemble":
-            names.extend(["git-workflow-and-versioning", "ci-cd-and-automation"])
-        if status in {"blocked", "failed"}:
-            names.append("debugging-and-error-recovery")
-    return list(dict.fromkeys(names))
-
-
-def detect_agent_skills_backend() -> dict[str, Any]:
-    root = Path(__file__).resolve().parent.parent
-    integration = root / "integrations" / "agent-skills"
-    skill_files = {
-        name: str((integration / name / "SKILL.md").resolve())
-        for name in AGENT_SKILLS_SKILL_NAMES
-    }
-    reference_names = (
-        "accessibility-checklist.md",
-        "definition-of-done.md",
-        "observability-checklist.md",
-        "orchestration-patterns.md",
-        "performance-checklist.md",
-        "security-checklist.md",
-        "testing-patterns.md",
-    )
-    reference_files = {
-        name: str((integration / "references" / name).resolve())
-        for name in reference_names
-    }
-    manifest = integration / "integration_manifest.json"
-    adapter = integration / "AUTOFLOW_ADAPTER.md"
-    upstream = integration / "UPSTREAM.md"
-    missing = [name for name, path in skill_files.items() if not Path(path).is_file()]
-    missing.extend(name for name, path in reference_files.items() if not Path(path).is_file())
-    for label, path in (
-        ("integration_manifest.json", manifest),
-        ("AUTOFLOW_ADAPTER.md", adapter),
-        ("UPSTREAM.md", upstream),
-        ("LICENSE", integration / "LICENSE"),
-    ):
-        if not path.is_file():
-            missing.append(label)
-    payload = {
-        "backend": "integrated-agent-skills",
-        "integration_root": str(integration.resolve()),
-        "skill_files": skill_files,
-        "reference_files": reference_files,
-        "manifest_file": str(manifest.resolve()) if manifest.is_file() else "",
-        "adapter_file": str(adapter.resolve()) if adapter.is_file() else "",
-        "upstream_file": str(upstream.resolve()) if upstream.is_file() else "",
-        "network_access_required": False,
-        "external_skill_required": False,
-        "skills": list(AGENT_SKILLS_SKILL_NAMES),
-    }
-    if missing:
-        return {
-            **payload,
-            "status": "missing",
-            "missing": missing,
-            "message": "AutoFlow's integrated agent-skills overlay is incomplete. "
-            "Repair integrations/agent-skills.",
-        }
-    return {**payload, "status": "available"}
-
-
-def detect_engineering_quality_backend() -> dict[str, Any]:
-    root = Path(__file__).resolve().parent.parent
-    integration = root / "integrations" / "engineering-quality"
-    skill_files = {
-        name: str((integration / name / "SKILL.md").resolve())
-        for name in ENGINEERING_QUALITY_SKILL_NAMES
-    }
-    reference_names = (
-        "security-checklist.md",
-        "performance-checklist.md",
-        "accessibility-checklist.md",
-        "definition-of-done.md",
-    )
-    reference_files = {
-        name: str((integration / "references" / name).resolve())
-        for name in reference_names
-    }
-    adapter = root / "scripts" / "engineering_quality_adapter.py"
-    manifest = integration / "integration_manifest.json"
-    missing = [name for name, path in skill_files.items() if not Path(path).is_file()]
-    missing.extend(name for name, path in reference_files.items() if not Path(path).is_file())
-    if not adapter.is_file():
-        missing.append("scripts/engineering_quality_adapter.py")
-    if not manifest.is_file():
-        missing.append("integration_manifest.json")
-    payload = {
-        "backend": "integrated-engineering-quality",
-        "integration_root": str(integration.resolve()),
-        "skill_files": skill_files,
-        "reference_files": reference_files,
-        "adapter_file": str(adapter.resolve()) if adapter.is_file() else "",
-        "manifest_file": str(manifest.resolve()) if manifest.is_file() else "",
-        "network_access_required": False,
-        "external_skill_required": False,
-    }
-    if missing:
-        return {
-            **payload,
-            "status": "missing",
-            "missing": missing,
-            "message": "AutoFlow's integrated engineering-quality subset is incomplete. "
-            "Repair integrations/engineering-quality.",
-        }
-    return {**payload, "status": "available", "skills": list(ENGINEERING_QUALITY_SKILL_NAMES)}
-
-
 def detect_impeccable_backend() -> dict[str, Any]:
     root = Path(__file__).resolve().parent.parent
     integration = root / "integrations" / "impeccable"
@@ -926,73 +547,28 @@ def detect_impeccable_backend() -> dict[str, Any]:
 
 def workflow_capabilities(steps: list[dict[str, Any]]) -> dict[str, Any]:
     return {
-        "superpowers": detect_superpowers_backend(),
-        "agent_skills": detect_agent_skills_backend(),
-        **(
-            {"engineering_quality": detect_engineering_quality_backend()}
-            if any(engineering_quality_skill_names(step) for step in steps)
-            else {}
-        ),
         **(
             {"impeccable": detect_impeccable_backend()}
             if any(step.get("design_backend") == "integrated-impeccable" for step in steps)
             else {}
         ),
-        **({"ppt": detect_ppt_backend()} if any(step.get("module") == "ppt" for step in steps) else {}),
+        **({"office": detect_office_backend()} if any(step.get("module") == "office" for step in steps) else {}),
         **({"video": detect_video_backend()} if any(step.get("module") == "video" for step in steps) else {}),
         **(
             {"image": detect_image_backend([step.get("action", "") for step in steps if step.get("module") == "image"])}
             if any(step.get("module") == "image" for step in steps)
             else {}
         ),
-        **({"word": detect_word_backend()} if any(step.get("module") == "word" for step in steps) else {}),
-        **(
-            {"webapp_testing": detect_webapp_testing_backend()}
-            if any(step.get("capture_backend") == "integrated-webapp-testing" for step in steps)
-            else {}
-        ),
     }
 
 
 def validate_capabilities(workflow: dict[str, Any]) -> None:
-    superpowers = (workflow.get("capabilities") or {}).get("superpowers") or detect_superpowers_backend()
-    if superpowers.get("status") != "available":
-        raise AutoFlowError(
-            "AutoFlow requires its integrated superpowers methodology subset for planning and verification. "
-            "Repair integrations/superpowers before PLAN_STOP approval."
-        )
-    if any(agent_skills_skill_names(step) for step in workflow.get("steps", [])):
-        agent_skills = (workflow.get("capabilities") or {}).get("agent_skills") or detect_agent_skills_backend()
-        skill_files = agent_skills.get("skill_files") or {}
-        skill_files_present = all(Path(str(path)).is_file() for path in skill_files.values())
-        if agent_skills.get("status") != "available" or not skill_files_present:
-            raise AutoFlowError(
-                "Agent-skills routing requires AutoFlow's integrated local overlay. "
-                "Repair integrations/agent-skills before PLAN_STOP approval."
-            )
-    if any(engineering_quality_skill_names(step) for step in workflow.get("steps", [])):
-        quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
-        quality_files = quality.get("skill_files") or {}
-        quality_files_present = all(Path(str(path)).is_file() for path in quality_files.values())
-        if quality.get("status") != "available" or not quality_files_present:
-            raise AutoFlowError(
-                "Engineering-quality routing requires AutoFlow's integrated quality subset. "
-                "Repair integrations/engineering-quality before PLAN_STOP approval."
-            )
     if any(step.get("design_backend") == "integrated-impeccable" for step in workflow.get("steps", [])):
         impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
         if impeccable.get("status") != "available":
             raise AutoFlowError(
                 "Frontend design workflow requires AutoFlow's integrated Impeccable backend and Node.js. "
                 "Repair integrations/impeccable or install Node before PLAN_STOP approval."
-            )
-    if any(step.get("module") == "ppt" for step in workflow.get("steps", [])):
-        ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
-        skill_file = Path(str(ppt.get("skill_file", "")))
-        if ppt.get("status") != "available" or not skill_file.is_file():
-            raise AutoFlowError(
-                "PPT workflow requires AutoFlow's integrated presentation-skill backend and its local runtime. "
-                "Install declared dependencies before PLAN_STOP approval; AutoFlow will not invoke a user-level fallback."
             )
     if any(step.get("module") == "video" for step in workflow.get("steps", [])):
         video = (workflow.get("capabilities") or {}).get("video") or detect_video_backend()
@@ -1013,23 +589,13 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
                     f"Image action {step.get('id')} requires its local backend and runtime. "
                     "Repair the reported capability before PLAN_STOP approval."
                 )
-    if any(step.get("module") == "word" for step in workflow.get("steps", [])):
-        word = (workflow.get("capabilities") or {}).get("word") or detect_word_backend()
-        skill_file = Path(str(word.get("skill_file", "")))
-        if word.get("status") != "available" or not skill_file.is_file():
+    if any(step.get("module") == "office" for step in workflow.get("steps", [])):
+        office = (workflow.get("capabilities") or {}).get("office") or detect_office_backend()
+        if office.get("status") != "available":
             raise AutoFlowError(
-                "Word workflow requires AutoFlow's integrated minimax-docx core and .NET runtime. "
-                "Repair the bundled backend or install dotnet before PLAN_STOP approval; "
-                "AutoFlow will not pretend an external Skill was invoked."
-            )
-    if any(step.get("capture_backend") == "integrated-webapp-testing" for step in workflow.get("steps", [])):
-        capture = (workflow.get("capabilities") or {}).get("webapp_testing") or detect_webapp_testing_backend()
-        skill_file = Path(str(capture.get("skill_file", "")))
-        helper = Path(str(capture.get("helper_script", "")))
-        if capture.get("status") != "available" or not skill_file.is_file() or not helper.is_file():
-            raise AutoFlowError(
-                "Frontend capture workflow requires AutoFlow's integrated webapp-testing capability and Playwright. "
-                "Repair integrations/webapp-testing or install Playwright before PLAN_STOP approval."
+                "Office workflow requires the officecli binary. "
+                "Install officecli (https://d.officecli.ai) or add it to PATH before PLAN_STOP approval; "
+                "AutoFlow will not silently substitute another backend."
             )
 
 
@@ -1164,8 +730,13 @@ def _new_gate(required: bool, active: bool, status: str) -> dict[str, Any]:
     }
 
 
-def initialize_run(request_file: Path, output_dir: Path, recipe_name: str) -> Path:
+def initialize_run(request_file: Path, output_dir: Path | None, recipe_name: str) -> Path:
     request_file = request_file.expanduser().resolve()
+    # The run root is anchored to the task directory, not the session workspace.
+    # Default: the request file's own directory — request files live in the task
+    # project root, so the run is created there instead of the workspace root.
+    if output_dir is None:
+        output_dir = request_file.parent
     output_dir = output_dir.expanduser().resolve()
     if not request_file.is_file():
         raise AutoFlowError(f"Request file does not exist: {request_file}")
@@ -1342,7 +913,7 @@ def validate_workflow_definition(workflow: dict[str, Any]) -> None:
         raise AutoFlowError("Workflow must contain at least one step")
 
     ids: list[str] = []
-    produced: dict[str, str] = {}
+    produced: dict[str, tuple[str, str]] = {}
     for step in steps:
         if not isinstance(step, dict):
             raise AutoFlowError("Every workflow step must be an object")
@@ -1360,33 +931,41 @@ def validate_workflow_definition(workflow: dict[str, Any]) -> None:
         outputs = step.get("outputs", [])
         if not all(isinstance(values, list) for values in (needs, inputs, outputs)):
             raise AutoFlowError(f"Step {step_id} needs/inputs/outputs must be arrays")
-        if "agent_skills" in step:
-            agent_skills_skill_names(step)
         max_attempts = step.get("max_attempts", 3)
         if not isinstance(max_attempts, int) or isinstance(max_attempts, bool) or not 1 <= max_attempts <= 10:
             raise AutoFlowError(f"Step {step_id} max_attempts must be an integer from 1 to 10")
         for artifact_id in outputs:
-            if artifact_id in produced:
-                raise AutoFlowError(
-                    f"Artifact '{artifact_id}' is produced by both {produced[artifact_id]} and {step_id}"
+            producer = produced.get(artifact_id)
+            if producer is not None:
+                producer_step, producer_module = producer
+                shared_office_output = (
+                    module == "office"
+                    and producer_module == "office"
+                    and artifact_id in {"office.document", "office.validation"}
                 )
-            produced[artifact_id] = step_id
+                if not shared_office_output:
+                    raise AutoFlowError(
+                        f"Artifact '{artifact_id}' is produced by both {producer_step} and {step_id}"
+                    )
+            produced[artifact_id] = (step_id, module)
         gate_after = step.get("gate_after")
         if gate_after is not None and gate_after not in {"source", "visual"}:
             raise AutoFlowError(f"Step {step_id} has unsupported gate_after '{gate_after}'")
         validator = step.get("validator")
         if validator not in VALIDATORS:
             raise AutoFlowError(f"Step {step_id} has unsupported validator '{validator}'")
-        if module == "word":
-            if validator != "word_acceptance":
-                raise AutoFlowError(f"Word step {step_id} must use the word_acceptance validator")
-            required_word_outputs = {"word.document", "word.validation"}
-            if not required_word_outputs.issubset(outputs):
+        if module == "office":
+            if step.get("format") not in OFFICE_FORMATS:
+                raise AutoFlowError(f"Office step {step_id} must declare format in {', '.join(sorted(OFFICE_FORMATS))}")
+            if validator != "office_acceptance":
+                raise AutoFlowError(f"Office step {step_id} must use the office_acceptance validator")
+            required_office_outputs = {"office.document", "office.validation"}
+            if not required_office_outputs.issubset(outputs):
                 raise AutoFlowError(
-                    f"Word step {step_id} must declare outputs: {', '.join(sorted(required_word_outputs))}"
+                    f"Office step {step_id} must declare outputs: {', '.join(sorted(required_office_outputs))}"
                 )
-        elif validator == "word_acceptance":
-            raise AutoFlowError(f"Only word steps may use the word_acceptance validator: {step_id}")
+        elif validator == "office_acceptance":
+            raise AutoFlowError(f"Only office steps may use the office_acceptance validator: {step_id}")
         if module == "task" and action == "build":
             required_build_outputs = {"project.source", "task.result", "task.environment"}
             if not required_build_outputs.issubset(outputs):
@@ -1418,7 +997,7 @@ def validate_workflow_definition(workflow: dict[str, Any]) -> None:
         ):
             raise AutoFlowError(f"Step {step_id} may use SOURCE_STOP only for task.research with github_first")
         if gate_after == "visual" and module not in VISUAL_MODULES:
-            raise AutoFlowError(f"Step {step_id} may use VISUAL_STOP only for image, ppt, or video modules")
+            raise AutoFlowError(f"Step {step_id} may use VISUAL_STOP only for image, office, or video modules")
         ids.append(step_id)
 
     known = set(ids)
@@ -1648,8 +1227,9 @@ def _artifact_type(path: Path) -> str:
         return "directory"
     suffix = path.suffix.lower()
     return {
-        ".docx": "word",
-        ".pptx": "ppt",
+        ".docx": "office_document",
+        ".pptx": "office_presentation",
+        ".xlsx": "office_spreadsheet",
         ".png": "image",
         ".jpg": "image",
         ".jpeg": "image",
@@ -1664,35 +1244,35 @@ def _artifact_type(path: Path) -> str:
     }.get(suffix, "file")
 
 
-def validate_word_acceptance(artifacts: dict[str, Path]) -> None:
-    document = artifacts.get("word.document")
-    report_path = artifacts.get("word.validation")
-    if not document or not document.is_file() or document.suffix.lower() != ".docx":
-        raise AutoFlowError("word_acceptance requires word.document as an existing .docx file")
+def validate_office_acceptance(artifacts: dict[str, Path]) -> None:
+    document = artifacts.get("office.document")
+    report_path = artifacts.get("office.validation")
+    if not document or not document.is_file() or document.suffix.lower() not in {".docx", ".pptx", ".xlsx"}:
+        raise AutoFlowError("office_acceptance requires office.document as an existing .docx/.pptx/.xlsx file")
     if not report_path or not report_path.is_file():
-        raise AutoFlowError("word_acceptance requires word.validation as an existing JSON report")
+        raise AutoFlowError("office_acceptance requires office.validation as an existing JSON report")
     report = load_json(report_path)
-    if report.get("$schema") != WORD_VALIDATION_SCHEMA:
-        raise AutoFlowError(f"word.validation must use {WORD_VALIDATION_SCHEMA}")
+    if report.get("$schema") != OFFICE_VALIDATION_SCHEMA:
+        raise AutoFlowError(f"office.validation must use {OFFICE_VALIDATION_SCHEMA}")
     if report.get("overall_pass") is not True:
-        raise AutoFlowError("word.validation.overall_pass must be true")
+        raise AutoFlowError("office.validation.overall_pass must be true")
     recorded = report.get("document") or {}
     recorded_path = Path(str(recorded.get("path", ""))).expanduser().resolve()
     if recorded_path != document.resolve():
-        raise AutoFlowError("word.validation document path does not match word.document")
+        raise AutoFlowError("office.validation document path does not match office.document")
     actual_hash = hash_path(document)
     if recorded.get("sha256") != actual_hash:
-        raise AutoFlowError("word.validation document SHA-256 does not match word.document")
+        raise AutoFlowError("office.validation document SHA-256 does not match office.document")
     checks = report.get("checks")
     if not isinstance(checks, list) or not checks:
-        raise AutoFlowError("word.validation must contain non-empty checks")
+        raise AutoFlowError("office.validation must contain non-empty checks")
     failed = [
         str(item.get("name", "unnamed"))
         for item in checks
         if not isinstance(item, dict) or item.get("status") != "passed"
     ]
     if failed:
-        raise AutoFlowError("word.validation has failed or incomplete checks: " + ", ".join(failed))
+        raise AutoFlowError("office.validation has failed or incomplete checks: " + ", ".join(failed))
 
 
 def validate_video_acceptance(artifacts: dict[str, Path]) -> None:
@@ -1738,9 +1318,15 @@ def validate_package_acceptance(artifacts: dict[str, Path], submit_root: Path | 
         raise AutoFlowError("package.manifest output_zip and output_folder must both exist")
     if submit_root is not None:
         submit_root = submit_root.resolve()
-        published_paths = (bundle.resolve(), manifest_path.resolve(), output_zip, output_folder)
+        # The manifest is run metadata, not deliverable content: it lives in
+        # .autoflow/intermediate/plans/ and is exempt. Only the deliverable
+        # bundle, zip, and folder must stay below submit/.
+        published_paths = (bundle.resolve(), output_zip, output_folder)
         if any(path == submit_root or submit_root not in path.parents for path in published_paths):
-            raise AutoFlowError("Every final package artifact must be located below autoflow/submit/")
+            raise AutoFlowError(
+                "Every final package deliverable (bundle, zip, folder) must be located below autoflow/submit/; "
+                "the package.manifest is run metadata and belongs in .autoflow/intermediate/plans/"
+            )
     if bundle.resolve() not in {output_zip, output_folder}:
         raise AutoFlowError("package.manifest output paths do not include package.bundle")
     files = report.get("files")
@@ -1826,7 +1412,9 @@ def register_step_artifacts(
             details.append("unexpected=" + ",".join(extra))
         raise AutoFlowError(f"Artifacts for step {step['id']} do not match declared outputs: {'; '.join(details)}")
 
-    existing = _manifest_map(manifest)
+    existing = {
+        f"{item['producer']}::{item['id']}": item for item in manifest.get("artifacts", [])
+    }
     consumers = {
         artifact_id: [candidate["id"] for candidate in workflow["steps"] if artifact_id in candidate.get("inputs", [])]
         for artifact_id in expected
@@ -1843,7 +1431,7 @@ def register_step_artifacts(
             "sha256": hash_path(path),
             "validation": {"status": "valid", "validated_at": utc_now()},
         }
-        existing[artifact_id] = record
+        existing[f"{step['id']}::{artifact_id}"] = record
     manifest["artifacts"] = sorted(existing.values(), key=lambda item: item["id"])
     manifest["updated_at"] = utc_now()
 
@@ -2116,8 +1704,8 @@ def transition_step(
     if target == "completed":
         if step.get("module") == "task" and step.get("action") == "build":
             validate_build_completion(artifacts, paths["source_plan"])
-        if step.get("validator") == "word_acceptance":
-            validate_word_acceptance(artifacts)
+        if step.get("validator") == "office_acceptance":
+            validate_office_acceptance(artifacts)
         if step.get("validator") == "video_acceptance":
             validate_video_acceptance(artifacts)
         if step.get("validator") == "package_acceptance":
@@ -2294,13 +1882,15 @@ def revise_step(
 
 def _validate_artifacts(manifest: dict[str, Any], deep: bool = True) -> list[str]:
     errors: list[str] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     for item in manifest.get("artifacts", []):
         artifact_id = item.get("id")
-        if not artifact_id or artifact_id in seen:
+        producer = str(item.get("producer", ""))
+        key = (producer, artifact_id)
+        if not artifact_id or key in seen:
             errors.append(f"Invalid or duplicate artifact id: {artifact_id}")
             continue
-        seen.add(artifact_id)
+        seen.add(key)
         path = Path(str(item.get("path", "")))
         if not path.exists():
             errors.append(f"Artifact path missing: {artifact_id} -> {path}")
@@ -2494,13 +2084,17 @@ def save_run(state: dict[str, Any], manifest: dict[str, Any], paths: dict[str, P
     save_json(paths["manifest"], manifest)
 
 
-def route_for_direct(module: str, action: str, compact: bool = True) -> dict[str, Any]:
+def route_for_direct(module: str, action: str, format_name: str | None = None, compact: bool = True) -> dict[str, Any]:
     """Resolve one local module without creating a managed workflow run."""
     if module not in MODULE_ACTIONS:
         raise AutoFlowError(f"Unknown direct module: {module}")
     if action not in MODULE_ACTIONS[module]:
         allowed = ", ".join(sorted(MODULE_ACTIONS[module]))
         raise AutoFlowError(f"Unknown direct action {module}.{action}; allowed actions: {allowed}")
+    if module == "office" and format_name not in OFFICE_FORMATS:
+        raise AutoFlowError(
+            f"Office direct route requires --format in {', '.join(sorted(OFFICE_FORMATS))}"
+        )
 
     step: dict[str, Any] = {
         "id": "direct",
@@ -2511,8 +2105,8 @@ def route_for_direct(module: str, action: str, compact: bool = True) -> dict[str
         "outputs": [f"{module}.result"],
         "optional": False,
     }
-    if module == "image" and action == "capture":
-        step["capture_backend"] = "integrated-webapp-testing"
+    if module == "office":
+        step["format"] = format_name
 
     workflow = {
         "workflow_id": "direct",
@@ -2548,72 +2142,32 @@ def route_for_workflow(
     else:
         selected = workflow.get("steps", [])
 
-    superpowers = (workflow.get("capabilities") or {}).get("superpowers") or detect_superpowers_backend()
-    agent_skills = (workflow.get("capabilities") or {}).get("agent_skills") or detect_agent_skills_backend()
-    engineering_quality = (workflow.get("capabilities") or {}).get("engineering_quality") or detect_engineering_quality_backend()
-    ppt = (workflow.get("capabilities") or {}).get("ppt") or detect_ppt_backend()
+    office = (workflow.get("capabilities") or {}).get("office") or detect_office_backend()
     video = (workflow.get("capabilities") or {}).get("video") or detect_video_backend()
     image = (workflow.get("capabilities") or {}).get("image") or detect_image_backend()
-    base_names = ["verification-before-completion"] if compact else [
-        "using-superpowers",
-        "brainstorming",
-        "writing-plans",
-        "verification-before-completion",
-    ]
+    impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
     routed_steps: list[dict[str, Any]] = []
     for step in selected:
         status = (state.get("steps", {}).get(step["id"]) or {}).get("status", "pending")
-        names = list(base_names)
-        if not compact and step.get("module") == "task" and step.get("action") in {"build", "execute"}:
-            names.append("test-driven-development")
-            if step.get("parallelizable") or step.get("independent_tasks"):
-                names.append("dispatching-parallel-agents")
-            if step.get("subagent_mode") or step.get("independent_tasks"):
-                names.append("subagent-driven-development")
-            if step.get("git_worktree"):
-                names.append("using-git-worktrees")
-        if not compact and step.get("review_feedback"):
-            names.append("receiving-code-review")
+        names: list[str] = []
         if step.get("design_backend") == "integrated-impeccable":
             names.append("impeccable")
-        if status in {"blocked", "failed"}:
-            names.append("systematic-debugging")
-        if not compact and status in {"ready", "running", "blocked", "failed"}:
-            names.append("executing-plans")
-        if not compact and step.get("module") == "package":
-            names.append("finishing-a-development-branch")
-        agent_names = [] if compact else agent_skills_skill_names(step, status)
-        names.extend(agent_names)
-        quality_names = [] if compact else engineering_quality_skill_names(step, status)
-        names.extend(quality_names)
-        names = list(dict.fromkeys(names))
 
         capability_names: list[str] = []
-        if step.get("module") == "word":
-            capability_names.append("word")
-        if step.get("module") == "ppt":
-            capability_names.append("ppt")
+        if step.get("module") == "office":
+            capability_names.append("office")
         if step.get("module") == "video":
             capability_names.append("video")
         if step.get("module") == "image":
             capability_names.append("image")
-        if step.get("capture_backend") == "integrated-webapp-testing":
-            capability_names.append("webapp_testing")
         if step.get("design_backend") == "integrated-impeccable":
             capability_names.append("impeccable")
-        if agent_names:
-            capability_names.append("agent_skills")
-        if quality_names:
-            capability_names.append("engineering_quality")
-        impeccable = (workflow.get("capabilities") or {}).get("impeccable") or detect_impeccable_backend()
-        agent_files = agent_skills.get("skill_files", {})
-        quality_files = engineering_quality.get("skill_files", {})
         capability_files: list[str] = []
-        if step.get("module") == "ppt":
+        if step.get("module") == "office":
             capability_files = [
-                str(ppt.get(key, ""))
-                for key in ("skill_file", "adapter", "renderer", "qa")
-                if str(ppt.get(key, ""))
+                str(office.get(key, ""))
+                for key in ("engine_script", "validator_script", "exe")
+                if str(office.get(key, ""))
             ]
         if step.get("module") == "video":
             capability_files = [
@@ -2624,13 +2178,6 @@ def route_for_workflow(
         if step.get("module") == "image":
             image_action = (image.get("actions") or {}).get(step.get("action", ""), {})
             capability_files = list(image_action.get("files", []))
-            if step.get("action") == "capture":
-                browser = image_action.get("browser_backend", {})
-                capability_files.extend(
-                    str(browser.get(key, ""))
-                    for key in ("skill_file", "helper_script")
-                    if str(browser.get(key, ""))
-                )
         routed_capabilities = {
             name: (workflow.get("capabilities") or {}).get(name, {})
             for name in capability_names
@@ -2643,20 +2190,18 @@ def route_for_workflow(
                 "module": step["module"],
                 "action": step["action"],
                 "status": status,
-                "module_file": str((root / "modules" / f"{step['module']}.md").resolve()),
+                "module_file": str(
+                    (
+                        root / "modules" / step["module"] / f"{step.get('format', '')}.md"
+                        if step.get("module") == "office"
+                        else root / "modules" / f"{step['module']}.md"
+                    ).resolve()
+                ),
                 "skill_names": names,
                 "skill_files": [
-                    (
-                        impeccable.get("skill_file", "")
-                        if name == "impeccable"
-                        else agent_files.get(name, "")
-                        if name in agent_files
-                        else quality_files.get(name, "")
-                        if name in quality_files
-                        else superpowers.get("skill_files", {}).get(
-                            name, str(root / "integrations" / "superpowers" / name / "SKILL.md")
-                        )
-                    )
+                    impeccable.get("skill_file", "")
+                    if name == "impeccable"
+                    else ""
                     for name in names
                 ],
                 "capability_files": capability_files,
@@ -2670,7 +2215,7 @@ def route_for_workflow(
         "workflow_id": workflow.get("workflow_id", ""),
         "recipe": workflow.get("recipe", ""),
         "mode": "compact" if compact else "full",
-        "global_skill_names": base_names,
+        "global_skill_names": [],
         "steps": routed_steps,
     }
     if step_id:

@@ -23,7 +23,7 @@
       "required": true,
       "weight": 40,
       "acceptance": ["模板结构保留", "无占位符", "图文对应", "学生口吻"],
-      "evidence_artifacts": ["word.document", "word.validation"],
+      "evidence_artifacts": ["office.document", "office.validation"],
       "validation": {"status": "pending", "evidence": ""},
       "notes": ""
     }

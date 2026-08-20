@@ -6,7 +6,7 @@ integrated capabilities, and generated run data.
 ```text
 autoflow/
 ├── SKILL.md                 # compact entrypoint and routing rules
-├── modules/                 # task/image/word/ppt/video/package contracts
+├── modules/                 # task/image/office/video/package contracts (office dispatches by format)
 ├── integrations/            # audited local capability implementations
 ├── scripts/                 # CLI, adapters, validators, and executors
 ├── references/              # workflow contracts, gates, acceptance rules
@@ -17,10 +17,13 @@ autoflow/
 └── evals/                   # skill evaluation prompts
 ```
 
-Each user run remains outside the Skill source tree:
+Each user run remains outside the Skill source tree. A run is anchored to the
+task project directory — the request file's directory — not the session
+workspace root, so runs land inside the task project even when the workspace
+root is a parent directory. Pass `--output-dir` to place a run elsewhere:
 
 ```text
-<workspace>/autoflow/
+<task-project>/autoflow/
 ├── .autoflow/
 │   ├── scripts/
 │   ├── runtime/
@@ -39,11 +42,9 @@ has reviewed and made locally callable. Each integration carries its
 upstream/license record and exposes an AutoFlow adapter when its upstream
 entrypoint is not deterministic.
 
-Current integrated capability families include `minimax-docx`,
-`nature-figure`, `webapp-testing`, `superpowers`, `impeccable`,
-`engineering-quality`, `presentation-skill`, and the file-only `agent-skills`
-overlay. Overlapping routes remain in their original integration to avoid
-duplicate canonical paths.
+Current integrated capability families include `nature-figure` and
+`impeccable`. Office document work is not an integration: it runs through the
+external `officecli` binary detected by `scripts/office_engine.py`.
 
 User-level Skills and plugins may be detected as optional adapters, but
 AutoFlow never treats an uninstalled or unverified external package as

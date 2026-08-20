@@ -7,8 +7,12 @@
       "module": "task",
       "action": "research",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["task.result"],
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "task.result"
+      ],
       "validator": "artifacts_exist",
       "optional": true
     },
@@ -17,20 +21,30 @@
       "module": "image",
       "action": "diagram",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["image.assets"],
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "image.assets"
+      ],
       "validator": "artifacts_exist",
       "gate_after": "visual",
       "optional": true
     },
     {
       "id": "word",
-      "module": "word",
+      "module": "office",
       "action": "create",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["word.document", "word.validation"],
-      "validator": "word_acceptance"
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "office.document",
+        "office.validation"
+      ],
+      "validator": "office_acceptance",
+      "format": "word"
     }
   ]
 }

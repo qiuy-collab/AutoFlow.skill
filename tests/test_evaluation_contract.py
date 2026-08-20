@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import sys
 import tempfile
@@ -14,16 +13,7 @@ SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from autoflow_core import detect_image_backend, evaluation_summary  # noqa: E402
-from word_engine import reusable_report, validation_cache_key  # noqa: E402
-
-
-def load_presentation_adapter():
-    path = ROOT / "integrations" / "presentation-skill" / "scripts" / "presentation_adapter.py"
-    spec = importlib.util.spec_from_file_location("autoflow_presentation_adapter", path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from office_engine import reusable_report, validation_cache_key  # noqa: E402
 
 
 class EvaluationContractTests(unittest.TestCase):
@@ -43,10 +33,11 @@ class EvaluationContractTests(unittest.TestCase):
             "steps": [
                 {
                     "id": "word",
-                    "module": "word",
+                    "module": "office",
                     "action": "fill",
+                    "format": "word",
                     "optional": False,
-                    "outputs": ["word.document", "word.validation"],
+                    "outputs": ["office.document", "office.validation"],
                 }
             ],
         }
@@ -60,7 +51,7 @@ class EvaluationContractTests(unittest.TestCase):
                 "delivery": {"active": True, "status": "pending"},
             },
         }
-        manifest = {"artifacts": [{"id": "word.document"}, {"id": "word.validation"}]}
+        manifest = {"artifacts": [{"id": "office.document"}, {"id": "office.validation"}]}
         report = evaluation_summary(workflow, state, manifest, expected_gate="delivery")
         self.assertEqual(report["outcome"], "checkpoint_pass")
         self.assertTrue(report["artifact_execution_complete"])
@@ -82,7 +73,7 @@ class EvaluationContractTests(unittest.TestCase):
         self.assertEqual(report["status"], "partial")
         self.assertEqual(report["message"], "ai=blocked, capture=available, diagram=available")
 
-    def test_word_validation_cache_requires_exact_inputs(self) -> None:
+    def test_office_validation_cache_requires_exact_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             document = root / "document.docx"
@@ -94,7 +85,7 @@ class EvaluationContractTests(unittest.TestCase):
             report_path.write_text(
                 json.dumps(
                     {
-                        "$schema": "autoflow/word-core-validation/1.0",
+                        "$schema": "autoflow/office-engine-validation/1.0",
                         "overall_pass": True,
                         "cache": {"input_key": key, "hit": False},
                     }
@@ -104,25 +95,6 @@ class EvaluationContractTests(unittest.TestCase):
             self.assertIsNotNone(reusable_report(report_path, key))
             document.write_bytes(b"document-v2")
             self.assertIsNone(reusable_report(report_path, validation_cache_key(document, template, None)))
-
-    def test_presentation_render_cache_invalidates_on_deck_change(self) -> None:
-        adapter = load_presentation_adapter()
-        from pptx import Presentation
-
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            deck = root / "deck.pptx"
-            render_dir = root / "renders"
-            render_dir.mkdir()
-            presentation = Presentation()
-            presentation.slides.add_slide(presentation.slide_layouts[6])
-            presentation.save(deck)
-            (render_dir / "slide-1.png").write_bytes(b"png")
-            adapter._write_render_cache(deck, render_dir, 1)
-            self.assertTrue(adapter._render_cache_valid(deck, render_dir))
-            deck.write_bytes(deck.read_bytes() + b"changed")
-            self.assertFalse(adapter._render_cache_valid(deck, render_dir))
-
 
 if __name__ == "__main__":
     unittest.main()

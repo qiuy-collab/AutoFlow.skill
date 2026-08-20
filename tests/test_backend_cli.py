@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import unittest
@@ -10,33 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class BackendCliSmokeTests(unittest.TestCase):
-    def test_engineering_quality_adapter_routes_locally(self) -> None:
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(ROOT / "scripts" / "engineering_quality_adapter.py"),
-                "route",
-                "--module",
-                "task",
-                "--action",
-                "build",
-                "--json",
-            ],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=30,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, msg=f"quality route failed:\n{result.stdout}\n{result.stderr}")
-        self.assertIn("code-review-and-quality", result.stdout)
-        self.assertIn("security-and-hardening", result.stdout)
-        self.assertIn("spec-driven-development", result.stdout)
-        self.assertIn("incremental-implementation", result.stdout)
-        self.assertIn('"external_skill_required": false', result.stdout)
-
     def test_impeccable_adapter_check(self) -> None:
         result = subprocess.run(
             ["node", str(ROOT / "scripts" / "impeccable_adapter.mjs"), "check"],
@@ -70,14 +44,11 @@ class BackendCliSmokeTests(unittest.TestCase):
             "artifact_map.py",
             "autoflow.py",
             "capture_frontend_screenshots.py",
-            "check_images.py",
             "generate_diagram_assets.py",
             "generate_images.py",
-            "engineering_quality_adapter.py",
             "package_submission.py",
-            "template_adapter.py",
+            "validate_office.py",
             "validate_prompt.py",
-            "validate_word.py",
             "video_process.py",
         )
 
@@ -99,14 +70,9 @@ class BackendCliSmokeTests(unittest.TestCase):
                     msg=f"{script} --help failed:\n{result.stdout}\n{result.stderr}",
                 )
 
-    def test_presentation_adapter_reports_scoped_runtime(self) -> None:
+    def test_office_engine_reports_officecli_capability(self) -> None:
         result = subprocess.run(
-            [
-                sys.executable,
-                str(ROOT / "integrations" / "presentation-skill" / "scripts" / "presentation_adapter.py"),
-                "check",
-                "--json",
-            ],
+            [sys.executable, str(ROOT / "scripts" / "office_engine.py"), "check", "--json"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -115,11 +81,11 @@ class BackendCliSmokeTests(unittest.TestCase):
             timeout=30,
             check=False,
         )
-        self.assertIn(result.returncode, {0, 2})
-        self.assertIn("integrated-presentation-skill", result.stdout)
-        self.assertIn("renderer_status", result.stdout)
-        self.assertIn("qa_status", result.stdout)
-        self.assertIn("windows_powerpoint", result.stdout)
+        self.assertEqual(result.returncode, 0, msg=f"office engine check failed:\n{result.stdout}\n{result.stderr}")
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["backend"], "officecli")
+        self.assertIn(payload["status"], {"available", "blocked", "missing"})
+        self.assertFalse(payload["external_skill_required"])
 
 
 if __name__ == "__main__":

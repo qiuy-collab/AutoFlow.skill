@@ -7,37 +7,64 @@
       "module": "task",
       "action": "execute",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["task.result"],
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "task.result"
+      ],
       "validator": "artifacts_exist"
     },
     {
       "id": "image",
       "module": "image",
       "action": "capture",
-      "capture_backend": "integrated-webapp-testing",
-      "needs": ["task"],
-      "inputs": ["task.result"],
-      "outputs": ["image.assets"],
+      "needs": [
+        "task"
+      ],
+      "inputs": [
+        "task.result"
+      ],
+      "outputs": [
+        "image.assets"
+      ],
       "validator": "artifacts_exist",
       "gate_after": "visual"
     },
     {
       "id": "word",
-      "module": "word",
+      "module": "office",
       "action": "fill",
-      "needs": ["task", "image"],
-      "inputs": ["request", "task.result", "image.assets"],
-      "outputs": ["word.document", "word.validation"],
-      "validator": "word_acceptance"
+      "needs": [
+        "task",
+        "image"
+      ],
+      "inputs": [
+        "request",
+        "task.result",
+        "image.assets"
+      ],
+      "outputs": [
+        "office.document",
+        "office.validation"
+      ],
+      "validator": "office_acceptance",
+      "format": "word"
     },
     {
       "id": "package",
       "module": "package",
       "action": "assemble",
-      "needs": ["word"],
-      "inputs": ["word.document"],
-      "outputs": ["package.bundle", "package.manifest"],
+      "needs": [
+        "word"
+      ],
+      "inputs": [
+        "office.document"
+      ],
+      "outputs": [
+        "package.bundle",
+        "package.manifest"
+      ],
       "validator": "package_acceptance"
     }
   ]

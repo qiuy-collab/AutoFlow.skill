@@ -13,40 +13,9 @@ Every completed step must produce the artifact IDs declared in `workflow.json`. 
 
 Before acting on a task step, run `autoflow.py route --workflow ... --step ...
 --json --compact` and read the returned required files. Compact routing applies
-fresh verification and only guidance required by the current step. Use
-`--full` only when a specific methodology is needed; independent or cross-model
-review is not part of the default route. Full routing may add
-`test-driven-development` to build/execute work and adds `systematic-debugging`
-before retrying a blocked or failed step. These
-are local files under `integrations/superpowers`; do not substitute a missing
-external plugin.
-
-When `--full` is explicitly requested, `task.build` and `task.execute` also add the local
-`engineering-quality` subset: multi-axis code review, security hardening, and
-architecture decision records. For `task.compute`, it adds performance
-optimization guidance. Read the returned files before acting and record the
-review, security, measurement, and decision evidence in the step plan.
-
-For `task.research`, read the spec-driven and source-driven guidance before
-searching GitHub: first make the request testable, then ground framework and
-library decisions in authoritative documentation. For multi-file builds and
-executions, follow incremental implementation and leave each slice runnable
-before starting the next one.
-
-For independent implementation work, the step may declare
-`parallelizable: true` or `independent_tasks: true` to route the local
-`dispatching-parallel-agents` and `subagent-driven-development` Skills. Use
-`git_worktree: true` when the step needs an isolated branch/worktree, and
-`review_feedback: true` when the step is responding to review comments. These
-flags are routing declarations, not permission to skip DAG dependencies or
-verification.
-
-Full routing may also resolve the local `agent-skills` overlay. Research steps add
-interview, idea refinement, planning, and doubt-driven review; build steps add
-context engineering, interface design, planning, and commit discipline; UI
-builds add frontend architecture. Read the exact paths returned by the CLI.
-These are copied local Markdown files, not an invitation to call an uninstalled
-upstream plugin.
+fresh verification and only guidance required by the current step. Read the
+exact paths returned by the CLI; independent or cross-model review is not part
+of the default route.
 
 ## Requirement-driven task selection
 
@@ -67,17 +36,10 @@ For code, websites, applications, systems, databases, or runnable project reques
 
 An unmodified clone is not a completed build.
 
-For frontend work, use the local `integrated-impeccable` design route and the
-local `agent-skills` frontend guidance when the step declares them. Browser
-testing and screenshot evidence use AutoFlow's integrated
-`integrations/webapp-testing` capability; do not resolve a second external
-copy. If a required capability is unavailable, stop at PLAN instead of
-fabricating a call. Verify the real page in a browser before registering
-screenshots or project outputs.
-
 For frontend project builds, use the integrated `impeccable` route when the
 step declares `design_backend: integrated-impeccable`. Resolve its command
-reference and local detector through `scripts/impeccable_adapter.mjs`; do not
+reference and local detector through `scripts/impeccable_adapter.mjs` (in
+`integrations/impeccable/`); do not
 run `npx impeccable`, URL scans, update checks, or plugin hooks.
 
 ## Source plan contract

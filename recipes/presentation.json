@@ -7,8 +7,12 @@
       "module": "task",
       "action": "research",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["task.result"],
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "task.result"
+      ],
       "validator": "artifacts_exist",
       "optional": true
     },
@@ -17,21 +21,31 @@
       "module": "image",
       "action": "diagram",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["image.assets"],
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "image.assets"
+      ],
       "validator": "artifacts_exist",
       "gate_after": "visual",
       "optional": true
     },
     {
       "id": "ppt",
-      "module": "ppt",
+      "module": "office",
       "action": "create",
       "needs": [],
-      "inputs": ["request"],
-      "outputs": ["ppt.presentation"],
-      "validator": "artifacts_exist",
-      "gate_after": "visual"
+      "inputs": [
+        "request"
+      ],
+      "outputs": [
+        "office.document",
+        "office.validation"
+      ],
+      "validator": "office_acceptance",
+      "gate_after": "visual",
+      "format": "ppt"
     }
   ]
 }

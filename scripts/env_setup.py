@@ -196,11 +196,7 @@ def check_dsl_tools(dry_run: bool = False) -> dict:
 # ── phase 3: integrated and optional Skill capabilities ──────────────────────
 SKILL_NAMES: list[str] = []
 INTEGRATED_PATHS = {
-    "minimax-docx": SKILL_ROOT / "integrations" / "minimax-docx" / "SKILL.md",
-    "webapp-testing": SKILL_ROOT / "integrations" / "webapp-testing" / "SKILL.md",
     "impeccable": SKILL_ROOT / "integrations" / "impeccable" / "SKILL.md",
-    "engineering-quality": SKILL_ROOT / "integrations" / "engineering-quality" / "code-review-and-quality" / "SKILL.md",
-    "presentation-skill": SKILL_ROOT / "integrations" / "presentation-skill" / "SKILL.md",
 }
 
 

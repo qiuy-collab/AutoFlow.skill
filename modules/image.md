@@ -32,24 +32,29 @@ call an unverified external Skill.
 Read only the route-specific guidance needed:
 
 - AI assets: `docs/prompts/image_prompt_rules.md`, then use `generate_images.py` and `validate_prompt.py`.
-- Browser evidence: route through AutoFlow's integrated `webapp-testing`
-  capability at `integrations/webapp-testing`. Read its `SKILL.md`, run
-  `scripts/with_server.py --help` before using the helper, and use
-  `capture_frontend_screenshots.py` for the declared capture plan. Verify the
-  app is real and locally reachable first.
+- Browser evidence: use `scripts/capture_frontend_screenshots.py` with a local
+  Playwright runtime for the declared capture plan. Verify the app is real and
+  locally reachable first; a missing or unreachable browser runtime is a
+  `blocked` capability, not a reason to fabricate screenshots.
 - Frontend visual quality: when the step declares
   `design_backend: integrated-impeccable`, use the local Impeccable command
-  reference and detector via `scripts/impeccable_adapter.mjs`. The adapter is
-  offline-only and scans local files; any visual findings become evidence or
-  remediation inputs, not an automatic approval.
+  reference and detector via `scripts/impeccable_adapter.mjs` (in
+  `integrations/impeccable/`). The adapter is offline-only and scans local
+  files; any visual findings become evidence or remediation inputs, not an
+  automatic approval.
 - Diagrams: `docs/prompts/diagram_asset_rules.md`, then use `generate_diagram_assets.py`.
 - Scientific schematics: use `generate_scientific_schematic.py` and validate with `validate_scientific_figure.py`.
 - Publication charts: read `integrations/nature-figure/SKILL.md`, then run its
   local `scripts/plot_templates.py`; do not invoke a user-level nature-figure
   Skill or depend on the separate source checkout.
-- Quality review: `docs/prompts/visual_review_rules.md` and `check_images.py`.
+- Human visual review: `docs/prompts/visual_review_rules.md` — the mandatory
+  human decision step. `VISUAL_STOP` is human-only; the agent must present the
+  images and wait for explicit approval, and must never approve the gate or
+  continue downstream on its own. There is no AI or automatic pre-check:
+  every image goes straight from generation to human review, regardless of
+  route or content.
 
-In managed mode, group a coherent review batch into one image step. Complete it with the generated directory or manifest as its artifact. A step with `gate_after: visual` activates `VISUAL_STOP`; downstream modules cannot consume the visuals until the user approves them.
+In managed mode, group a coherent review batch into one image step. Complete it with the generated directory or manifest as its artifact. A step with `gate_after: visual` activates `VISUAL_STOP`; downstream modules cannot consume the visuals until the user approves them. No automatic quality result may substitute for that approval.
 
 In managed mode before PLAN_STOP, record every planned visual in `requirement_map.json.planned_figures` with a stable id, requirement ids, route, purpose, and expected caption. The number of generated visuals must satisfy this plan. Do not add decorative figures that prove no requirement.
 

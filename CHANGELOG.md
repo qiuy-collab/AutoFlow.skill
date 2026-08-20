@@ -11,6 +11,15 @@
 
 ### Changed
 
+- `submit/` 只接受可直接交付的最终内容：`package_submission.py` 新增硬拒绝——编译产物（`dist`/`build`/`target`/`out`/`bin`/`obj`/`.next`/`.gradle`/`.idea`/`.vscode`/`coverage` 等目录与 `*.exe`/`*.dll`/`*.so`/`*.class` 等后缀）与 AutoFlow 运行元数据（`manifest.json`、`*_manifest.json`、`workflow.json`、`artifact_manifest.json`、`run_state.json` 等）；`--verify-only` 的 `no_sensitive_files` 检查扩展到已发布文件夹（原先只查 zip），并在结果中输出 `forbidden` 明细。
+- 打包 manifest（`autoflow/package-manifest/1.0`）从 `submit/` 移到 `.autoflow/intermediate/plans/`（运行受管区，不再混入交付内容）；`validate_package_acceptance` 相应豁免 `package.manifest` 的 submit 位置约束，bundle/zip/folder 仍必须在 `submit/` 下。
+- 图片验收为纯人工决策：删除 `check_images.py`（AI 视觉预检），任何路由、任何内容生成的图片都不做 AI/自动预检，生成后直接进入人工 `VISUAL_STOP` 审核；`modules/image.md` 同步移除 pre-check 指引。
+- `init` 的 `--output-dir` 改为可选：缺省时 run 锚定到 request 文件所在目录（任务项目根），不再落在会话工作区根目录；显式传参仍可覆盖。SKILL.md 与 `references/directory-layout.md` 同步更新。
+- 文档操作统一为 `office` 模块：`modules/office.md` 统一入口，按 `format` 分发 word/ppt/excel 子模块；产物统一为 `office.document` + `office.validation`，验证器统一为 `office_acceptance`。
+- Word/PPT 处理后端从内嵌 .NET/pptxgenjs 集成重构为 `officecli` 二进制驱动（`scripts/office_engine.py` + `scripts/validate_office.py`），支持 docx/pptx/xlsx 三格式，能力检测为 `detect_office_backend`。
+- 移除 `integrations/minimax-docx` 与 `integrations/presentation-skill`，集成目录只保留仍在使用的集成。
+- 移除 `integrations/superpowers`、`integrations/webapp-testing`、`integrations/agent-skills`、`integrations/engineering-quality` 四个方法论/浏览器集成：路由不再注入外部方法论 Skill（`skill_names`/`global_skill_names` 清空，仅保留本地的 `impeccable` 绑定），`validate_capabilities` 删除对应硬门禁，`image.capture` 路由内联为本地 Playwright 检测（`capture_frontend_screenshots.py`），删除 `scripts/engineering_quality_adapter.py` 与 `env_setup.py`/`env_check.ps1` 中的对应路径项；集成目录仅剩 `nature-figure` 与 `impeccable`。
+- 多 office 步骤（如 word + ppt 双分支 recipe）允许共享 `office.document`/`office.validation` 产物声明，manifest 按 producer 区分登记。
 - 显式调用 AutoFlow 不再强制进入 Managed mode；只有依赖、多模块、源码选型、打包、复杂证据或重要决策才使用完整 DAG。
 - PLAN、SOURCE、VISUAL、DELIVERY 请求确认前必须展示对应计划、候选、实际视觉产物或交付清单及绝对路径。
 - Direct mode 默认最小交付，不再为一张图附带无必要的控制文件、多个导出格式和签收流程。

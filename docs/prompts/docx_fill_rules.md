@@ -1,13 +1,13 @@
 # DOCX Fill Rules
 
-This document defines how `AutoFlow word.fill` should preserve a supplied template shell.
+This document defines how `AutoFlow office.fill` (format `word`) should preserve a supplied template shell.
 
 ## Core policy
 
 - Preserve the template structure and styling intent.
 - Save to a new output file, never overwrite the source template.
-- For structural DOCX work, read and prefer `integrations/minimax-docx/SKILL.md` before writing scripts.
-- Use `python-docx` only for simple paragraph/table fills, simple body cleanup, inspection, or when minimax-docx is unavailable; record the fallback reason.
+- The unified office module drives document work through the `officecli` binary (`scripts/office_engine.py`); never fall back to a user-level Word/Python Skill.
+- After editing, run the office acceptance pipeline (`office_engine.py validate` + `validate_office.py`) and keep the engine report as part of `office.validation`.
 - Plan figures before writing report text.
 - Default target tier is `excellent`.
 - Default report style is figure-supported, not pure-text.
@@ -42,11 +42,10 @@ Four image actions may appear in the same document:
 
 Before editing the document:
 1. Read the template and identify headings, body zones, tables, and figure anchors.
-2. Read `.autoflow/config/workflow.json` and `.autoflow/config/artifact_manifest.json`; use only inputs declared for the Word step.
+2. Read `.autoflow/config/workflow.json` and `.autoflow/config/artifact_manifest.json`; use only inputs declared for the office step.
 3. Confirm all upstream task steps are completed and all consumed artifacts still validate.
 4. If the document consumes image or PPT artifacts, confirm `VISUAL_STOP` is approved.
 5. Read the relevant module plans under `plans/` rather than assuming every route exists.
-6. If a filled reference document must become a blank template, read `reference_template_cleanup_rules.md`.
 7. Combine task outputs with the original request instead of writing a disconnected generic report.
 8. Review the template for directories, field-based tables of contents, sample text, formatting instructions, and reference wording that must be replaced or removed.
 

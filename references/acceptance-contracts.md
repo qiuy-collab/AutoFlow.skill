@@ -16,29 +16,32 @@ Read this reference when preparing PLAN_STOP or DELIVERY_STOP, or when a run inc
 
 Before DELIVERY_STOP approval, set the map status to `verified` and every required validation status to `passed`. The core verifies that mapped evidence exists in `.autoflow/config/artifact_manifest.json`.
 
-## Word plan and report
+## Office plan and report
 
-Write `.autoflow/intermediate/plans/word.json` using schema `autoflow/word-plan/1.0`. For template-based coursework, enable preservation, caption pairing, student voice, and rendered review. Run the integrated OpenXML core first:
+Write `.autoflow/intermediate/plans/office.json` using schema `autoflow/office-plan/1.0`. For template-based coursework, enable preservation, caption pairing, student voice, and rendered review. Run the officecli engine checks first:
 
 ```bash
-python scripts/word_engine.py validate \
-  --document <output.docx> \
+python scripts/office_engine.py validate \
+  --document <output.docx> --format word \
   --template <template.docx> \
-  --report <run>/.autoflow/intermediate/artifacts/word_core_validation.json
+  --report <run>/.autoflow/intermediate/artifacts/office_engine_validation.json
 ```
 
 Then run:
 
 ```bash
-python scripts/validate_word.py \
-  --document <output.docx> \
+python scripts/validate_office.py \
+  --document <output.docx> --format word \
   --template <template.docx> \
-  --plan <run>/.autoflow/intermediate/plans/word.json \
-  --core-report <run>/.autoflow/intermediate/artifacts/word_core_validation.json \
-  --report <run>/.autoflow/intermediate/artifacts/word_validation.json
+  --plan <run>/.autoflow/intermediate/plans/office.json \
+  --engine-report <run>/.autoflow/intermediate/artifacts/office_engine_validation.json \
+  --report <run>/.autoflow/intermediate/artifacts/office_validation.json
 ```
 
-Register both `word.document` and `word.validation`. The core rejects a Word step if the report is failed, incomplete, stale, or refers to a different document hash.
+The same two commands cover `.pptx` (`--format ppt`) and `.xlsx` (`--format excel`).
+Register both `office.document` and `office.validation`. The core rejects an
+office step if the report is failed, incomplete, stale, or refers to a different
+file hash.
 
 ## Video report
 
@@ -46,9 +49,9 @@ Run `video_process.py analyze` after recording, creating, or processing a video.
 
 ## Package manifest
 
-Every `include_paths` item in `.autoflow/intermediate/plans/package.json` must include `requirement_ids`. `package_submission.py` refuses known secret, VCS, cache, key, and Office temporary paths. Its manifest uses `autoflow/package-manifest/1.0` and records hashes, archive names, requirement mappings, and folder/archive equality.
+Every `include_paths` item in `.autoflow/intermediate/plans/package.json` must include `requirement_ids`. `submit/` holds only final deliverable content; `package_submission.py` refuses secret, VCS, cache, key, Office temporary paths, compiled build output (`dist/`, `build/`, `target/`, `out/`, `bin/`, `obj/`, `.next/`, `*.exe`, `*.dll`, `*.class`, …), editor/tool metadata (`.idea/`, `.vscode/`, `coverage/`), and AutoFlow run metadata (`manifest.json`, `*_manifest.json`, `workflow.json`, `artifact_manifest.json`, `run_state.json`, `requirement_map.json`, `delivery_review.json`). Its manifest uses `autoflow/package-manifest/1.0`, is written to `.autoflow/intermediate/plans/` as run metadata, and records hashes, archive names, requirement mappings, and folder/archive equality. `validate_package_acceptance` requires the bundle, zip, and folder below `submit/`; the manifest itself is exempt and lives outside `submit/`.
 
-Run project/source verification before assembly in `.autoflow/intermediate/verification/`. After assembly, run `package_submission.py --verify-only`; this read-only check must confirm manifest/folder hashes, folder/archive equality, ZIP integrity, and zero forbidden files. Any write inside `submit/` invalidates delivery and requires a package revision.
+Run project/source verification before assembly in `.autoflow/intermediate/verification/`. After assembly, run `package_submission.py --verify-only`; this read-only check must confirm manifest/folder hashes, folder/archive equality, ZIP integrity, and zero forbidden files in both the folder and the archive. Any write inside `submit/` invalidates delivery and requires a package revision.
 
 ## Delivery review
 

@@ -54,7 +54,7 @@ AutoFlow 在四个检查点停下。每次请求确认前,必须展示可审核�
 
 ## 模块
 
-`task` · `image` · `word` · `ppt` · `video` · `package`
+`task` · `image` · `office` · `video` · `package`
 
 自由组合成 recipe:`lab-report`、`project-delivery`、`report-and-slides`、`custom` DAG。工作流契约见 [`references/workflow-contract.md`](references/workflow-contract.md)。
 
@@ -68,7 +68,7 @@ AutoFlow 在四个检查点停下。每次请求确认前,必须展示可审核�
 
 ```text
 SKILL.md        路由入口
-modules/        task / image / word / ppt / video / package
+modules/        task / image / office / video / package（office 按 format 分发 word/ppt/excel）
 recipes/        内置 DAG 模板
 references/     工作流、STOP、验收、环境契约
 integrations/   已审计并固定版本的内置能力

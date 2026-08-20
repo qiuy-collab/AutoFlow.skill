@@ -42,41 +42,26 @@ Every step contains:
 
 ```json
 {
-  "id": "word",
-  "module": "word",
+  "id": "office",
+  "module": "office",
+  "format": "word",
   "action": "fill",
   "needs": ["task", "image"],
   "inputs": ["request", "task.result", "image.assets"],
-  "outputs": ["word.document"],
-  "validator": "artifacts_exist",
+  "outputs": ["office.document", "office.validation"],
+  "validator": "office_acceptance",
   "optional": false,
-  "max_attempts": 3,
-  "gate_after": "visual"
+  "max_attempts": 3
 }
 ```
 
 Backend selectors are explicit when a step needs an integrated capability:
-`capture_backend: integrated-webapp-testing` routes browser evidence to the
-bundled Playwright Skill; `design_backend: integrated-impeccable` routes
-frontend design context and local anti-pattern detection to the bundled
-Impeccable adapter. A selector is a capability requirement, not permission to
-silently substitute another external tool.
+`design_backend: integrated-impeccable` routes frontend design context and
+local anti-pattern detection to the bundled Impeccable adapter. A selector is
+a capability requirement, not permission to silently substitute another
+external tool.
 
 `needs` controls execution order. `inputs` and `outputs` are artifact IDs. `request` is the only built-in input. Output IDs must be unique across the workflow.
-
-The local engineering-quality route is selected by step type rather than by a
-network package selector: `task.build`/`task.execute` resolve code review,
-security, ADR, and incremental/source guidance; `task.research` resolves spec
-and source guidance; `task.compute` resolves performance guidance; and
-`package.assemble` resolves shipping and ADR guidance. The resolved files are
-recorded in the CLI route output and must be read before the step runs.
-
-The local `agent-skills` overlay is resolved by the same route contract. It
-always supplies `using-agent-skills`, then adds step-specific planning,
-interface, frontend, browser, observability, migration, CI/CD, or debugging
-guidance. A step may provide an explicit `agent_skills` array, but every name
-must exist in the integrated manifest; AutoFlow never falls back to a remote or
-uninstalled copy.
 
 Superpowers collaboration routes are opt-in step fields: `parallelizable` or
 `independent_tasks` adds parallel/subagent guidance, `git_worktree` adds
@@ -95,12 +80,11 @@ Allowed modules and actions:
 
 - task: research, build, compute, execute
 - image: capture, ai, diagram, chart
-- word: create, edit, fill
-- ppt: create, edit
+- office: create, edit, fill (must also declare `format`: word, ppt, or excel)
 - video: analyze, record, create, process
 - package: assemble
 
-Word steps use `word_acceptance` with `word.document` and `word.validation`. Video steps use `video_acceptance` with `video.media` and `video.validation`. Package steps use `package_acceptance` with `package.bundle` and `package.manifest`. Other steps use `artifacts_exist` unless their module contract defines a stricter report validator.
+Office steps use `office_acceptance` with `office.document` and `office.validation`; `format` dispatches to `modules/office/{word,ppt,excel}.md`. Video steps use `video_acceptance` with `video.media` and `video.validation`. Package steps use `package_acceptance` with `package.bundle` and `package.manifest`. Other steps use `artifacts_exist` unless their module contract defines a stricter report validator.
 
 ## State transitions
 
@@ -129,8 +113,8 @@ Complete a step with one `--artifact ID=PATH` for every declared output. AutoFlo
 
 Normal execution uses compact routing. Optional methodology overlays are
 loaded only with an explicit full route. Run independent ready deterministic
-backends concurrently when they do not share output paths; Word and PPT render
-commands are the primary example.
+backends concurrently when they do not share output paths; separate office
+steps (e.g. a word report and a ppt deck) are the primary example.
 
 Use `validate --fast` during iteration and `validate --deep` at STOP gates.
 Use `status --timings` to separate active-step time from user gate wait time.

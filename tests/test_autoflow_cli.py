@@ -84,13 +84,13 @@ class AutoFlowCliTests(unittest.TestCase):
 生成一份经过结构检查的文档，并保留可复核的计划、需求映射和验证结果。目标、范围和最终文件均在执行前明确，避免用户只看到一个没有内容的确认问题。
 
 ## 需求与证据
-R1 要求文档真实生成并通过验证，证据对应 word.document 与 word.validation，计划文件负责解释验收标准和产出位置。
+R1 要求文档真实生成并通过验证，证据对应 office.document 与 office.validation，计划文件负责解释验收标准和产出位置。
 
 ## 工作流
-使用 document recipe。可选调研和图片步骤按需求跳过，Word 步骤负责创建与验证，所有依赖和输出以 workflow.json 为准。
+使用 document recipe。可选调研和图片步骤按需求跳过，Office 步骤负责创建与验证，所有依赖和输出以 workflow.json 为准。
 
 ## 产物
-最终产物是 Word 文档及其验证报告；路径在执行后登记，计划阶段先声明类型、用途和验收条件。
+最终产物是 Office 文档及其验证报告；路径在执行后登记，计划阶段先声明类型、用途和验收条件。
 
 ## 信息替换
 本测试没有身份信息、模板占位符或其他待替换字段，因此明确记录为无，不猜测用户信息。
@@ -111,7 +111,7 @@ R1 要求文档真实生成并通过验证，证据对应 word.document 与 word
                     "description": "Create and validate the managed document",
                     "required": True,
                     "acceptance": ["Document and validation report exist"],
-                    "evidence_artifacts": ["word.document", "word.validation"],
+                    "evidence_artifacts": ["office.document", "office.validation"],
                     "validation": {"status": "pending", "evidence": ""},
                 }
             ]
@@ -170,7 +170,7 @@ R1 要求文档真实生成并通过验证，证据对应 word.document 与 word
         self.assertEqual(completed.returncode, 0, completed.stderr)
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["$schema"], "autoflow/integrations/1.0")
-        self.assertEqual(len(payload["integrations"]), 8)
+        self.assertEqual({item["name"] for item in payload["integrations"]}, {"impeccable", "nature-figure"})
         self.assertTrue(all(item["status"] == "available" for item in payload["integrations"]))
         self.assertTrue(all(item["self_contained"] for item in payload["integrations"]))
         self.assertTrue(all(item["external_user_skill_required"] is False for item in payload["integrations"]))
@@ -186,14 +186,11 @@ R1 要求文档真实生成并通过验证，证据对应 word.document 与 word
         self.assertEqual(completed.returncode, 0, completed.stderr)
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["$schema"], "autoflow/capabilities/1.0")
-        self.assertEqual(payload["capabilities"]["webapp_testing"]["backend"], "integrated-webapp-testing")
-        self.assertEqual(payload["capabilities"]["superpowers"]["backend"], "integrated-superpowers")
-        self.assertEqual(payload["capabilities"]["agent_skills"]["backend"], "integrated-agent-skills")
-        self.assertEqual(payload["capabilities"]["engineering_quality"]["backend"], "integrated-engineering-quality")
         self.assertEqual(payload["capabilities"]["impeccable"]["backend"], "integrated-impeccable")
-        self.assertEqual(payload["capabilities"]["ppt"]["backend"], "integrated-presentation-skill")
-        self.assertIn(payload["capabilities"]["ppt"]["status"], {"available", "blocked"})
-        self.assertTrue(Path(payload["capabilities"]["ppt"]["skill_file"]).is_file())
+        self.assertEqual(payload["capabilities"]["office"]["backend"], "officecli")
+        self.assertIn(payload["capabilities"]["office"]["status"], {"available", "blocked", "missing"})
+        self.assertTrue(Path(payload["capabilities"]["office"]["engine_script"]).is_file())
+        self.assertTrue(Path(payload["capabilities"]["office"]["validator_script"]).is_file())
         self.assertEqual(payload["capabilities"]["video"]["backend"], "integrated-video-process")
         self.assertIn(payload["capabilities"]["video"]["status"], {"available", "blocked", "missing"})
         self.assertTrue(Path(payload["capabilities"]["video"]["script"]).is_file())
@@ -223,7 +220,7 @@ R1 要求文档真实生成并通过验证，证据对应 word.document 与 word
             payload = json.loads(routed.stdout)
             self.assertEqual(payload["step"]["id"], "build")
             self.assertEqual(payload["mode"], "compact")
-            self.assertIn("verification-before-completion", payload["skill_names"])
+            self.assertIn("impeccable", payload["skill_names"])
             self.assertNotIn("requesting-code-review", payload["skill_names"])
             self.assertNotIn("code-review-and-quality", payload["skill_names"])
             self.assertTrue(all(Path(path).is_file() for path in payload["skill_files"]))
@@ -236,8 +233,7 @@ R1 要求文档真实生成并通过验证，证据对应 word.document 与 word
             self.assertEqual(full.returncode, 0, full.stderr)
             full_payload = json.loads(full.stdout)
             self.assertEqual(full_payload["mode"], "full")
-            self.assertIn("test-driven-development", full_payload["skill_names"])
-            self.assertIn("code-review-and-quality", full_payload["skill_names"])
+            self.assertIn("impeccable", full_payload["skill_names"])
             self.assertNotIn("requesting-code-review", full_payload["skill_names"])
 
     def test_ppt_route_returns_integrated_local_capability_files(self):
@@ -271,8 +267,8 @@ R1 要求文档真实生成并通过验证，证据对应 word.document 与 word
             )
             self.assertEqual(routed.returncode, 0, routed.stderr)
             payload = json.loads(routed.stdout)
-            self.assertIn("ppt", payload["capability_names"])
-            self.assertEqual(payload["capabilities"]["ppt"]["backend"], "integrated-presentation-skill")
+            self.assertIn("office", payload["capability_names"])
+            self.assertEqual(payload["capabilities"]["office"]["backend"], "officecli")
             self.assertTrue(all(Path(path).is_file() for path in payload["capability_files"]))
 
     def test_auto_init_records_a_compound_recipe_recommendation(self):
@@ -346,9 +342,8 @@ R1 要求文档真实生成并通过验证，证据对应 word.document 与 word
                 self.assertEqual(routed.returncode, 0, routed.stderr)
                 payload = json.loads(routed.stdout)
                 self.assertEqual(payload["step"]["id"], step["id"])
-                self.assertTrue(payload["skill_names"])
+                self.assertTrue(all(name == "impeccable" for name in payload["skill_names"]))
                 self.assertNotIn("requesting-code-review", payload["skill_names"])
-                self.assertLessEqual(len(payload["skill_names"]), 3)
                 self.assertTrue(all(Path(path).is_file() for path in payload["skill_files"]))
 
             next_state = subprocess.run(
@@ -360,6 +355,31 @@ R1 要求文档真实生成并通过验证，证据对应 word.document 与 word
             self.assertEqual(next_state.returncode, 0, next_state.stderr)
             self.assertEqual(json.loads(next_state.stdout)["ready_steps"], [])
             self.assertLess(time.monotonic() - started, 10.0, "compact planning/routing regression")
+
+    def test_init_defaults_output_dir_to_request_file_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            task = root / "task-project"
+            task.mkdir()
+            request = task / "request.md"
+            request.write_text("Build a managed report.", encoding="utf-8")
+            # No --output-dir: the run must be created next to the request file
+            # (the task project root), not at the workspace root.
+            initialized = subprocess.run(
+                [sys.executable, str(CLI), "init", "--request-file", str(request), "--recipe", "document"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            workflow = workflow_file(task)
+            self.assertTrue(workflow.is_file())
+            self.assertFalse((root / ".autoflow").exists())
+            payload = json.loads(initialized.stdout)
+            self.assertEqual(payload["workflow"], str(workflow.resolve()))
+            with workflow.open(encoding="utf-8") as handle:
+                data = json.load(handle)
+            self.assertEqual(data["output_dir"], str(task.resolve()))
 
     def test_init_status_and_legacy_error(self):
         with tempfile.TemporaryDirectory() as temp:

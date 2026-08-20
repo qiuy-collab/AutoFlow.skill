@@ -11,18 +11,11 @@ sys.path.insert(0, str(SCRIPTS))
 
 from autoflow_core import (  # noqa: E402
     AutoFlowError,
-    agent_skills_skill_names,
     approve_gate,
-    detect_agent_skills_backend,
-    detect_engineering_quality_backend,
-    detect_ppt_backend,
     detect_impeccable_backend,
     detect_image_backend,
-    detect_superpowers_backend,
+    detect_office_backend,
     detect_video_backend,
-    detect_webapp_testing_backend,
-    detect_word_backend,
-    engineering_quality_skill_names,
     gate_review_packet,
     hash_path,
     integration_catalog,
@@ -85,14 +78,7 @@ class AutoFlowTestCase(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    @patch("autoflow_core.detect_webapp_testing_backend")
-    def init(self, recipe, mocked_webapp_backend):
-        backend = detect_webapp_testing_backend()
-        mocked_webapp_backend.return_value = {
-            **backend,
-            "status": "available",
-            "playwright_available": True,
-        }
+    def init(self, recipe):
         workflow_path = initialize_run(self.request, self.root / "run", recipe)
         workflow, state, manifest, paths = load_run(workflow_path)
         paths["work_plan"].write_text(COMPLETE_PLAN, encoding="utf-8")
@@ -149,21 +135,38 @@ class AutoFlowTestCase(unittest.TestCase):
         for directory in ("scripts", "intermediate", "config", "plans", "artifacts", "submit"):
             self.assertTrue(paths[directory].is_dir(), directory)
 
+    def test_init_defaults_output_dir_to_request_file_directory(self):
+        # Session workspace is the parent of the task project; the request file
+        # lives inside the task project, so the run must be created there and
+        # not at the workspace root.
+        task_project = self.root / "task"
+        task_project.mkdir()
+        request = task_project / "request.md"
+        request.write_text("Build the requested deliverables.", encoding="utf-8")
+        workflow_path = initialize_run(request, None, "document")
+        self.assertEqual(workflow_path, task_project / ".autoflow" / "config" / "workflow.json")
+        self.assertTrue(workflow_path.is_file())
+        workflow, _, _, paths = load_run(workflow_path)
+        self.assertEqual(paths["root"], task_project.resolve())
+        self.assertEqual(workflow["output_dir"], str(task_project.resolve()))
+
     def complete_step(self, workflow, state, manifest, paths, step_id, artifacts):
         refresh_ready(workflow, state)
         transition_step(workflow, state, manifest, paths, step_id, "running", "started", {})
         transition_step(workflow, state, manifest, paths, step_id, "completed", "verified", artifacts)
 
-    def make_word_artifacts(self, base=None):
+    def make_office_artifacts(self, base=None, format_name="word"):
         base = Path(base) if base else self.root
         base.mkdir(parents=True, exist_ok=True)
-        document = base / "result.docx"
+        suffix = {"word": ".docx", "ppt": ".pptx", "excel": ".xlsx"}[format_name]
+        document = base / f"result{suffix}"
         document.write_text("minimal test document", encoding="utf-8")
-        report = base / "word-validation.json"
+        report = base / "office-validation.json"
         save_json(
             report,
             {
-                "$schema": "autoflow/word-validation/1.0",
+                "$schema": "autoflow/office-validation/1.0",
+                "format": format_name,
                 "document": {
                     "path": str(document.resolve()),
                     "sha256": hash_path(document),
@@ -173,7 +176,7 @@ class AutoFlowTestCase(unittest.TestCase):
                 "overall_pass": True,
             },
         )
-        return {"word.document": document, "word.validation": report}
+        return {"office.document": document, "office.validation": report}
 
     def prepare_delivery_review(self, workflow, manifest, paths):
         requirement_map = load_json(paths["requirement_map"])
@@ -213,7 +216,7 @@ class AutoFlowTestCase(unittest.TestCase):
         refresh_ready(workflow, state)
         transition_step(workflow, state, manifest, paths, "task", "skipped", "Not needed", {})
         transition_step(workflow, state, manifest, paths, "image", "skipped", "Not needed", {})
-        self.complete_step(workflow, state, manifest, paths, "word", self.make_word_artifacts(paths["submit"]))
+        self.complete_step(workflow, state, manifest, paths, "word", self.make_office_artifacts(paths["submit"]))
         self.assertTrue(state["gates"]["delivery"]["active"])
         self.assertEqual(state["gates"]["delivery"]["status"], "pending")
         with self.assertRaisesRegex(AutoFlowError, "not marked passed|delivery_review"):
@@ -226,7 +229,7 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertEqual(review["validation_errors"], [])
         self.assertTrue(Path(review["review_file"]).is_absolute())
         self.assertIn("known limitations or an explicit statement that none remain", review["required_display"])
-        approve_gate(workflow, state, manifest, paths, "delivery", "User accepted the Word delivery")
+        approve_gate(workflow, state, manifest, paths, "delivery", "User accepted the Office delivery")
         self.assertEqual(state["status"], "completed")
 
     def test_plan_stop_requires_requirement_evidence_map(self):
@@ -236,12 +239,12 @@ class AutoFlowTestCase(unittest.TestCase):
         with self.assertRaisesRegex(AutoFlowError, "at least one requirement"):
             approve_gate(workflow, state, manifest, paths, "plan", "User approved the plan")
 
-    def test_word_acceptance_rejects_stale_validation_report(self):
+    def test_office_acceptance_rejects_stale_validation_report(self):
         _, workflow, state, manifest, paths = self.init("document")
         transition_step(workflow, state, manifest, paths, "task", "skipped", "Not needed", {})
         transition_step(workflow, state, manifest, paths, "image", "skipped", "Not needed", {})
-        artifacts = self.make_word_artifacts()
-        artifacts["word.document"].write_text("changed after validation", encoding="utf-8")
+        artifacts = self.make_office_artifacts()
+        artifacts["office.document"].write_text("changed after validation", encoding="utf-8")
         refresh_ready(workflow, state)
         transition_step(workflow, state, manifest, paths, "word", "running", "started", {})
         with self.assertRaisesRegex(AutoFlowError, "SHA-256"):
@@ -294,7 +297,10 @@ class AutoFlowTestCase(unittest.TestCase):
         (output_folder / "report.docx").write_text("report", encoding="utf-8")
         bundle = submit_root / "submit.zip"
         bundle.write_text("archive", encoding="utf-8")
-        manifest_path = submit_root / "submit_manifest.json"
+        # The manifest is run metadata: it lives outside submit/, in the run managed area
+        plans_dir = self.root / ".autoflow" / "intermediate" / "plans"
+        plans_dir.mkdir(parents=True)
+        manifest_path = plans_dir / "submit_manifest.json"
         save_json(
             manifest_path,
             {
@@ -342,14 +348,14 @@ class AutoFlowTestCase(unittest.TestCase):
     def test_unpacked_terminal_outputs_must_be_below_submit(self):
         submit_root = self.root / "submit"
         submit_root.mkdir()
-        workflow = {"steps": [{"id": "word", "module": "word", "needs": []}]}
+        workflow = {"steps": [{"id": "word", "module": "office", "format": "word", "needs": []}]}
         step = workflow["steps"][0]
         outside = self.make_artifact("outside.docx", "doc")
         with self.assertRaisesRegex(AutoFlowError, "autoflow/submit"):
-            validate_unpacked_final_locations(workflow, step, {"word.document": outside}, submit_root)
+            validate_unpacked_final_locations(workflow, step, {"office.document": outside}, submit_root)
         inside = submit_root / "report.docx"
         inside.write_text("doc", encoding="utf-8")
-        validate_unpacked_final_locations(workflow, step, {"word.document": inside}, submit_root)
+        validate_unpacked_final_locations(workflow, step, {"office.document": inside}, submit_root)
 
     def test_visual_stop_blocks_word_until_user_approval(self):
         _, workflow, state, manifest, paths = self.init("lab-report")
@@ -572,33 +578,38 @@ class AutoFlowTestCase(unittest.TestCase):
         with self.assertRaises(AutoFlowError):
             sync_planning_state(workflow, state)
 
-    def test_sync_populates_capabilities_for_custom_word_and_ppt_steps(self):
+    def test_sync_populates_capabilities_for_custom_office_steps(self):
         workflow_path = initialize_run(self.request, self.root / "capabilities", "custom")
         workflow, state, _, _ = load_run(workflow_path)
         workflow["steps"] = [
             {
                 "id": "word",
-                "module": "word",
+                "module": "office",
                 "action": "create",
+                "format": "word",
                 "needs": [],
                 "inputs": ["request"],
-                "outputs": ["word.document", "word.validation"],
-                "validator": "word_acceptance",
+                "outputs": ["office.document", "office.validation"],
+                "validator": "office_acceptance",
             },
             {
                 "id": "ppt",
-                "module": "ppt",
+                "module": "office",
                 "action": "create",
+                "format": "ppt",
                 "needs": [],
                 "inputs": ["request"],
-                "outputs": ["ppt.presentation"],
-                "validator": "artifacts_exist",
+                "outputs": ["office.document", "office.validation"],
+                "validator": "office_acceptance",
                 "gate_after": "visual",
             },
         ]
         sync_planning_state(workflow, state)
-        self.assertEqual(workflow["capabilities"]["word"]["status"], "available")
-        self.assertEqual(workflow["capabilities"]["ppt"]["status"], detect_ppt_backend()["status"])
+        self.assertEqual(workflow["capabilities"]["office"]["backend"], "officecli")
+        self.assertEqual(
+            workflow["capabilities"]["office"]["status"],
+            detect_office_backend()["status"],
+        )
 
     def test_legacy_workflow_is_rejected(self):
         run = self.root / "legacy"
@@ -617,16 +628,16 @@ class AutoFlowTestCase(unittest.TestCase):
         errors = validate_run(workflow, state, manifest, paths)
         self.assertTrue(any("changed after validation" in error for error in errors))
 
-    def test_ppt_recipe_discovers_integrated_skill_backend(self):
-        backend = detect_ppt_backend()
-        self.assertIn(backend["status"], {"available", "blocked"})
-        self.assertEqual(backend["backend"], "integrated-presentation-skill")
-        self.assertTrue(Path(backend["skill_file"]).is_file())
-        self.assertTrue(Path(backend["adapter"]).is_file())
+    def test_office_recipe_discovers_officecli_backend(self):
+        backend = detect_office_backend()
+        self.assertIn(backend["status"], {"available", "blocked", "missing"})
+        self.assertEqual(backend["backend"], "officecli")
+        self.assertTrue(Path(backend["engine_script"]).is_file())
+        self.assertTrue(Path(backend["validator_script"]).is_file())
         self.assertFalse(backend["external_skill_required"])
         workflow_path = initialize_run(self.request, self.root / "slides", "presentation")
         workflow = load_json(workflow_path)
-        self.assertEqual(workflow["capabilities"]["ppt"]["status"], backend["status"])
+        self.assertEqual(workflow["capabilities"]["office"]["status"], backend["status"])
 
     def test_video_backend_is_local_and_runtime_checked(self):
         backend = detect_video_backend()
@@ -664,27 +675,17 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertIn("image", route["capability_names"])
         self.assertTrue(all(Path(path).is_file() for path in route["capability_files"]))
 
-    def test_word_recipe_discovers_integrated_backend(self):
-        backend = detect_word_backend()
-        self.assertEqual(backend["status"], "available")
-        self.assertTrue(Path(backend["skill_file"]).is_file())
-        self.assertEqual(backend["backend"], "integrated-minimax-docx-core")
-        self.assertIn("integrations", Path(backend["skill_file"]).parts)
-        self.assertEqual(Path(backend["skill_file"]).parent.name, "minimax-docx")
+    def test_document_recipe_routes_office_word_with_officecli_capability(self):
         workflow_path = initialize_run(self.request, self.root / "word", "document")
         workflow = load_json(workflow_path)
-        self.assertEqual(workflow["capabilities"]["word"]["status"], "available")
-
-    def test_webapp_testing_is_integrated_and_routed_by_capture_steps(self):
-        backend = detect_webapp_testing_backend()
-        self.assertIn(backend["status"], {"available", "blocked"})
-        self.assertEqual(backend["backend"], "integrated-webapp-testing")
-        self.assertTrue(Path(backend["skill_file"]).is_file())
-        self.assertTrue(Path(backend["helper_script"]).is_file())
-        capabilities = workflow_capabilities(
-            [{"module": "image", "capture_backend": "integrated-webapp-testing"}]
+        word_step = next(step for step in workflow["steps"] if step["id"] == "word")
+        self.assertEqual(word_step["module"], "office")
+        self.assertEqual(word_step["format"], "word")
+        self.assertEqual(word_step["validator"], "office_acceptance")
+        self.assertEqual(
+            workflow["capabilities"]["office"]["status"],
+            detect_office_backend()["status"],
         )
-        self.assertIn("webapp_testing", capabilities)
 
     def test_image_route_reports_only_selected_action_capability(self):
         steps = [
@@ -734,118 +735,11 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertEqual(ai_route["capabilities"]["image"]["status"], "blocked")
         self.assertEqual(set(ai_route["capabilities"]["image"]["actions"]), {"ai"})
 
-    def test_superpowers_is_integrated_with_the_required_methodology_subset(self):
-        backend = detect_superpowers_backend()
-        self.assertEqual(backend["status"], "available")
-        self.assertEqual(backend["backend"], "integrated-superpowers")
-        self.assertEqual(set(backend["skills"]), {
-            "brainstorming",
-            "writing-plans",
-            "test-driven-development",
-            "systematic-debugging",
-            "verification-before-completion",
-            "requesting-code-review",
-            "executing-plans",
-            "finishing-a-development-branch",
-            "dispatching-parallel-agents",
-            "subagent-driven-development",
-            "using-git-worktrees",
-            "receiving-code-review",
-            "using-superpowers",
-        })
-        for path in backend["skill_files"].values():
-            self.assertTrue(Path(path).is_file())
-
-    def test_superpowers_collaboration_routes_are_explicit_and_local(self):
-        workflow_path = initialize_run(self.request, self.root / "parallel-route", "custom")
-        workflow, state, _, _ = load_run(workflow_path)
-        workflow["steps"] = [
-            {
-                "id": "build",
-                "module": "task",
-                "action": "build",
-                "needs": [],
-                "inputs": ["request"],
-                "outputs": ["project.source", "task.result", "task.environment"],
-                "validator": "artifacts_exist",
-                "parallelizable": True,
-                "subagent_mode": True,
-                "git_worktree": True,
-                "review_feedback": True,
-            }
-        ]
-        sync_planning_state(workflow, state)
-        route = route_for_workflow(workflow, state, "build", compact=False)
-        for name in (
-            "dispatching-parallel-agents",
-            "subagent-driven-development",
-            "using-git-worktrees",
-            "receiving-code-review",
-            "using-superpowers",
-        ):
-            self.assertIn(name, route["skill_names"])
-        self.assertTrue(all(Path(path).is_file() for path in route["skill_files"]))
-
-    def test_engineering_quality_subset_is_local_and_step_routed(self):
-        backend = detect_engineering_quality_backend()
-        self.assertEqual(backend["status"], "available")
-        self.assertEqual(backend["backend"], "integrated-engineering-quality")
-        self.assertFalse(backend["network_access_required"])
-        self.assertEqual(
-            engineering_quality_skill_names({"module": "task", "action": "build"}),
-            [
-                "spec-driven-development",
-                "source-driven-development",
-                "incremental-implementation",
-                "code-review-and-quality",
-                "security-and-hardening",
-                "documentation-and-adrs",
-            ],
-        )
-        self.assertEqual(
-            engineering_quality_skill_names({"module": "task", "action": "research"}),
-            ["spec-driven-development", "source-driven-development"],
-        )
-        self.assertEqual(
-            engineering_quality_skill_names({"module": "task", "action": "compute"}),
-            ["performance-optimization"],
-        )
-        for path in backend["skill_files"].values():
-            self.assertTrue(Path(path).is_file())
-        for path in backend["reference_files"].values():
-            self.assertTrue(Path(path).is_file())
-
-    def test_agent_skills_overlay_is_local_and_deterministically_routed(self):
-        backend = detect_agent_skills_backend()
-        self.assertEqual(backend["status"], "available")
-        self.assertEqual(backend["backend"], "integrated-agent-skills")
-        self.assertFalse(backend["network_access_required"])
-        self.assertEqual(len(backend["skills"]), 15)
-        self.assertTrue(Path(backend["manifest_file"]).is_file())
-        self.assertTrue(all(Path(path).is_file() for path in backend["skill_files"].values()))
-        self.assertTrue(all(Path(path).is_file() for path in backend["reference_files"].values()))
-        research = agent_skills_skill_names({"module": "task", "action": "research"})
-        self.assertEqual(research[0], "using-agent-skills")
-        self.assertIn("interview-me", research)
-        self.assertIn("planning-and-task-breakdown", research)
-        build = agent_skills_skill_names({"module": "task", "action": "build", "design_backend": "integrated-impeccable"})
-        self.assertIn("api-and-interface-design", build)
-        self.assertIn("frontend-ui-engineering", build)
-
     def test_integration_catalog_audits_every_checked_in_integration(self):
         catalog = integration_catalog()
         self.assertEqual(
             {item["name"] for item in catalog},
-            {
-                "agent-skills",
-                "engineering-quality",
-                "impeccable",
-                "minimax-docx",
-                "nature-figure",
-                "presentation-skill",
-                "superpowers",
-                "webapp-testing",
-            },
+            {"impeccable", "nature-figure"},
         )
         self.assertTrue(all(item["status"] == "available" for item in catalog))
         self.assertTrue(all(item["self_contained"] for item in catalog))
@@ -854,18 +748,6 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertTrue(
             all(item["mode"] in {"integrated_local_runtime", "integrated_instruction_overlay"} for item in catalog)
         )
-        minimax = next(item for item in catalog if item["name"] == "minimax-docx")
-        self.assertEqual(minimax["license"], "MIT")
-        self.assertEqual(minimax["revision"], "60aaae52bb2af8162732751a4332f62a5fef518b")
-        self.assertIn("scripts/word_engine.py", minimax["adapter_paths"])
-
-    def test_missing_agent_skills_overlay_blocks_plan(self):
-        workflow = {
-            "steps": [{"module": "task", "action": "research"}],
-            "capabilities": {"superpowers": detect_superpowers_backend(), "agent_skills": {"status": "missing"}},
-        }
-        with self.assertRaises(AutoFlowError):
-            validate_capabilities(workflow)
 
     def test_auto_recipe_recommends_project_report_and_slides_transparently(self):
         selection = recommend_recipe("学生管理系统源码、论文和答辩PPT")
@@ -884,46 +766,21 @@ class AutoFlowTestCase(unittest.TestCase):
         selection = recommend_recipe("请制作一个真实演示录屏视频并提交可播放文件")
         self.assertEqual(selection["selected"], "video-delivery")
 
-    def test_missing_engineering_quality_blocks_code_plan(self):
-        workflow = {
-            "steps": [{"module": "task", "action": "build"}],
-            "capabilities": {
-                "superpowers": detect_superpowers_backend(),
-                "engineering_quality": {"status": "missing"},
-            },
-        }
-        with self.assertRaises(AutoFlowError):
-            validate_capabilities(workflow)
-        workflow["capabilities"]["engineering_quality"] = {
-            "status": "available",
-            "skill_files": {"code-review-and-quality": str(self.root / "missing-skill.md")},
-        }
-        with self.assertRaises(AutoFlowError):
-            validate_capabilities(workflow)
-
-    def test_route_for_build_step_returns_local_governance_and_module_paths(self):
+    def test_route_for_build_step_returns_module_and_capability_paths(self):
         workflow_path = initialize_run(self.request, self.root / "route", "project-delivery")
         workflow, state, _, _ = load_run(workflow_path)
         route = route_for_workflow(workflow, state, "build", compact=False)
         self.assertEqual(route["step"]["id"], "build")
         self.assertTrue(route["module_file"].endswith("modules\\task.md"))
-        self.assertIn("test-driven-development", route["skill_names"])
-        self.assertIn("verification-before-completion", route["skill_names"])
-        self.assertIn("impeccable", route["skill_names"])
-        self.assertIn("code-review-and-quality", route["skill_names"])
-        self.assertIn("security-and-hardening", route["skill_names"])
-        self.assertIn("documentation-and-adrs", route["skill_names"])
-        self.assertIn("engineering_quality", route["capability_names"])
         self.assertTrue(all(Path(path).is_file() for path in route["skill_files"]))
+        self.assertTrue(all(Path(path).is_file() for path in route["capability_files"]))
 
-    def test_compact_route_skips_cross_agent_review_and_optional_overlays(self):
+    def test_compact_route_skips_optional_skill_overlays(self):
         _, workflow, state, _, _ = self.init("project-delivery")
         route = route_for_workflow(workflow, state, "build")
         self.assertEqual(route["mode"], "compact")
-        self.assertNotIn("requesting-code-review", route["skill_names"])
-        self.assertNotIn("subagent-driven-development", route["skill_names"])
-        self.assertNotIn("code-review-and-quality", route["skill_names"])
-        self.assertIn("verification-before-completion", route["skill_names"])
+        self.assertEqual(route["global_skill_names"], [])
+        self.assertTrue(all(Path(path).is_file() for path in route["skill_files"]))
 
     def test_revise_invalidates_target_downstream_artifacts_and_delivery(self):
         workflow_path = initialize_run(self.request, self.root / "revision", "custom")
