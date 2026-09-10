@@ -12,6 +12,7 @@
 - 新增 `references/integration-contract.md` 文档（旧版从 `integration_manifest.json` 契约更新为 2.0 合约）。
 - 新增注册表单元测试：missing/invalid manifest、check 运行、knowledge-only 包语义。
 - 新增 `references/init.md`：环境初始化提示词驱动的唯一入口（client-neutral），供 Agent 在任意客户端按需检查/安装所选能力环境。
+- 新增浏览器截图 `capture_scope`（viewport/selector/page）与跨平台浏览器检测（PATH 查找 + `AUTOFLOW_BROWSER_PATH`）：一块完整看板可超出单视口高度，不再用长图拼接多个独立看板；视觉审查清单新增规则 8/9，配套 `tests/test_capture_frontend_screenshots.py`。
 
 ### Changed
 
