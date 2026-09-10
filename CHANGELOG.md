@@ -24,12 +24,14 @@
 - 测试：`test_autoflow_core.py` 的 catalog 断言更新为 3 个包 + 新字段（type/capabilities/check_status/role），移除旧字段（self_contained/mode/external_user_skill_required/source_checkout_required）；`test_autoflow_cli.py` 的 integrations 命令断言同步；`test_backend_cli.py` 的 adapter 路径更新为 `integrations/impeccable/scripts/impeccable_adapter.mjs`。
 - 环境初始化从脚本驱动改为提示词驱动：`task.environment` 报告的 `command` 只接受 `agent-init`；direct mode 要求初始化任务工作区（`.autoflow/intermediate`、`.autoflow/runtime`、`submit/`）并在 `submit/` 下交付。SKILL.md、README、modules 与 references 的相关引用全部改指 `references/init.md`。
 - 图片提示词质检 API 配置从 `AGNES_*` 通用化为 `VALIDATOR_BASEURL`/`VALIDATOR_APIKEY`/`VALIDATOR_MODEL`：任意 OpenAI 兼容端点均可作为质检上游，供应商与模型由用户自配；三项缺一时 `validate_prompt.py` 明确报错，不再内置默认模型名。
+- `docs/prompts/docx_fill_rules.md` 新增排版与填充效果章节：文本质量、间距与填充位置、字号层级、行距留白、标题层级、中文字体与全半角标点、图注格式、整体规整性——全部为原则级约束，跟随模板既有体系，不引入凭空数值。
 
 ### Removed
 
 - 删除 `integrations/impeccable/AUTOFLOW_ADAPTER.md`（adapter 模式已废弃）。
 - 删除 `integrations/impeccable/integration_manifest.json` 与 `integrations/nature-figure/integration_manifest.json`（1.0 旧契约，以 `manifest.json` 2.0 取代）。
 - 删除 `scripts/env_check.ps1`、`scripts/environment_setup.py` 与 `tests/test_environment_setup.py`：脚本驱动环境初始化退役，由 `references/init.md` 提示词驱动流程取代。
+- 删除 `docs/prompts/visual_review_rules.md`：视觉审查已定为纯人工决策（VISUAL_STOP human-only），不存在 AI 审查读者；其中 capture_scope 看板边界规则已在 `modules/image.md` 完整覆盖。
 - 新增 `autoflow.py direct-route` 与 `autoflow.py review`，分别用于轻量本地能力路由和四类 STOP 审核信息包。
 
 ### Changed

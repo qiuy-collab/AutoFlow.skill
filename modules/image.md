@@ -55,8 +55,7 @@ Read only the route-specific guidance needed:
   it, running the package's own `scripts/plot_templates.py` — usage knowledge
   lives in the package, AutoFlow does not re-document it. Do not invoke a
   user-level nature-figure Skill or depend on the separate source checkout.
-- Human visual review: `docs/prompts/visual_review_rules.md` — the mandatory
-  human decision step. `VISUAL_STOP` is human-only; the agent must present the
+- Human visual review: `VISUAL_STOP` is human-only; the agent must present the
   images and wait for explicit approval, and must never approve the gate or
   continue downstream on its own. There is no AI or automatic pre-check:
   every image goes straight from generation to human review, regardless of

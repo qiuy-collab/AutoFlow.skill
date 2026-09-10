@@ -49,6 +49,42 @@ Before editing the document:
 7. Combine task outputs with the original request instead of writing a disconnected generic report.
 8. Review the template for directories, field-based tables of contents, sample text, formatting instructions, and reference wording that must be replaced or removed.
 
+## Typography and fill-quality rules
+
+These are principle-level constraints for how filled content should look. Follow
+the template's own typographic system as the source of truth; never invent
+specific numeric values (font sizes, spacings, margins) that the template or the
+user request does not provide.
+
+- Text quality: filled text reads as finished document prose in the required
+  voice — grammatical, complete sentences, no placeholder fragments, no
+  tool/agent narration, no untranslated drafting notes.
+- Placement correctness: content goes into the correct anchors identified during
+  pre-work; nothing lands in headers/footers/TOC areas by accident; fills never
+  push template layout out of shape.
+- Spacing: paragraph spacing, indentation, and the whitespace around figures,
+  tables, and captions stay visually even and follow the template's existing
+  rhythm — no cramped runs and no randomly blank stretches.
+- Font-size hierarchy: body text, headings, captions, and table text each keep
+  one consistent size role across the whole document, taken from the template's
+  existing hierarchy. The same role never mixes sizes.
+- Line spacing and white space: line spacing and margins stay uniform throughout;
+  do not override the template's spacing unless the request requires it, and then
+  apply the override consistently everywhere.
+- Heading levels: respect the template's heading hierarchy; do not skip, flatten,
+  or duplicate levels; numbering style (if any) follows the template's convention
+  and stays sequential.
+- Chinese fonts and punctuation: keep the template's Chinese font settings;
+  use full-width punctuation for Chinese text and half-width for embedded Latin
+  words, numbers, and code; never mix full/half-width styles for the same kind
+  of punctuation within the document; no stray spaces around Chinese punctuation.
+- Caption format: every caption follows the template's caption style (position,
+  numbering scheme, ending punctuation); caption numbers stay unique and in
+  order; captions match the figure they anchor.
+- Overall regularity: the finished document should look uniform and deliberate —
+  aligned elements, consistent styles across sections, no half-filled or
+  style-drifting regions. When in doubt, match the template instead of inventing.
+
 ## Figure rules
 
 - If the template already contains image placeholders, reuse them.
