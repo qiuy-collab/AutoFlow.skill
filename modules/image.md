@@ -4,7 +4,7 @@ Use this module for visual artifacts. Computation belongs to `task.compute`; thi
 
 ## Direct mode
 
-A small request for one visual artifact family—such as one ER diagram with `.mmd`, `.svg`, and `.png` representations—runs directly. Resolve it with `autoflow.py direct-route --module image --action <action>`, read only the returned files, render, validate, and deliver it. Do not create a workflow, plan, requirement map, manifest, forced `submit/`, or PLAN/VISUAL/DELIVERY STOP for this case.
+A small request for one visual artifact family—such as one ER diagram with `.mmd`, `.svg`, and `.png` representations—runs directly. Use [environment initialization](../references/init.md) for environment setup, then initialize the direct workspace required by `SKILL.md`, including `.autoflow/intermediate`, `.autoflow/runtime`, and `submit/`. Resolve it with `autoflow.py direct-route --module image --action <action>`, read only the returned files, render, validate, and deliver it below `submit/`. Do not select a recipe or create workflow config, plans, manifests, or PLAN/VISUAL/DELIVERY STOP for this case.
 
 The quality rules below still apply in direct mode. Generate only the requested formats. If no format is specified, prefer one broadly viewable final such as PNG; retain editable DSL or additional SVG/PDF exports only when requested or materially needed. Validation can remain internal rather than becoming another delivery file. Show the finished visual and report its path and validation once; do not ask for a second approval unless the user explicitly requested an iterative review.
 

@@ -62,9 +62,8 @@ Skill or plugin.
 - `.autoflow/intermediate/verification/` stores isolated test copies, temporary
   databases, migration state, and smoke-test output. Verification must not run
   inside `submit/`.
-- `.autoflow/runtime/` stores managed environments and dependency caches made by
-  `environment_setup.py`. It must remain outside every registered source
-  artifact.
+- `.autoflow/runtime/` stores Agent-managed environments and dependency caches.
+  It must remain outside every registered source artifact.
 - `.autoflow/scripts/` stores scripts specific to one run; shared executors stay
   in this Skill's `scripts/` directory.
 - `submit/` contains only frozen final deliverables intended for handoff.

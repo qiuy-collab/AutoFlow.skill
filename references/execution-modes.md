@@ -14,13 +14,17 @@ Direct mode is the default for a small request when all conditions below hold:
 
 Multiple representations of the same artifact are one family. For example, Mermaid source plus SVG and PNG exports are one diagram, not three workflow deliverables.
 
-Direct mode must not create `.autoflow/`, `workflow.json`, `WORK_PLAN.md`, `requirement_map.json`, `artifact_manifest.json`, `delivery_review.json`, or a forced `submit/` directory. Resolve the local route with:
+Direct mode uses [environment initialization](init.md) only for environment preparation. It must initialize
+the task workspace with `.autoflow/intermediate`, `.autoflow/runtime`, and
+`submit/`, then resolve the local route. It does not select a recipe or create
+`.autoflow/config/workflow.json`, `WORK_PLAN.md`, `requirement_map.json`,
+`artifact_manifest.json`, `delivery_review.json`, or approval gates:
 
 ```bash
 python scripts/autoflow.py direct-route --module image --action diagram --json
 ```
 
-Then read the returned module/capability files, perform the task, validate the output, and report the artifact path. Generate the minimum output set that satisfies the request. If the user did not ask for editable source, multiple export formats, a manifest, or a validation report, do not present those as extra deliverables; keep renderer-required temporary files ephemeral where practical. Direct mode has no PLAN, SOURCE, VISUAL, or DELIVERY STOP. A preview requested by the user is feedback, not a workflow approval gate.
+Then read the returned module/capability files, perform the task, validate the output, and report the artifact path below `submit/`. Generate the minimum output set that satisfies the request. If the user did not ask for editable source, multiple export formats, a manifest, or a validation report, do not present those as extra deliverables; keep renderer-required temporary files ephemeral where practical. Direct mode has no PLAN, SOURCE, VISUAL, or DELIVERY STOP. A preview requested by the user is feedback, not a workflow approval gate.
 
 Examples:
 

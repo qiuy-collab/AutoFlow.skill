@@ -11,6 +11,7 @@
 - 新增 `integrations/nature-figure/scripts/check.py` 与 `integrations/impeccable/scripts/check.py`：分别探测 Python 依赖和 Node.js 可用性（manifest 2.0 升级）。
 - 新增 `references/integration-contract.md` 文档（旧版从 `integration_manifest.json` 契约更新为 2.0 合约）。
 - 新增注册表单元测试：missing/invalid manifest、check 运行、knowledge-only 包语义。
+- 新增 `references/init.md`：环境初始化提示词驱动的唯一入口（client-neutral），供 Agent 在任意客户端按需检查/安装所选能力环境。
 
 ### Changed
 
@@ -20,11 +21,13 @@
 - `detect_office_backend()` 的 `integration_root` 指向 `integrations/officecli/`。
 - 模块文档改写为纯分发语义：`modules/image.md`（Frontend visual quality → 读包内 SKILL.md；Publication charts → 用法在包内）、`modules/task.md`（impeccable 段指向包内文档）、`modules/office.md`（官方手册在包内，本模块只提炼关键约束）、`modules/office/{word,ppt,excel}.md`（指向包内官方手册）。
 - 测试：`test_autoflow_core.py` 的 catalog 断言更新为 3 个包 + 新字段（type/capabilities/check_status/role），移除旧字段（self_contained/mode/external_user_skill_required/source_checkout_required）；`test_autoflow_cli.py` 的 integrations 命令断言同步；`test_backend_cli.py` 的 adapter 路径更新为 `integrations/impeccable/scripts/impeccable_adapter.mjs`。
+- 环境初始化从脚本驱动改为提示词驱动：`task.environment` 报告的 `command` 只接受 `agent-init`；direct mode 要求初始化任务工作区（`.autoflow/intermediate`、`.autoflow/runtime`、`submit/`）并在 `submit/` 下交付。SKILL.md、README、modules 与 references 的相关引用全部改指 `references/init.md`。
 
 ### Removed
 
 - 删除 `integrations/impeccable/AUTOFLOW_ADAPTER.md`（adapter 模式已废弃）。
 - 删除 `integrations/impeccable/integration_manifest.json` 与 `integrations/nature-figure/integration_manifest.json`（1.0 旧契约，以 `manifest.json` 2.0 取代）。
+- 删除 `scripts/env_check.ps1`、`scripts/environment_setup.py` 与 `tests/test_environment_setup.py`：脚本驱动环境初始化退役，由 `references/init.md` 提示词驱动流程取代。
 - 新增 `autoflow.py direct-route` 与 `autoflow.py review`，分别用于轻量本地能力路由和四类 STOP 审核信息包。
 
 ### Changed

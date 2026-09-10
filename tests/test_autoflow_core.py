@@ -530,6 +530,29 @@ class AutoFlowTestCase(unittest.TestCase):
         with self.assertRaisesRegex(AutoFlowError, "task.environment"):
             validate_workflow_definition(workflow)
 
+    def test_environment_report_accepts_agent_init_evidence(self):
+        project = self.root / "agent-init-project"
+        runtime = self.root / "agent-init-runtime"
+        report_path = self.root / "agent-init-report.json"
+        project.mkdir()
+        runtime.mkdir()
+        save_json(
+            report_path,
+            {
+                "$schema": "autoflow/environment-report/1.0",
+                "command": "agent-init",
+                "project": str(project.resolve()),
+                "runtime_root": str(runtime.resolve()),
+                "status": "ready",
+                "missing_tools": [],
+                "checks": [{"name": "python --version", "status": "passed"}],
+            },
+        )
+
+        report = validate_environment_report(report_path, project)
+
+        self.assertEqual(report["command"], "agent-init")
+
     def test_cycle_is_rejected(self):
         workflow_path = initialize_run(self.request, self.root / "cycle", "custom")
         workflow = load_json(workflow_path)
@@ -1006,9 +1029,9 @@ class AutoFlowTestCase(unittest.TestCase):
             "checks": [],
         }
         save_json(report_path, payload)
-        with self.assertRaisesRegex(AutoFlowError, "ensure or verify"):
+        with self.assertRaisesRegex(AutoFlowError, "must be agent-init"):
             validate_environment_report(report_path, project)
-        payload["command"] = "ensure"
+        payload["command"] = "agent-init"
         payload["checks"] = [{"name": "python_dependency_consistency", "status": "passed"}]
         save_json(report_path, payload)
         self.assertEqual(validate_environment_report(report_path, project)["status"], "ready")

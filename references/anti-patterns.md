@@ -11,7 +11,7 @@ These rules are hard failures, not suggestions.
 | Execute tests, migrations, installers, or applications in `submit/` | Test in `.autoflow/intermediate/verification/`, then package once. |
 | Put `.venv`, `venv`, `node_modules`, caches, or package-manager state inside source artifacts | Provision under `.autoflow/runtime/<step-id>/`. |
 | Zip the workspace or AutoFlow control directory | Package only declared include paths with requirement mappings. |
-| Ask the user to install a normal runtime or dependency | Run the environment provisioner and its fallback installers first. |
+| Ask the user to install a normal runtime or dependency | Follow [environment initialization](init.md), inspect the project manifest, and run the required install and verification commands first. |
 | Invent GitHub candidates, tool calls, evidence, or STOP approvals | Record only observed sources, commands, artifacts, and explicit user responses. |
 | Run write-producing commands after final packaging | Use `package_submission.py --verify-only`. |
 | Repeat complete rendering, hashing, or packaging when inputs are unchanged | Reuse validated outputs; use fast validation during iteration and deep validation at gates. |

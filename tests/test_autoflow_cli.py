@@ -43,6 +43,12 @@ class AutoFlowCliTests(unittest.TestCase):
             self.assertEqual(payload["action"], "diagram")
             self.assertFalse(payload["workflow_files_created"])
             self.assertEqual(payload["stop_gates"], [])
+            self.assertTrue(payload["output_policy"]["workspace_initialization_required"])
+            self.assertEqual(
+                payload["output_policy"]["workspace_directories"],
+                [".autoflow/intermediate", ".autoflow/runtime", "submit"],
+            )
+            self.assertTrue(payload["output_policy"]["submit_required"])
             self.assertFalse(payload["output_policy"]["managed_submit_required"])
             self.assertTrue(payload["output_policy"]["minimum_requested_outputs"])
             self.assertEqual(payload["output_policy"]["sidecars"], "only_when_requested_or_required")

@@ -42,5 +42,6 @@ routable until the catalog reports `available`.
 
 Operating-system runtimes and language dependencies may remain provisioned
 dependencies when bundling them would be inappropriate. AutoFlow must detect
-and automatically provision them through its environment layer; this does not
+them and provision them by following
+[environment initialization](init.md) as the Agent; this does not
 permit resolving executable code from another Skill directory.

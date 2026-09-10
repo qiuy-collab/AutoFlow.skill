@@ -95,7 +95,7 @@ Completing the research step marks `SOURCE_STOP` not applicable in this case and
 
 ## Build completion
 
-Before baseline or dependency commands, read `references/environment-contract.md`. Run `environment_setup.py ensure`, place the managed runtime below `.autoflow/runtime/<step-id>/`, and register its ready report as `task.environment` when declared. Ordinary missing runtimes and dependencies are automatic remediation work, not a user blocker.
+Before baseline or dependency commands, read `references/environment-contract.md` and follow [environment initialization](../references/init.md). Inspect the project manifest, run only the selected setup commands as the Agent, place the managed runtime below `.autoflow/runtime/<step-id>/`, and register its ready `agent-init` report as `task.environment` when declared. Ordinary missing runtimes and dependencies are automatic remediation work, not a user blocker.
 
 Record the selected upstream URL and revision, baseline commands/results, change plan, changed files, startup documentation, and verification commands. Produce the project directory, a machine-readable result summary, and the environment report when the workflow declares those outputs.
 

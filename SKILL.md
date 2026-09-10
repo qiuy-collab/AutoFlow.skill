@@ -27,10 +27,13 @@ Explicit invocation always wins: if the user asks for `autoflow`, use this Skill
 
 Always read:
 
-1. `references/execution-modes.md`
-2. The selected module file.
+1. [Environment initialization](references/init.md)
+2. `references/execution-modes.md`
+3. The selected module file.
 
-For direct mode, read only the route-specific guidance required by that module and execute the task. Do not initialize a run.
+For direct mode, use [environment initialization](references/init.md) only to prepare the selected environment. Then
+initialize the direct workspace described below and read only the route-specific
+guidance required by that module. Do not enter the managed DAG.
 
 For managed mode, also read:
 
@@ -104,16 +107,25 @@ Use **direct mode** only when all of these are true:
 
 In direct mode:
 
-1. Do not run `autoflow init`.
-2. Do not create `workflow.json`, `WORK_PLAN.md`, requirement maps, manifests, `.autoflow/`, or `submit/` unless the user explicitly requested that directory.
-3. Resolve the checked-in local capability without a workflow:
+1. Follow [environment initialization](references/init.md) to check/install only the selected capability's environment.
+2. Initialize the task workspace, including the normal scratch/runtime directories and required `submit/` directory:
+
+```powershell
+$taskRoot = "<task-project>"
+New-Item -ItemType Directory -Force -Path (Join-Path $taskRoot ".autoflow\intermediate") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $taskRoot ".autoflow\runtime") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $taskRoot "submit") | Out-Null
+```
+
+3. Do not select a recipe, transition workflow steps, or create `.autoflow/config/workflow.json`, `WORK_PLAN.md`, requirement maps, manifests, or approval gates.
+4. Resolve the checked-in local capability without a workflow:
 
 ```bash
 python scripts/autoflow.py direct-route --module <module> --action <action> --json
 ```
 
-4. Read the returned module and capability files, perform the real work, run the module's relevant quality check, and deliver the minimum requested output set at the user-requested path or current workspace. Do not expose extra source/export/report files unless requested or genuinely required.
-5. Do not trigger PLAN, SOURCE, VISUAL, or DELIVERY STOP. Show the finished artifact and concise validation result once. Ask a targeted question only if a missing decision truly blocks execution.
+5. Read the returned module and capability files, perform the real work, run the module's relevant quality check, and deliver the minimum requested output set below `submit/`. Do not expose extra source/export/report files unless requested or genuinely required.
+6. Do not trigger PLAN, SOURCE, VISUAL, or DELIVERY STOP. Show the finished artifact and concise validation result once. Ask a targeted question only if a missing decision truly blocks execution.
 
 Use **managed mode** when any direct-mode condition is false. Common triggers are multiple modules, dependent artifacts, GitHub-first project builds, packages/submission contracts, complex rubric or template evidence, multiple revision checkpoints, significant external side effects, or a user request for a resumable/auditable workflow.
 
@@ -132,8 +144,8 @@ When unsure, do not inflate a clearly small request. Choose managed mode only wh
    - `document`: optional task/image → office(word)
    - `presentation`: optional task/image → office(ppt)
    - `custom`: Agent-authored DAG
-3. Put the durable user request in a UTF-8 file **inside the task project directory** (the directory that owns this task, which may be a subdirectory of the session workspace). Do not rely on conversation memory alone.
-4. Initialize. The run is anchored to the **request file's directory**, not the session workspace root — this keeps `.autoflow/` and `submit/` inside the task project:
+3. Follow [environment initialization](references/init.md) to prepare the required environment, then put the durable user request in a UTF-8 file **inside the task project directory** (the directory that owns this task, which may be a subdirectory of the session workspace). Do not rely on conversation memory alone.
+4. Materialize the managed state. The run is anchored to the **request file's directory**, not the session workspace root — this keeps `.autoflow/` and `submit/` inside the task project:
 
 ```bash
 python scripts/autoflow.py init \
@@ -207,10 +219,11 @@ build/render commands for separate office steps in parallel after shared image
 evidence is approved.
 Do not introduce extra Agents to gain concurrency.
 
-For project builds, run `environment_setup.py ensure` before baseline/build
-commands. Keep the managed environment below `.autoflow/runtime/<step-id>/` and
-register the ready `task.environment` report. Do not ask the user to install an
-ordinary missing runtime or dependency.
+For project builds, follow [environment initialization](references/init.md), inspect the project's manifest, and run
+the required setup commands as the Agent before baseline/build commands. Keep
+the managed environment below `.autoflow/runtime/<step-id>/` and register the
+ready `task.environment` report with `command: "agent-init"`. Do not ask the
+user to install an ordinary missing runtime or dependency.
 
 Office steps must register both `office.document` and the matching `office.validation` report produced by `scripts/office_engine.py` + `scripts/validate_office.py`. Follow the same report-first principle for video and package outputs described in `references/acceptance-contracts.md`.
 
@@ -320,7 +333,7 @@ When any command or validation fails, use this table before inventing a workarou
 | Trigger | First-line fix | Fallback if still failing |
 |---|---|---|
 | `init` fails or the recipe cannot be matched | Correct the request file or recipe name and rerun `init` | If `.autoflow/config/` is corrupt or partial, remove the run directory and re-init; never hand-edit generated config |
-| `route` reports a capability `blocked`/`missing` | Run `integrations --json` and repair the declared package (reinstall the binary, restore files) | Stop with a capability report; never substitute a user-level skill or an uninspected external tool |
+| `route` reports a capability `blocked`/`missing` | Re-read [environment initialization](references/init.md) and install the selected missing dependency | Stop with a capability report; never substitute a user-level skill or an uninspected external tool |
 | `transition --to completed` rejects an artifact | Recheck the artifact id against `artifact_manifest.json` and pass the exact absolute path | Regenerate the artifact from the module and retry; if the step cannot complete, `--to failed --note ...` and revise the plan |
 | `validate` reports workflow errors | Fix the offending step definition per `workflow-contract.md` and rerun `validate` | Use `validate --deep` to localize the error; restart the step with `revise --step ... --reason ...` if needed |
 | officecli binary or runtime is missing | Install it, then rerun the engine check | Stop with a capability report; never silently fall back to a different document backend |
@@ -347,7 +360,8 @@ Read `references/anti-patterns.md` for the complete replacement action for each 
 
 For direct mode:
 
-- The requested artifact family exists at the requested or clearly reported path.
+- The task workspace contains `.autoflow/intermediate`, `.autoflow/runtime`, and `submit/`; it has no managed workflow state.
+- The requested artifact family exists below `submit/` at the clearly reported path.
 - The relevant module-level quality check passed.
 - No workflow control directory, plan, package, or STOP interaction was added without need.
 - The user receives the artifact, path, and concise validation result in one completion message.

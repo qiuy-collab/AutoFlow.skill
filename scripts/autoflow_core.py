@@ -1557,8 +1557,8 @@ def validate_environment_report(report_path: Path, project_path: Path) -> dict[s
     report = load_json(report_path)
     if report.get("$schema") != ENVIRONMENT_REPORT_SCHEMA:
         raise AutoFlowError(f"task.environment must use {ENVIRONMENT_REPORT_SCHEMA}")
-    if report.get("command") not in {"ensure", "verify"}:
-        raise AutoFlowError("task.environment must come from environment_setup.py ensure or verify")
+    if report.get("command") != "agent-init":
+        raise AutoFlowError("task.environment command must be agent-init")
     if report.get("status") != "ready":
         raise AutoFlowError("task.environment status must be ready")
     reported_project = Path(str(report.get("project", ""))).expanduser().resolve()
@@ -2130,7 +2130,10 @@ def route_for_direct(module: str, action: str, format_name: str | None = None, c
     payload["workflow_files_created"] = False
     payload["stop_gates"] = []
     payload["output_policy"] = {
-        "location": "user_requested_or_current_workspace",
+        "location": "task_workspace_submit",
+        "workspace_initialization_required": True,
+        "workspace_directories": [".autoflow/intermediate", ".autoflow/runtime", "submit"],
+        "submit_required": True,
         "managed_submit_required": False,
         "minimum_requested_outputs": True,
         "sidecars": "only_when_requested_or_required",
