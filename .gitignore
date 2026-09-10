@@ -25,3 +25,5 @@ integrations/minimax-docx/**/bin/
 integrations/minimax-docx/**/obj/
 integrations/minimax-docx/.setup.log
 .claude/
+# Local personal helper (hardcoded private bot token), not part of the Skill.
+/termshot-tg.sh
