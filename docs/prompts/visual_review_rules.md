@@ -65,6 +65,8 @@ The human reviewer should check each image for:
 | 5 | Real URLs | URLs are the application's real access URLs |
 | 6 | User flow focus | Screenshot captures real user flow and required page state |
 | 7 | Text readability | Text is readable, page looks intentional |
+| 8 | Capture scope | Shows one complete board or page state; no required board is cropped below the fold |
+| 9 | Long-image boundary | A tall image is allowed for one board; it must not combine multiple independent boards |
 
 ## Fixup types (agent executes, human triggers)
 

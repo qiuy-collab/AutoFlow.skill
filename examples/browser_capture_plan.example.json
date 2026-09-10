@@ -32,6 +32,8 @@
       "full_url": "http://127.0.0.1:3000/login",
       "purpose": "frontend_page_or_self_built_app_flow",
       "scope": "local_frontend_page",
+      "capture_scope": "selector",
+      "capture_selector": "main",
       "wait_after_actions_ms": 800,
       "actions": [
         {
@@ -60,6 +62,8 @@
     "Do not use this route for terminal or software configuration figures.",
     "Default presentation_mode is site_only: the frontend should look like the real site/app, not a lab instruction shell.",
     "Prefer a concrete page URL such as /login or /index.html instead of relying on a bare server root.",
-    "Relative goto values are allowed and will be resolved against base_url."
+    "Relative goto values are allowed and will be resolved against base_url.",
+    "Use capture_scope viewport for one viewport, selector plus capture_selector for one complete board that exceeds the viewport, and page only when the full page is one board.",
+    "Do not use long screenshots to combine multiple boards. A complete single board may be taller than one viewport."
   ]
 }

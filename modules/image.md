@@ -36,6 +36,12 @@ Read only the route-specific guidance needed:
   Playwright runtime for the declared capture plan. Verify the app is real and
   locally reachable first; a missing or unreachable browser runtime is a
   `blocked` capability, not a reason to fabricate screenshots.
+  Set each screenshot's `capture_scope` deliberately: `viewport` for a
+  self-contained viewport, `selector` plus `capture_selector` for one complete
+  board/section that extends below the fold, or `page` only when the page itself
+  is one board. "Do not use long screenshots" means one image must not combine
+  multiple independent boards; it does not limit the height of one complete
+  board. Never crop a required board merely to fit one viewport.
 - Frontend visual quality: when the step declares
   `design_backend: integrated-impeccable`, read
   `integrations/impeccable/SKILL.md` and follow its command reference and

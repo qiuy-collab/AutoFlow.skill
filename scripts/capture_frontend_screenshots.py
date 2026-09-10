@@ -1,17 +1,21 @@
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import time
 import urllib.request
 from pathlib import Path
 
-BROWSER_CANDIDATES = [
-    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-]
+BROWSER_COMMANDS = (
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
+    "msedge",
+    "microsoft-edge",
+    "chrome",
+)
 
 
 def parse_args():
@@ -34,10 +38,18 @@ def read_log_tail(log_path: Path, max_chars: int = 1200):
 
 
 def choose_browser_executable():
-    for candidate in BROWSER_CANDIDATES:
-        if os.path.exists(candidate):
+    configured = os.environ.get("AUTOFLOW_BROWSER_PATH", "").strip()
+    if configured:
+        candidate = Path(configured).expanduser()
+        if candidate.is_file():
+            return str(candidate)
+        raise SystemExit(f"AUTOFLOW_BROWSER_PATH does not point to a browser executable: {candidate}")
+    for command in BROWSER_COMMANDS:
+        if candidate := shutil.which(command):
             return candidate
-    raise SystemExit("No supported Chrome/Edge executable found for browser capture")
+    raise SystemExit(
+        "No Chromium-compatible browser found on PATH. Set AUTOFLOW_BROWSER_PATH to the browser executable."
+    )
 
 
 def normalize_target_url(base_url: str, target: str):
@@ -156,6 +168,26 @@ def run_action(page, action, plan):
         raise SystemExit(f"Unsupported browser capture action type: {action_type}")
 
 
+def capture_scope(shot):
+    scope = shot.get("capture_scope")
+    if scope is None:
+        return "page" if shot.get("full_page", True) else "viewport"
+    if scope not in {"viewport", "selector", "page"}:
+        raise SystemExit(f"Unsupported capture_scope: {scope}")
+    return scope
+
+
+def capture_shot(page, shot, target: Path):
+    scope = capture_scope(shot)
+    if scope == "selector":
+        selector = shot.get("capture_selector")
+        if not selector:
+            raise SystemExit("capture_scope 'selector' requires capture_selector")
+        page.locator(selector).screenshot(path=str(target))
+        return
+    page.screenshot(path=str(target), full_page=scope == "page")
+
+
 def capture_screenshots(images_dir: Path, plan):
     try:
         from playwright.sync_api import sync_playwright
@@ -178,7 +210,7 @@ def capture_screenshots(images_dir: Path, plan):
             if shot.get("wait_after_actions_ms"):
                 page.wait_for_timeout(int(shot["wait_after_actions_ms"]))
             target = images_dir / f"{shot['name']}.png"
-            page.screenshot(path=str(target), full_page=bool(shot.get("full_page", True)))
+            capture_shot(page, shot, target)
             print(f"Captured browser screenshot: {target}")
         context.close()
         browser.close()
