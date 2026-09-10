@@ -414,7 +414,7 @@ def _find_unmarked_structural_checks(config: dict) -> List[Dict]:
 
 
 def build_validation_prompt(config_json: str, requirements_text: str = "") -> str:
-    """Build a validation prompt for the Agnes AI validator."""
+    """Build a validation prompt for the configured validator API."""
     req_section = """
 ## Requirement / WORK_PLAN excerpt
 
@@ -518,7 +518,7 @@ Rules:
 
 
 def call_validator_api(prompt: str, base_url: str, api_key: str, model: str, timeout: int = 120) -> Optional[dict]:
-    """Call the Agnes AI validation API."""
+    """Call the configured validator API (OpenAI-compatible chat endpoint)."""
     url = f"{base_url.rstrip('/')}/v1/chat/completions"
 
     headers = {
@@ -618,17 +618,25 @@ def validate_config(
 
     # ── Layer 1+2: need API ──
     env = load_env_file()
-    base_url = env.get("AGNES_BASEURL", "").strip()
-    api_key = env.get("AGNES_APIKEY", "").strip()
-    model = env.get("AGNES_MODEL", "agnes-2.0-flash").strip()
+    base_url = env.get("VALIDATOR_BASEURL", "").strip()
+    api_key = env.get("VALIDATOR_APIKEY", "").strip()
+    model = env.get("VALIDATOR_MODEL", "").strip()
 
-    if not base_url or not api_key:
+    missing = [
+        name for name, value in (
+            ("VALIDATOR_BASEURL", base_url),
+            ("VALIDATOR_APIKEY", api_key),
+            ("VALIDATOR_MODEL", model),
+        ) if not value
+    ]
+    if missing:
         raise SystemExit(
-            "[ERROR] Agnes AI validator not configured.\n"
-            "Add these to .env:\n"
-            "  AGNES_BASEURL=https://apihub.agnes-ai.com\n"
-            "  AGNES_APIKEY=sk-xxx...\n"
-            "  AGNES_MODEL=agnes-2.0-flash"
+            "[ERROR] Prompt validator API not configured (missing: "
+            + ", ".join(missing) + ").\n"
+            "Any OpenAI-compatible chat endpoint works. Add these to .env:\n"
+            "  VALIDATOR_BASEURL=https://your-validator-api.example.com\n"
+            "  VALIDATOR_APIKEY=sk-xxx...\n"
+            "  VALIDATOR_MODEL=your-validator-model"
         )
 
     print(f"\nValidator: {model} @ {base_url}")
@@ -672,7 +680,7 @@ def validate_config(
             f"[FAIL] Prompt validation failed after {max_retries} attempts.\n"
             f"Last error: {last_error}\n"
             f"Time: {elapsed:.1f}s\n"
-            f"Check AGNES_BASEURL/AGNES_APIKEY/AGNES_MODEL in .env"
+            f"Check VALIDATOR_BASEURL/VALIDATOR_APIKEY/VALIDATOR_MODEL in .env"
         )
 
     normalized_layers = []

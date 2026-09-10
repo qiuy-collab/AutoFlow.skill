@@ -23,6 +23,7 @@
 - 模块文档改写为纯分发语义：`modules/image.md`（Frontend visual quality → 读包内 SKILL.md；Publication charts → 用法在包内）、`modules/task.md`（impeccable 段指向包内文档）、`modules/office.md`（官方手册在包内，本模块只提炼关键约束）、`modules/office/{word,ppt,excel}.md`（指向包内官方手册）。
 - 测试：`test_autoflow_core.py` 的 catalog 断言更新为 3 个包 + 新字段（type/capabilities/check_status/role），移除旧字段（self_contained/mode/external_user_skill_required/source_checkout_required）；`test_autoflow_cli.py` 的 integrations 命令断言同步；`test_backend_cli.py` 的 adapter 路径更新为 `integrations/impeccable/scripts/impeccable_adapter.mjs`。
 - 环境初始化从脚本驱动改为提示词驱动：`task.environment` 报告的 `command` 只接受 `agent-init`；direct mode 要求初始化任务工作区（`.autoflow/intermediate`、`.autoflow/runtime`、`submit/`）并在 `submit/` 下交付。SKILL.md、README、modules 与 references 的相关引用全部改指 `references/init.md`。
+- 图片提示词质检 API 配置从 `AGNES_*` 通用化为 `VALIDATOR_BASEURL`/`VALIDATOR_APIKEY`/`VALIDATOR_MODEL`：任意 OpenAI 兼容端点均可作为质检上游，供应商与模型由用户自配；三项缺一时 `validate_prompt.py` 明确报错，不再内置默认模型名。
 
 ### Removed
 
