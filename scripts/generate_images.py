@@ -126,7 +126,6 @@ SCREENSHOT_QUALITY_PROMPT = (
     "If clocks, timestamps, or time indicators appear, keep them realistic and temporally consistent with the same session."
 )
 
-FIXED_CLARITY_PROMPT_PATH = Path(r"C:\Users\ASUS\Desktop\补图提示词--不清晰.md")
 FIXED_CLARITY_PROMPT_FALLBACK = (
     "Repair this screenshot's clarity only. Keep the original content, layout, size, colors, window positions, "
     "text, numbers, symbols, paths, commands, and code fully unchanged. Remove blur, compression noise, smeared "
@@ -149,10 +148,6 @@ def normalize_resolution(value: str) -> str:
 
 
 def load_fixed_clarity_prompt() -> str:
-    if FIXED_CLARITY_PROMPT_PATH.exists():
-        prompt = FIXED_CLARITY_PROMPT_PATH.read_text(encoding="utf-8", errors="ignore").strip()
-        if prompt:
-            return prompt
     return FIXED_CLARITY_PROMPT_FALLBACK
 
 

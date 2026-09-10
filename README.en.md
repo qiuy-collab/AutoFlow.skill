@@ -13,7 +13,7 @@ A verifiable agent skill for multi-step delivery tasks.
 
 ## What it is
 
-AutoFlow gives agents (Claude Code, Codex, NewMax) a workflow layer for
+AutoFlow gives compatible agent clients a workflow layer for
 deliverable work. Research, code, screenshots, documents, slides, video and
 packaging become a DAG with dependencies, approvals and hash-validated
 artifacts.

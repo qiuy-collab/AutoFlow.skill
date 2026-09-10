@@ -2,7 +2,7 @@
   "enabled": true,
   "capability_check_required": true,
   "startup_command": "npm run dev",
-  "startup_cwd": "C:\\Users\\ASUS\\Desktop\\my-project",
+  "startup_cwd": "<absolute-path-to-project>",
   "base_url": "http://127.0.0.1:3000",
   "target_kind": "frontend_or_self_built_app",
   "presentation_mode": "site_only",

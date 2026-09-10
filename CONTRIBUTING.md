@@ -6,7 +6,7 @@
 
 - 先搜一下现有 [Issues](https://github.com/qiuy-collab/AutoFlow.skill/issues),避免重复
 - 新建 issue 时请选择模板(bug / feature / question),并尽量给出:
-  - 你用的 Agent 平台(Claude Code / Codex / NewMax / 其他)
+  - 你使用的 Agent 客户端及版本
   - 复现步骤和最小示例
   - 实际输出 vs 期望输出
 
