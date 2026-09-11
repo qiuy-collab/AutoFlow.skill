@@ -11,6 +11,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 from autoflow_core import (  # noqa: E402
     AutoFlowError,
+    _image_env_status,
     approve_gate,
     detect_impeccable_backend,
     detect_image_backend,
@@ -869,6 +870,30 @@ class AutoFlowTestCase(unittest.TestCase):
         self.assertEqual(set(capture_route["capabilities"]["image"]["actions"]), {"capture"})
         self.assertEqual(ai_route["capabilities"]["image"]["status"], "blocked")
         self.assertEqual(set(ai_route["capabilities"]["image"]["actions"]), {"ai"})
+
+    def test_image_capability_accepts_colon_delimited_env_credentials(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".env").write_text(
+                "BASEURL:https://images.example.test\nAPIKEY:non-placeholder-key\n",
+                encoding="utf-8",
+            )
+
+            configured, detail = _image_env_status(root)
+
+            self.assertTrue(configured)
+            self.assertEqual(detail, "configured")
+
+    def test_hash_path_ignores_maven_target_output(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "App.java").write_text("class App {}", encoding="utf-8")
+            initial = hash_path(root)
+            (root / "target").mkdir()
+            (root / "target" / "App.class").write_bytes(b"compiled")
+
+            self.assertEqual(hash_path(root), initial)
 
     def test_integration_catalog_audits_every_checked_in_integration(self):
         catalog = integration_catalog()

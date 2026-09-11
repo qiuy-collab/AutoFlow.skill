@@ -76,7 +76,7 @@ class NatureFigureIntegrationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, f"{kind}: {result.stderr}")
             payload = json.loads(result.stdout)
             self.assertEqual(payload["provider"], "autoflow_env_upstream")
-            self.assertEqual(payload["model"], "gpt-image-2")
+            self.assertEqual(payload["model"], "gpt-image-2.5")
             self.assertIn(kind.replace("_", " "), payload["prompt"])
 
 

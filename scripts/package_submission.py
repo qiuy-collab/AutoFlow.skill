@@ -214,7 +214,10 @@ def _folder_records(folder: Path) -> list[dict]:
             "size": path.stat().st_size,
             "sha256": sha256(path),
         }
-        for path in sorted(item for item in folder.rglob("*") if item.is_file())
+        for path in sorted(
+            (item for item in folder.rglob("*") if item.is_file()),
+            key=lambda item: normalized_rel(item.relative_to(folder)),
+        )
     ]
 
 

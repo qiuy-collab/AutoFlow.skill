@@ -517,7 +517,15 @@ Rules:
 """
 
 
-def call_validator_api(prompt: str, base_url: str, api_key: str, model: str, timeout: int = 120) -> Optional[dict]:
+def call_validator_api(
+    prompt: str,
+    base_url: str,
+    api_key: str,
+    model: str,
+    timeout: int = 120,
+    response_format: str = "",
+    reasoning_effort: str = "",
+) -> Optional[dict]:
     """Call the configured validator API (OpenAI-compatible chat endpoint)."""
     url = f"{base_url.rstrip('/')}/v1/chat/completions"
 
@@ -535,6 +543,10 @@ def call_validator_api(prompt: str, base_url: str, api_key: str, model: str, tim
         "temperature": 0.0,
         "max_tokens": 4096
     }
+    if response_format == "json_object":
+        payload["response_format"] = {"type": "json_object"}
+    if reasoning_effort:
+        payload["reasoning_effort"] = reasoning_effort
 
     response = requests.post(url, headers=headers, json=payload, timeout=timeout)
     response.raise_for_status()
@@ -621,6 +633,8 @@ def validate_config(
     base_url = env.get("VALIDATOR_BASEURL", "").strip()
     api_key = env.get("VALIDATOR_APIKEY", "").strip()
     model = env.get("VALIDATOR_MODEL", "").strip()
+    response_format = env.get("VALIDATOR_RESPONSE_FORMAT", "").strip().lower()
+    reasoning_effort = env.get("VALIDATOR_REASONING_EFFORT", "").strip().lower()
 
     missing = [
         name for name, value in (
@@ -663,7 +677,14 @@ def validate_config(
 
     for attempt in range(max_retries):
         try:
-            result = call_validator_api(validation_prompt, base_url, api_key, model)
+            result = call_validator_api(
+                validation_prompt,
+                base_url,
+                api_key,
+                model,
+                response_format=response_format,
+                reasoning_effort=reasoning_effort,
+            )
             if result and "error" not in result:
                 break
             last_error = result.get("error") if result else "empty response"

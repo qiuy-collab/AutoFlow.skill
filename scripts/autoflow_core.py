@@ -52,6 +52,7 @@ HASH_EXCLUDED_DIRS = {
     ".pytest_cache",
     ".mypy_cache",
     ".ruff_cache",
+    "target",
 }
 PLAN_REQUIRED_SECTIONS = (
     "## 目标",
@@ -382,9 +383,12 @@ def _image_env_status(root: Path) -> tuple[bool, str]:
     try:
         for raw_line in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
             line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
+            if not line or line.startswith("#"):
                 continue
-            key, value = line.split("=", 1)
+            delimiter = "=" if "=" in line else ":" if ":" in line else None
+            if delimiter is None:
+                continue
+            key, value = line.split(delimiter, 1)
             values[key.strip()] = value.strip().strip('"').strip("'")
     except OSError as exc:
         return False, f"Unable to read .env: {exc}"

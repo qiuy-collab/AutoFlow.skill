@@ -17,6 +17,12 @@ warnings.filterwarnings("ignore", category=RequestsDependencyWarning)
 
 
 print_lock = threading.Lock()
+DEFAULT_IMAGE_MODEL = "gpt-image-2.5"
+DEFAULT_IMAGE_RESOLUTION = "1024x1024"
+
+
+class ImageGenerationError(RuntimeError):
+    """A request failure that batch callers should preserve in their report."""
 
 
 def safe_print(*args, **kwargs):
@@ -56,6 +62,10 @@ def parse_upstream() -> Tuple[Optional[str], Optional[str]]:
     if single_url and single_key:
         return single_url, single_key
     return None, None
+
+
+def image_model() -> str:
+    return load_env_file().get("IMAGE_MODEL", "").strip() or DEFAULT_IMAGE_MODEL
 
 
 DEFAULT_POLICY = {
@@ -238,6 +248,9 @@ def lint_prompt(policy: dict, image_name: str, prompt: str, mode: str) -> List[s
         if lower_term not in lower_prompt:
             continue
         idx = lower_prompt.find(lower_term)
+        package_prefix = "org.springframework.web.bind."
+        if lower_term == "annotation" and lower_prompt[max(0, idx - len(package_prefix)):idx] == package_prefix:
+            continue
         window_start = max(0, idx - 60)
         context_en = lower_prompt[window_start:idx]
         context_zh = prompt[max(0, idx - 12):idx]
@@ -443,6 +456,7 @@ def _call_img2img_edits(
     resolution: str,
     base_url: str,
     api_key: str,
+    model: str,
     timeout: int,
     silent: bool,
 ) -> Optional[str]:
@@ -468,7 +482,7 @@ def _call_img2img_edits(
             files = {"image": (path.name, fh, "image/png")}
             data = {
                 "prompt": prompt,
-                "model": "gpt-image-2",
+                "model": model,
                 "n": "1",
                 "size": resolution,
             }
@@ -523,16 +537,19 @@ def _save_img2img_result(result: dict, output_dir: str, filename: str, silent: b
 def generate_image_single(
     prompt: str,
     output_dir: Optional[str] = None,
-    resolution: str = "1024x1024",
+    resolution: str = DEFAULT_IMAGE_RESOLUTION,
     filename: Optional[str] = None,
     silent: bool = False,
     base_url: Optional[str] = None,
     api_key: Optional[str] = None,
     timeout: int = 120,
     ref_image: Optional[str] = None,
+    model: Optional[str] = None,
+    raise_on_error: bool = False,
 ):
     """Generate a single image. Set ref_image to a local file path for img2img mode (uses /v1/images/edits)."""
     resolution = normalize_resolution(resolution)
+    model = model or image_model()
 
     if not base_url or not api_key:
         base_url, api_key = parse_upstream()
@@ -557,6 +574,7 @@ def generate_image_single(
             resolution=resolution,
             base_url=base_url,
             api_key=api_key,
+            model=model,
             timeout=timeout,
             silent=silent,
         )
@@ -568,7 +586,7 @@ def generate_image_single(
         "Content-Type": "application/json",
     }
     data: dict = {
-        "model": "gpt-image-2",
+        "model": model,
         "prompt": prompt,
         "n": 1,
         "size": resolution,
@@ -584,16 +602,28 @@ def generate_image_single(
         response.raise_for_status()
         result = response.json()
     except requests.exceptions.Timeout:
+        detail = f"timeout after {timeout}s at {url}"
         if not silent:
-            safe_print(f"[TIMEOUT] API request timed out after {timeout}s: {url}")
+            safe_print(f"[TIMEOUT] API request {detail}")
+        if raise_on_error:
+            raise ImageGenerationError(detail)
         return None
     except requests.exceptions.ConnectionError as exc:
+        detail = f"connection error at {url}: {exc}"
         if not silent:
             safe_print(f"[CONNECT ERROR] Cannot reach API: {exc}")
+        if raise_on_error:
+            raise ImageGenerationError(detail)
         return None
     except requests.exceptions.HTTPError as exc:
+        response = exc.response
+        status = response.status_code if response is not None else "unknown"
+        reason = response.reason if response is not None else str(exc)
+        detail = f"HTTP {status} {reason} at {url}"
         if not silent:
-            safe_print(f"[HTTP ERROR] API returned error: {exc}")
+            safe_print(f"[HTTP ERROR] {detail}")
+        if raise_on_error:
+            raise ImageGenerationError(detail)
         return None
 
     if "data" not in result or not result["data"]:
@@ -621,14 +651,14 @@ def generate_image_single(
     return None
 
 
-def probe_upstream_once(base_url: str, api_key: str, timeout: int) -> Tuple[bool, str]:
+def probe_upstream_once(base_url: str, api_key: str, timeout: int, model: str) -> Tuple[bool, str]:
     url = f"{base_url.rstrip('/')}/v1/images/generations"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     data = {
-        "model": "gpt-image-2",
+        "model": model,
         "prompt": "generate a small dog image",
         "n": 1,
         "size": "1024x1024",
@@ -701,6 +731,7 @@ def generate_image_task(task_info: dict) -> Dict:
                 api_key=api_key,
                 timeout=timeout,
                 ref_image=ref_image,
+                raise_on_error=True,
             )
             if result:
                 safe_print(f"[{index}/{total}] [OK] {name}")
@@ -894,7 +925,9 @@ def generate_filename_from_prompt(prompt: str) -> str:
     return f"{filename}.png"
 
 
-def probe_upstream_img2img(base_url: str, api_key: str, ref_image_path: str, timeout: int) -> Tuple[bool, str]:
+def probe_upstream_img2img(
+    base_url: str, api_key: str, ref_image_path: str, timeout: int, model: str
+) -> Tuple[bool, str]:
     """Probe whether an upstream supports img2img via /v1/images/edits (multipart form)."""
     path = Path(ref_image_path).expanduser().resolve()
     if not path.exists():
@@ -906,7 +939,7 @@ def probe_upstream_img2img(base_url: str, api_key: str, ref_image_path: str, tim
             files = {"image": (path.name, fh, "image/png")}
             data = {
                 "prompt": "enhance this image with better lighting and sharpness, keep same content",
-                "model": "gpt-image-2",
+                "model": model,
                 "n": "1",
                 "size": "1024x1024",
             }
@@ -934,18 +967,19 @@ def probe_upstream_img2img(base_url: str, api_key: str, ref_image_path: str, tim
 
 def check_upstream(timeout: int = 150, retries: int = 3, probe_img2img: bool = False, ref_image_path: Optional[str] = None):
     base_url, api_key = parse_upstream()
+    model = image_model()
     if not base_url or not api_key:
         safe_print("[FAIL] No upstream configured in .env")
         return False
 
     probe_label = "img2img" if probe_img2img else "txt2img"
-    safe_print(f"Probing upstream ({probe_label}): {base_url}")
+    safe_print(f"Probing upstream ({probe_label}, model={model}): {base_url}")
     last_error = "empty image generation result"
     for attempt in range(retries):
         if probe_img2img and ref_image_path:
-            ok, detail = probe_upstream_img2img(base_url, api_key, ref_image_path, timeout)
+            ok, detail = probe_upstream_img2img(base_url, api_key, ref_image_path, timeout, model)
         else:
-            ok, detail = probe_upstream_once(base_url, api_key, timeout)
+            ok, detail = probe_upstream_once(base_url, api_key, timeout, model)
         if ok:
             safe_print(f"  [OK] Upstream ({probe_label}) is available (attempt {attempt + 1}/{retries})")
             return True

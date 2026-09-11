@@ -66,7 +66,7 @@ def build_prompt(args: argparse.Namespace) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate scientific schematics with AutoFlow BASEURL/APIKEY and gpt-image-2."
+        description="Generate scientific schematics with AutoFlow BASEURL/APIKEY and the configured image model."
     )
     parser.add_argument("--title")
     parser.add_argument("--abstract")
@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reference-image", help="Optional local reference image for img2img.")
     parser.add_argument("--output-dir", default="scientific_schematic")
     parser.add_argument("--basename")
-    parser.add_argument("--aspect-ratio", default="16:9")
+    parser.add_argument("--aspect-ratio", help="Optional aspect ratio preset; otherwise request the default 1K square size.")
     parser.add_argument("--size", help="Explicit upstream image size; overrides --aspect-ratio.")
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--dry-run", action="store_true")
@@ -87,15 +87,17 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    from generate_images import generate_image_single, image_model
+
     args = parse_args()
     prompt = build_prompt(args)
-    size = args.size or SIZE_BY_ASPECT.get(args.aspect_ratio)
+    size = args.size or (SIZE_BY_ASPECT.get(args.aspect_ratio) if args.aspect_ratio else "1024x1024")
     if not size:
         raise SystemExit("Unknown aspect ratio; pass --size explicitly.")
     basename = args.basename or time.strftime("scientific_schematic_%Y%m%d_%H%M%S")
     payload = {
         "provider": "autoflow_env_upstream",
-        "model": "gpt-image-2",
+        "model": image_model(),
         "prompt": prompt,
         "size": size,
         "reference_image": args.reference_image,
@@ -103,8 +105,6 @@ def main() -> int:
     if args.dry_run:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
-
-    from generate_images import generate_image_single
 
     output_dir = Path(args.output_dir).expanduser().resolve()
     result = generate_image_single(
@@ -114,11 +114,12 @@ def main() -> int:
         filename=basename,
         timeout=args.timeout,
         ref_image=args.reference_image,
+        model=payload["model"],
     )
     if not result:
         raise SystemExit(
             "Scientific schematic generation failed. Verify AutoFlow .env BASEURL/APIKEY "
-            "and the gpt-image-2 upstream; no fallback provider was used."
+            "and the configured image-model upstream; no fallback provider was used."
         )
     metadata = {
         "$schema": "autoflow/scientific-schematic/1.0",

@@ -276,6 +276,28 @@ class PackageSubmissionTests(unittest.TestCase):
             self.assertNotEqual(polluted.returncode, 0)
             self.assertIn("no_sensitive_files", polluted.stderr + polluted.stdout, polluted.stderr)
 
+    def test_package_verifies_case_sensitive_archive_order(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run = Path(temp) / "run"
+            plans = run / "plans"
+            display = run / "display"
+            plans.mkdir(parents=True)
+            display.mkdir()
+            (display / "README.md").write_text("catalog", encoding="utf-8")
+            (display / "document.docx").write_bytes(b"docx")
+            config = {
+                "enabled": True,
+                "source_root": "..",
+                "allowed_output_root": "..",
+                "output_zip": "../delivery/submit.zip",
+                "output_folder": "../delivery/submit",
+                "include_paths": [{"path": "display", "archive_root": "display", "requirement_ids": ["R1"]}],
+            }
+            config_path = plans / "package.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            result = subprocess.run([sys.executable, str(SCRIPT), "--config", str(config_path)], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
