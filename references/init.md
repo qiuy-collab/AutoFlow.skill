@@ -48,8 +48,10 @@ default image settings are `IMAGE_MODEL=gpt-image-2.5`,
 `IMAGE_DEFAULT_RESOLUTION=1024x1024`, `IMAGE_MAX_RETRIES=2`, and
 `IMAGE_PROBE_RETRIES=1`.
 
-Word authoring is selectable with `OFFICE_WORD_BACKEND=officecli`,
-`minimaxdocx`, or `minimax-docx`. `officecli` remains the default fallback and
-the validation/render backend. When a Minimax backend is selected, configure
+Word authoring is selectable with `OFFICE_WORD_BACKEND=minimaxdocx`,
+`minimax-docx`, or `officecli`. `minimaxdocx`/`minimax-docx` are the preferred
+complex Word report/thesis backends; `officecli` remains the compatibility
+default and the common validation/render backend. When a Minimax backend is
+selected, install and verify that package, then configure
 `MINIMAX_DOCX_ROOT` or `MINIMAX_DOCX_COMMAND`; AutoFlow reports it as blocked
 until the selected runtime is available and never silently substitutes it.

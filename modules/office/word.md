@@ -10,10 +10,20 @@ backend from `OFFICE_WORD_BACKEND` before editing:
 
 Validation always follows `scripts/office_engine.py` +
 `scripts/validate_office.py`, regardless of the authoring backend.
-Read `references/office-backends.md` for the selection contract and runtime
-configuration before routing a complex Word artifact.
 Read the official operating manual in `integrations/officecli/SKILL.md` first —
 this submodule applies it to DOCX workflows, it does not replace it.
+
+Backend contract:
+
+- Set `OFFICE_WORD_BACKEND` to `officecli`, `minimaxdocx`, or `minimax-docx`.
+- `minimaxdocx`/`minimax-docx` are aliases for the optional Minimax OpenXML
+  backend and are preferred for complex reports and theses. Configure
+  `MINIMAX_DOCX_ROOT` or `MINIMAX_DOCX_COMMAND`, verify the runtime with its own
+  setup/check command, and never silently substitute `officecli`.
+- `officecli` is the compatibility default and remains suitable for simple Word
+  edits; it is always the common inspect, validate, and render backend.
+- Before a managed PLAN_STOP, `workflow.json.capabilities.office.word_backend`
+  must report the selected backend as `available`.
 
 ## Workflow (per action)
 

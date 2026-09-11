@@ -333,7 +333,7 @@ cache defect.
 - If the user rejects a STOP, record it with `autoflow.py gate --to rejected`, then use `autoflow.py revise --step <id> --reason <reason>` before regenerating terminal steps.
 - If an artifact changes after registration, never refresh its hash by hand. Use `revise`; it supersedes target/downstream artifacts, resets requirement evidence, and reopens affected gates.
 - A DELIVERY_STOP-approved run is immutable. Initialize a new revision run for later changes.
-- If an integrated capability (for example the `officecli` runtime) is missing, stop with a capability report rather than silently substituting a user-level or lower-quality backend.
+- If an integrated capability (for example `officecli` or the selected Minimax Word runtime) is missing, stop with a capability report rather than silently substituting a user-level or lower-quality backend.
 
 ### Failure and recovery
 
@@ -345,7 +345,7 @@ When any command or validation fails, use this table before inventing a workarou
 | `route` reports a capability `blocked`/`missing` | Re-read [environment initialization](references/init.md) and install the selected missing dependency | Stop with a capability report; never substitute a user-level skill or an uninspected external tool |
 | `transition --to completed` rejects an artifact | Recheck the artifact id against `artifact_manifest.json` and pass the exact absolute path | Regenerate the artifact from the module and retry; if the step cannot complete, `--to failed --note ...` and revise the plan |
 | `validate` reports workflow errors | Fix the offending step definition per `workflow-contract.md` and rerun `validate` | Use `validate --deep` to localize the error; restart the step with `revise --step ... --reason ...` if needed |
-| officecli binary or runtime is missing | Install it, then rerun the engine check | Stop with a capability report; never silently fall back to a different document backend |
+| `officecli` or the selected Word backend runtime is missing | Install it, then rerun `capabilities --json` and the selected backend's check | Stop with a capability report; never silently fall back to a different document backend |
 | Artifact hash mismatch after completion | Regenerate the artifact by rerunning its module | Use `revise` to supersede the stale artifact; never refresh the manifest hash by hand |
 | A STOP gate is rejected by the user | Record it with `gate --to rejected`, then `revise --step ... --reason ...` before regenerating | If DELIVERY_STOP was already approved, start a new revision run; the approved run is immutable |
 | `sync` fails after editing workflow steps | Fix the step edits and rerun `sync` | Validate with `--deep`; if unrecoverable, re-init with the same request file and re-apply the plan |
