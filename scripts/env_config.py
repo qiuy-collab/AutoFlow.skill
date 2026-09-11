@@ -18,9 +18,6 @@ OPTIONAL_KEYS = (
     "VALIDATOR_RESPONSE_FORMAT",
     "VALIDATOR_REASONING_EFFORT",
     "VALIDATOR_MAX_RETRIES",
-    "OFFICE_WORD_BACKEND",
-    "MINIMAX_DOCX_ROOT",
-    "MINIMAX_DOCX_COMMAND",
 )
 
 
@@ -70,11 +67,6 @@ def env_report(root: Path) -> dict[str, Any]:
             "response_format": values.get("VALIDATOR_RESPONSE_FORMAT", ""),
             "reasoning_effort": values.get("VALIDATOR_REASONING_EFFORT", ""),
             "max_retries": _int_value(values.get("VALIDATOR_MAX_RETRIES"), 1),
-        },
-        "office": {
-            "word_backend": (values.get("OFFICE_WORD_BACKEND") or "officecli").lower(),
-            "minimax_docx_root": values.get("MINIMAX_DOCX_ROOT", ""),
-            "minimax_docx_command": values.get("MINIMAX_DOCX_COMMAND", ""),
         },
         "secrets_exposed": False,
     }

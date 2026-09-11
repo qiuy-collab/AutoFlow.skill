@@ -38,7 +38,7 @@ Install the AutoFlow Skill from https://github.com/qiuy-collab/AutoFlow.skill.
 
 1. Clone or download the complete repository. Determine the Skill installation directory required by the client you are running (for example ~/.newmax/skills/, ~/.claude/skills/, or the location in that client's documentation), then install the complete autoflow Skill directory there. Do not assume or hard-code a Codex-only path.
 2. Verify that the installed directory contains SKILL.md, references/, modules/, scripts/, integrations/, and requirements.txt, and that all relative references resolve from the Skill root.
-3. From the Skill root, read references/init.md first. Check Python, pip, Git, and Node; install Python dependencies from requirements.txt. As needed, install Playwright plus chromium, Mermaid CLI, D2, officecli, and ffmpeg. The default complex Word route selects OFFICE_WORD_BACKEND=minimaxdocx; install that package and configure MINIMAX_DOCX_ROOT or MINIMAX_DOCX_COMMAND according to its instructions.
+3. From the Skill root, read references/init.md first. Check Python, pip, Git, and Node; install Python dependencies from requirements.txt. As needed, install Playwright plus chromium, Mermaid CLI, D2, officecli, .NET, and ffmpeg. Complex Word reports/theses default to integrations/minimax-docx; the Agent may choose officecli when the task is simple.
 4. From the Skill root run: python scripts/autoflow.py env-check --json and python scripts/autoflow.py capabilities --json. Report each capability as available, missing, or incomplete without printing APIKEY.
 5. Never create, guess, or write user credentials in .env, including BASEURL, APIKEY, or VALIDATOR_* values. If they are absent, report AI image generation and prompt validation as blocked and wait for the user to configure them.
 ```
@@ -77,7 +77,7 @@ flowchart LR
 | Package | Purpose |
 | --- | --- |
 | `officecli` | Structured Office edits, OpenXML validation, and HTML rendering. |
-| `minimaxdocx` / `minimax-docx` | Complex Word report/thesis authoring backend selected by `OFFICE_WORD_BACKEND`; `officecli` still validates and renders. |
+| `minimaxdocx` / `minimax-docx` | Complex Word report/thesis authoring backend selected by the Agent; `officecli` still validates and renders. |
 | `impeccable` | Frontend design language and offline quality checks. |
 | `nature-figure` | Publication-quality chart templates with provenance and QA records. |
 

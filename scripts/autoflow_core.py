@@ -306,7 +306,7 @@ def _recipe_dir() -> Path:
 
 
 def detect_office_backend() -> dict[str, Any]:
-    """Detect the unified office backend: the officecli binary driven by office_engine.py."""
+    """Detect officecli and the agent-selectable Word authoring backends."""
     root = Path(__file__).resolve().parent.parent
     engine_script = root / "scripts" / "office_engine.py"
     validator_script = root / "scripts" / "validate_office.py"
@@ -334,43 +334,53 @@ def detect_office_backend() -> dict[str, Any]:
             "external_skill_required": False,
             "message": f"officecli backend probe failed: {exc}",
         }
-    env = load_skill_env(root)
-    selected_word_backend = (env.get("OFFICE_WORD_BACKEND") or "officecli").lower()
+    minimax_package = root / "integrations" / "minimax-docx"
+    if not (minimax_package / "SKILL.md").is_file() or not (
+        minimax_package / "scripts" / "dotnet" / "MiniMaxAIDocx.Cli"
+    ).is_dir():
+        minimax_status = {
+            "status": "missing",
+            "version": None,
+            "message": "minimax-docx package is incomplete under integrations/minimax-docx.",
+        }
+    else:
+        minimax_status = _run_integration_check(
+            minimax_package, {"entry": "scripts/check.py", "runtime": "python"}
+        )
+        minimax_status["message"] = minimax_status.get("message") or (
+            "The checked-in minimax-docx package and dotnet runtime are available."
+            if minimax_status["status"] == "available"
+            else minimax_status.get("message", "")
+        )
+    minimax_backend = {
+        "backend": "minimaxdocx",
+        "status": minimax_status["status"],
+        "root": str(minimax_package.resolve()) if minimax_package.is_dir() else "",
+        "message": minimax_status.get("message", ""),
+    }
+    officecli_backend = {
+        "backend": "officecli",
+        "status": report.get("status", "missing"),
+        "root": str((root / "integrations" / "officecli").resolve()),
+        "message": "Simple Word edits and the common validation/render backend." if report.get("status") == "available" else report.get("message", ""),
+    }
+    selected_word_backend = "minimaxdocx" if minimax_backend["status"] == "available" else "officecli"
     word_backend = {
+        "default": "minimaxdocx",
         "selected": selected_word_backend,
         "backend": selected_word_backend,
-        "status": "available" if selected_word_backend == "officecli" else "blocked",
-        "message": "officecli is the Word authoring and validation backend."
-        if selected_word_backend == "officecli"
-        else "Install/configure the selected Word backend and set MINIMAX_DOCX_ROOT or MINIMAX_DOCX_COMMAND.",
+        "status": minimax_backend["status"] if selected_word_backend == "minimaxdocx" else officecli_backend["status"],
+        "message": minimax_backend["message"] if selected_word_backend == "minimaxdocx" else officecli_backend["message"],
     }
-    if selected_word_backend in {"minimaxdocx", "minimax-docx"}:
-        root_hint = env.get("MINIMAX_DOCX_ROOT", "")
-        command_config = env.get("MINIMAX_DOCX_COMMAND", "")
-        command_name = command_config.split()[0] if command_config else ""
-        command_hint = (
-            (command_config if Path(command_config).is_file() else "")
-            or shutil.which(command_name)
-            or shutil.which("minimaxdocx")
-            or shutil.which("minimax-docx")
-        )
-        word_backend["root"] = root_hint
-        word_backend["command"] = command_hint or ""
-        root_available = bool(root_hint and Path(root_hint).expanduser().is_dir())
-        word_backend["status"] = "available" if root_available or command_hint else "blocked"
-        word_backend["message"] = (
-            "minimaxdocx Word backend is configured. officecli remains the validation/render backend."
-            if word_backend["status"] == "available"
-            else "minimaxdocx is selected but not installed/configured."
-        )
-    elif selected_word_backend != "officecli":
-        word_backend["message"] = f"Unsupported OFFICE_WORD_BACKEND: {selected_word_backend}"
+    if selected_word_backend == "minimaxdocx":
+        word_backend["root"] = minimax_backend["root"]
     base = {
         **report,
         "integration_root": str((root / "integrations" / "officecli").resolve()),
         "engine_script": str(engine_script.resolve()),
         "validator_script": str(validator_script.resolve()),
         "word_backend": word_backend,
+        "word_backend_options": [minimax_backend, officecli_backend],
         "ppt_backend": "officecli",
         "excel_backend": "officecli",
         "officecli_status": report.get("status", "missing"),

@@ -24,6 +24,7 @@ python -m pip install -r requirements.txt
 |---|---|---|
 | Git for task research/build | `git --version` | Use the host package manager, for example `winget install --id Git.Git -e`, `brew install git`, or `sudo apt-get install git`. |
 | Node tooling | `node --version` | Use the host package manager, for example `winget install --id OpenJS.NodeJS.LTS -e`, `brew install node`, or `sudo apt-get install nodejs npm`. |
+| .NET SDK for Minimax Word | `dotnet --version` | Use the official .NET installer or the host package manager, for example `winget install --id Microsoft.DotNet.SDK.8 -e`, `brew install dotnet-sdk`, or `sudo apt-get install dotnet-sdk-8.0`. |
 | Browser capture | `python -c "import playwright"` | `python -m pip install playwright`, then `python -m playwright install chromium`. If the browser is not on `PATH`, set `AUTOFLOW_BROWSER_PATH` to its executable. |
 | Mermaid diagrams | `mmdc --version` | `npm install -g @mermaid-js/mermaid-cli` |
 | D2 diagrams | `d2 --version` | Install D2 with the host package manager or the official D2 installer. |
@@ -48,10 +49,8 @@ default image settings are `IMAGE_MODEL=gpt-image-2.5`,
 `IMAGE_DEFAULT_RESOLUTION=1024x1024`, `IMAGE_MAX_RETRIES=2`, and
 `IMAGE_PROBE_RETRIES=1`.
 
-Word authoring is selectable with `OFFICE_WORD_BACKEND=minimaxdocx`,
-`minimax-docx`, or `officecli`. `minimaxdocx`/`minimax-docx` are the preferred
-complex Word report/thesis backends; `officecli` remains the compatibility
-default and the common validation/render backend. When a Minimax backend is
-selected, install and verify that package, then configure
-`MINIMAX_DOCX_ROOT` or `MINIMAX_DOCX_COMMAND`; AutoFlow reports it as blocked
-until the selected runtime is available and never silently substitutes it.
+Office backends are not configured in `.env`. The checked-in
+`integrations/minimax-docx` package is the default for complex Word reports and
+theses; its check verifies the .NET runtime. `officecli` remains the common
+validation/render backend and is suitable for simple Word edits. The Agent
+selects by task shape and never silently substitutes an unavailable backend.

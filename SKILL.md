@@ -80,8 +80,9 @@ Before an AI-image batch, inspect the redacted environment report once:
 python scripts/autoflow.py env-check --json
 ```
 
-It reports the selected image model, resolution, retry limits, validator
-configuration, and Word backend without exposing secrets.
+It reports the selected image model, resolution, retry limits, and validator
+configuration without exposing secrets. Office backend availability is reported
+separately by `capabilities --json`.
 
 The command validates each integration manifest against
 `autoflow/integration-manifest/2.0` (name, type, capabilities, check entry,

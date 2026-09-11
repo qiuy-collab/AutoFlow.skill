@@ -21,8 +21,10 @@ submodule before acting:
 
 ## Backend
 
-`OFFICE_WORD_BACKEND` selects Word authoring: `officecli`, `minimaxdocx`, or
-`minimax-docx`. `excel` and `ppt` remain on `officecli`. AutoFlow always uses
+The agent selects Word authoring by task shape. `minimaxdocx` (the checked-in
+`integrations/minimax-docx` package) is the default for complex reports and
+theses; `officecli` is suitable for simple Word edits. `excel` and `ppt` remain on
+`officecli`. AutoFlow always uses
 `officecli` through `scripts/office_engine.py` and `scripts/validate_office.py`
 for common validation and rendering, regardless of the Word authoring backend.
 If the selected backend is missing, report a blocked capability and stop; never

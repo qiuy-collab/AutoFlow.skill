@@ -1,7 +1,7 @@
 # Office submodule: word (.docx)
 
 Dispatched from `modules/office.md` when `format=word`. Select the authoring
-backend from `OFFICE_WORD_BACKEND` before editing:
+backend from the resolved capabilities before editing:
 
 - `minimaxdocx` or `minimax-docx`: preferred for complex report/thesis create,
   template fill, heading hierarchy, TOC, captions, and page layout.
@@ -15,13 +15,13 @@ this submodule applies it to DOCX workflows, it does not replace it.
 
 Backend contract:
 
-- Set `OFFICE_WORD_BACKEND` to `officecli`, `minimaxdocx`, or `minimax-docx`.
-- `minimaxdocx`/`minimax-docx` are aliases for the optional Minimax OpenXML
-  backend and are preferred for complex reports and theses. Configure
-  `MINIMAX_DOCX_ROOT` or `MINIMAX_DOCX_COMMAND`, verify the runtime with its own
-  setup/check command, and never silently substitute `officecli`.
-- `officecli` is the compatibility default and remains suitable for simple Word
-  edits; it is always the common inspect, validate, and render backend.
+- No Word backend is pinned in `.env`. The agent chooses by task shape.
+- `minimaxdocx` is the default for complex reports and theses; read the
+  checked-in package at `integrations/minimax-docx/SKILL.md`, verify it with
+  `python scripts/autoflow.py capabilities --json`, and never silently
+  substitute `officecli`.
+- `officecli` remains suitable for simple Word edits; it is always the common
+  inspect, validate, and render backend.
 - Before a managed PLAN_STOP, `workflow.json.capabilities.office.word_backend`
   must report the selected backend as `available`.
 

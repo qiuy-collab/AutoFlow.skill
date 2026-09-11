@@ -178,7 +178,7 @@ R1 要求文档真实生成并通过验证，证据对应 office.document 与 of
         self.assertEqual(payload["$schema"], "autoflow/integrations/1.0")
         self.assertEqual(
             {item["name"] for item in payload["integrations"]},
-            {"impeccable", "nature-figure", "officecli"},
+            {"impeccable", "minimax-docx", "nature-figure", "officecli"},
         )
         self.assertTrue(all(item["status"] == "available" for item in payload["integrations"]))
         for item in payload["integrations"]:

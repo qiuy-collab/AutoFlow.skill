@@ -172,7 +172,6 @@ def main() -> int:
                 environment = payload["environment"]
                 print(f"image: {'available' if environment['image']['configured'] else 'missing'} ({environment['image']['model']}, {environment['image']['default_resolution']})")
                 print(f"validator: {'available' if environment['validator']['configured'] else 'missing'} ({environment['validator']['model'] or 'not selected'})")
-                print(f"word backend: {environment['office']['word_backend']}")
             return 0
         if args.command == "integrations":
             payload = {"$schema": "autoflow/integrations/1.0", "integrations": integration_catalog()}

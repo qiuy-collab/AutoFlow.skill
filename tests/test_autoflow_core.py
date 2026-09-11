@@ -775,13 +775,13 @@ class AutoFlowTestCase(unittest.TestCase):
         workflow = load_json(workflow_path)
         self.assertEqual(workflow["capabilities"]["office"]["status"], backend["status"])
 
-    def test_minimax_word_backend_is_blocked_without_runtime(self):
-        with patch("autoflow_core.load_skill_env", return_value={"OFFICE_WORD_BACKEND": "minimaxdocx"}):
-            backend = detect_office_backend()
+    def test_minimax_word_backend_is_available_from_integration_package(self):
+        backend = detect_office_backend()
 
         self.assertEqual(backend["word_backend"]["selected"], "minimaxdocx")
-        self.assertEqual(backend["word_backend"]["status"], "blocked")
-        self.assertEqual(backend["status"], "blocked")
+        self.assertEqual(backend["word_backend"]["status"], "available")
+        self.assertIn("integrations", backend["word_backend"].get("root", "").replace("\\", "/"))
+        self.assertIn("officecli", {item["backend"] for item in backend["word_backend_options"]})
 
     def test_video_backend_is_local_and_runtime_checked(self):
         backend = detect_video_backend()
@@ -907,7 +907,7 @@ class AutoFlowTestCase(unittest.TestCase):
         catalog = integration_catalog()
         self.assertEqual(
             {item["name"] for item in catalog},
-            {"impeccable", "nature-figure", "officecli"},
+            {"impeccable", "minimax-docx", "nature-figure", "officecli"},
         )
         self.assertTrue(all(item["status"] == "available" for item in catalog))
         for item in catalog:

@@ -1,0 +1,15 @@
+{
+  "$schema": "autoflow/integration-manifest/2.0",
+  "name": "minimax-docx",
+  "type": "tool",
+  "capabilities": {
+    "office-word": {"description": "Complex DOCX create, fill, edit, style, TOC, and template work via OpenXML SDK"}
+  },
+  "check": {"entry": "scripts/check.py", "runtime": "python"},
+  "upstream": "MiniMaxAI minimax-docx",
+  "revision": "1.0.0",
+  "license": "MIT",
+  "self_contained": true,
+  "external_user_skill_required": false,
+  "source_checkout_required": false
+}

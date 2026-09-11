@@ -16,7 +16,8 @@
 
 ### Changed
 
-- Office 采用可选第三方后端路由：`OFFICE_WORD_BACKEND` 支持 `minimaxdocx`/`minimax-docx` 处理复杂 Word 报告与论文，`officecli` 继续负责通用检查、校验、渲染以及 PPT/Excel；缺运行时明确 blocked，不静默降级。相关模块、初始化说明、填充规则、故障表与 README 已同步。
+- Office 采用可选第三方后端路由：`minimaxdocx`/`minimax-docx` 处理复杂 Word 报告与论文，`officecli` 继续负责通用检查、校验、渲染以及 PPT/Excel；缺运行时明确 blocked，不静默降级。相关模块、初始化说明、填充规则、故障表与 README 已同步。
+- Office 路由不再依赖 `.env` 锁定或本机 Skill 路径：`integrations/minimax-docx` 成为复杂 Word 默认可选包，Agent 按任务选择后端；`.env` 按 AI 生图与提示词质检分组，不再保存 Word 后端或第三方包路径。
 - `integrations/` 架构从"被审查的文件拷贝"升级为"插件化能力包仓库"：AutoFlow 只做三件事（发现、校验 check、分发），用法知识留在包内 SKILL.md，agent 自行阅读；AutoFlow 不再重写第三方用法或提供 adapter 封装。
 - `scripts/impeccable_adapter.mjs` 移入 `integrations/impeccable/scripts/`（作为包内离线入口），包内文档的引用自动适配；`AUTOFLOW_ADAPTER.md` 删除。
 - `detect_impeccable_backend()` 从硬编码文件列表改为注册表查询（`integration_catalog` 过滤），输出保持 `status/backend/integration_root/skill_file/runtime` 兼容。

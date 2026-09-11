@@ -49,6 +49,8 @@ the skill. `knowledge-only` packages need no check: availability means
   SKILL.md. AutoFlow's `scripts/office_engine.py` is a thin call wrapper
   (check/validate orchestration and report parsing) on top of the binary —
   operating knowledge stays in the package's SKILL.md.
+- `minimax-docx/`: the complex Word authoring package, with its OpenXML SDK
+  tools and usage knowledge checked in together.
 - `nature-figure/`: Apache-2.0 scientific figure skill. Knowledge in
   `SKILL.md`, tools in `scripts/plot_templates.py` (and AutoFlow's own
   schematic/validator scripts referenced from it).

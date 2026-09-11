@@ -46,7 +46,7 @@ does not re-write usage guidance — the agent reads the package's own SKILL.md.
 
 Current packages: `officecli` (role: engine — the office document binary plus
 its official SKILL.md; `scripts/office_engine.py` is AutoFlow's thin call
-wrapper on top of it), `nature-figure`, and `impeccable`.
+wrapper on top of it), `minimax-docx`, `nature-figure`, and `impeccable`.
 
 Read `references/integration-contract.md` before adding or updating an
 integration. A package whose check reports `missing` or whose manifest is
