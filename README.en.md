@@ -19,7 +19,7 @@ All assets use one runnable demo: a Spring Boot + MySQL campus activity registra
 
 | Before filling | After filling |
 | --- | --- |
-| <img src="display/word/render/before-01.png" alt="Blank experiment report template" width="360"> | <img src="display/word/render/after-02.png" alt="Completed experiment report" width="360"> |
+| <img src="display/word/render/before-01.png" alt="Blank experiment report template" width="360"> | <img src="display/word/render/filled-05.png" alt="Completed experiment report" width="360"> |
 
 ![Running activity calendar](display/images/capture/02-activity-calendar.png)
 

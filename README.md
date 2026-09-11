@@ -19,7 +19,7 @@ AutoFlow 提供 direct 与 managed 两种模式，覆盖 task、image、office�
 
 | 填写前 | 填写后 |
 | --- | --- |
-| <img src="display/word/render/before-01.png" alt="填写前的实验报告模板" width="360"> | <img src="display/word/render/after-02.png" alt="填写后的实验报告页面" width="360"> |
+| <img src="display/word/render/before-01.png" alt="填写前的实验报告模板" width="360"> | <img src="display/word/render/filled-05.png" alt="填写后的实验报告页面" width="360"> |
 
 ![真实运行的活动日历](display/images/capture/02-activity-calendar.png)
 
