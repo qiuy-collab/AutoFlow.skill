@@ -13,6 +13,8 @@ warnings.filterwarnings("ignore")
 import requests
 from requests.exceptions import RequestsDependencyWarning
 
+from env_config import load_skill_env
+
 warnings.filterwarnings("ignore", category=RequestsDependencyWarning)
 
 
@@ -35,21 +37,7 @@ def skill_root() -> Path:
 
 
 def load_env_file() -> dict:
-    env_path = skill_root() / ".env"
-    env_vars: dict = {}
-    if not env_path.exists():
-        return env_vars
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        delimiter = "=" if "=" in line else ":" if ":" in line else None
-        if delimiter is None:
-            continue
-        key, value = line.split(delimiter, 1)
-        env_vars[key.strip()] = value.strip()
-    return env_vars
+    return load_skill_env(skill_root())
 
 
 env_vars = load_env_file()
@@ -74,7 +62,7 @@ DEFAULT_POLICY = {
     "default_mode": "generic",
     "auto_append_negative": True,
     "fail_on_prompt_risk": True,
-    "probe_retries": 3,
+    "probe_retries": 1,
     "probe_timeout": 180,
     "batch_timeout": 180,
     "skip_existing_files": True,
@@ -780,7 +768,8 @@ def generate_from_config(
     output_dir = resolve_output_dir(config_path_obj, config.get("output_dir"))
     images = config.get("images", [])
     max_workers = min(int(config.get("max_workers", 4)), 8, max(total_count, 1))
-    max_retries = config.get("max_retries", 3)
+    env = load_env_file()
+    max_retries = int(config.get("max_retries", env.get("IMAGE_MAX_RETRIES", 2)))
     retry_delay = config.get("retry_delay", 2)
     policy = normalize_policy(config)
     config_timeout = int(config.get("timeout", policy.get("batch_timeout", 180)))
@@ -1031,10 +1020,10 @@ def main():
             config_data = json.loads(Path(args.config).read_text(encoding="utf-8"))
             policy = normalize_policy(config_data)
             config_timeout = config_timeout or int(config_data.get("timeout", policy.get("probe_timeout", 150)))
-            config_retries = int(policy.get("probe_retries", 3))
+            config_retries = int(policy.get("probe_retries", load_env_file().get("IMAGE_PROBE_RETRIES", 1)))
         ok = check_upstream(
             timeout=config_timeout or 150,
-            retries=config_retries or 3,
+            retries=config_retries or 1,
             probe_img2img=bool(args.ref_image),
             ref_image_path=args.ref_image,
         )

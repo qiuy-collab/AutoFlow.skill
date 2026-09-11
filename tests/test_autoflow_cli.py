@@ -206,6 +206,19 @@ R1 要求文档真实生成并通过验证，证据对应 office.document 与 of
         self.assertEqual(payload["capabilities"]["image"]["backend"], "integrated-image-assets")
         self.assertIn(payload["capabilities"]["image"]["status"], {"available", "partial", "blocked", "missing"})
 
+    def test_env_check_reports_sanitized_configuration(self):
+        completed = subprocess.run(
+            [sys.executable, str(CLI), "env-check", "--json"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["$schema"], "autoflow/env-report/1.0")
+        self.assertFalse(payload["environment"]["secrets_exposed"])
+        self.assertIn("model", payload["environment"]["image"])
+
     def test_route_returns_local_skill_paths(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -775,6 +775,14 @@ class AutoFlowTestCase(unittest.TestCase):
         workflow = load_json(workflow_path)
         self.assertEqual(workflow["capabilities"]["office"]["status"], backend["status"])
 
+    def test_minimax_word_backend_is_blocked_without_runtime(self):
+        with patch("autoflow_core.load_skill_env", return_value={"OFFICE_WORD_BACKEND": "minimaxdocx"}):
+            backend = detect_office_backend()
+
+        self.assertEqual(backend["word_backend"]["selected"], "minimaxdocx")
+        self.assertEqual(backend["word_backend"]["status"], "blocked")
+        self.assertEqual(backend["status"], "blocked")
+
     def test_video_backend_is_local_and_runtime_checked(self):
         backend = detect_video_backend()
         self.assertIn(backend["status"], {"available", "partial", "blocked", "missing"})

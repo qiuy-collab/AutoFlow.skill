@@ -30,6 +30,8 @@ from typing import Optional, List, Dict
 
 import requests
 
+from env_config import load_skill_env
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stderr, "reconfigure"):
@@ -41,22 +43,8 @@ def skill_root() -> Path:
 
 
 def load_env_file() -> dict:
-    """Load .env from skill root."""
-    env_path = skill_root() / ".env"
-    env_vars: dict = {}
-    if not env_path.exists():
-        return env_vars
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        delimiter = "=" if "=" in line else ":" if ":" in line else None
-        if delimiter is None:
-            continue
-        key, value = line.split(delimiter, 1)
-        env_vars[key.strip()] = value.strip()
-    return env_vars
+    """Load the shared, client-neutral .env format."""
+    return load_skill_env(skill_root())
 
 
 # ── Layer 0: Structure validation (local, no API) ──────────────────────────
@@ -671,7 +659,10 @@ def validate_config(
     print("Calling validation agent...")
     start_time = time.time()
 
-    max_retries = 2
+    try:
+        max_retries = max(1, int(env.get("VALIDATOR_MAX_RETRIES", "1")))
+    except ValueError:
+        max_retries = 1
     result = None
     last_error = None
 

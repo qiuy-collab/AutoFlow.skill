@@ -74,6 +74,15 @@ plus the impeccable capability, each with local file paths), use:
 python scripts/autoflow.py capabilities --json
 ```
 
+Before an AI-image batch, inspect the redacted environment report once:
+
+```bash
+python scripts/autoflow.py env-check --json
+```
+
+It reports the selected image model, resolution, retry limits, validator
+configuration, and Word backend without exposing secrets.
+
 The command validates each integration manifest against
 `autoflow/integration-manifest/2.0` (name, type, capabilities, check entry,
 provenance fields) and runs the package's own check script to verify local run

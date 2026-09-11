@@ -32,6 +32,9 @@ call an unverified external Skill.
 Read only the route-specific guidance needed:
 
 - AI assets: `docs/prompts/image_prompt_rules.md`, then use `generate_images.py` and `validate_prompt.py`.
+  Run the redacted `autoflow.py env-check --json` preflight once per batch.
+  The default policy uses one upstream probe and at most two generation
+  attempts per image; increase limits only for a known flaky upstream.
 - Browser evidence: use `scripts/capture_frontend_screenshots.py` with a local
   Playwright runtime for the declared capture plan. Verify the app is real and
   locally reachable first; a missing or unreachable browser runtime is a

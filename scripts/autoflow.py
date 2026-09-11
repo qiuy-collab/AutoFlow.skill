@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from autoflow_core import OFFICE_FORMATS
+from env_config import env_report
 from autoflow_core import (
     AutoFlowError,
     approve_gate,
@@ -71,6 +72,9 @@ def parse_args():
 
     capabilities = subparsers.add_parser("capabilities", help="Inspect integrated and optional module backends")
     capabilities.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+
+    env_check = subparsers.add_parser("env-check", help="Inspect Skill environment configuration without exposing secrets")
+    env_check.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
 
     integrations = subparsers.add_parser("integrations", help="List and audit checked-in integrations")
     integrations.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
@@ -159,6 +163,16 @@ def main() -> int:
                 for name, capability in payload["capabilities"].items():
                     backend = capability.get("backend") or "not configured"
                     print(f"{name}: {capability.get('status', 'unknown')} ({backend})")
+            return 0
+        if args.command == "env-check":
+            payload = {"$schema": "autoflow/env-report/1.0", "environment": env_report(Path(__file__).resolve().parent.parent)}
+            if args.json:
+                emit(payload)
+            else:
+                environment = payload["environment"]
+                print(f"image: {'available' if environment['image']['configured'] else 'missing'} ({environment['image']['model']}, {environment['image']['default_resolution']})")
+                print(f"validator: {'available' if environment['validator']['configured'] else 'missing'} ({environment['validator']['model'] or 'not selected'})")
+                print(f"word backend: {environment['office']['word_backend']}")
             return 0
         if args.command == "integrations":
             payload = {"$schema": "autoflow/integrations/1.0", "integrations": integration_catalog()}

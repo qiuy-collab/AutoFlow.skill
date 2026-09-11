@@ -33,3 +33,23 @@ python -m pip install -r requirements.txt
 Do not create image API credentials or invent values for `BASEURL` or `APIKEY`.
 An unavailable AI-image route remains blocked until the user supplies valid
 credentials.
+
+AutoFlow reads a client-neutral `.env` at the Skill root. Prefer `KEY=value`
+lines; legacy `KEY:value` lines remain readable for compatibility. Run the
+capability check once before a batch and do not print secret values:
+
+```bash
+python scripts/autoflow.py capabilities --json
+```
+
+The AI report includes the configured image model, default resolution, retry
+limits, and missing validator fields without exposing `APIKEY` values. The
+default image settings are `IMAGE_MODEL=gpt-image-2.5`,
+`IMAGE_DEFAULT_RESOLUTION=1024x1024`, `IMAGE_MAX_RETRIES=2`, and
+`IMAGE_PROBE_RETRIES=1`.
+
+Word authoring is selectable with `OFFICE_WORD_BACKEND=officecli`,
+`minimaxdocx`, or `minimax-docx`. `officecli` remains the default fallback and
+the validation/render backend. When a Minimax backend is selected, configure
+`MINIMAX_DOCX_ROOT` or `MINIMAX_DOCX_COMMAND`; AutoFlow reports it as blocked
+until the selected runtime is available and never silently substitutes it.

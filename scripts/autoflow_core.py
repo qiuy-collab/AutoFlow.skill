@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from env_config import env_report, load_skill_env
+
 
 SCHEMA_ID = "autoflow/1.0"
 SCHEMA_VERSION = "1.0"
@@ -332,12 +334,51 @@ def detect_office_backend() -> dict[str, Any]:
             "external_skill_required": False,
             "message": f"officecli backend probe failed: {exc}",
         }
-    return {
+    env = load_skill_env(root)
+    selected_word_backend = (env.get("OFFICE_WORD_BACKEND") or "officecli").lower()
+    word_backend = {
+        "selected": selected_word_backend,
+        "backend": selected_word_backend,
+        "status": "available" if selected_word_backend == "officecli" else "blocked",
+        "message": "officecli is the Word authoring and validation backend."
+        if selected_word_backend == "officecli"
+        else "Install/configure the selected Word backend and set MINIMAX_DOCX_ROOT or MINIMAX_DOCX_COMMAND.",
+    }
+    if selected_word_backend in {"minimaxdocx", "minimax-docx"}:
+        root_hint = env.get("MINIMAX_DOCX_ROOT", "")
+        command_config = env.get("MINIMAX_DOCX_COMMAND", "")
+        command_name = command_config.split()[0] if command_config else ""
+        command_hint = (
+            (command_config if Path(command_config).is_file() else "")
+            or shutil.which(command_name)
+            or shutil.which("minimaxdocx")
+            or shutil.which("minimax-docx")
+        )
+        word_backend["root"] = root_hint
+        word_backend["command"] = command_hint or ""
+        root_available = bool(root_hint and Path(root_hint).expanduser().is_dir())
+        word_backend["status"] = "available" if root_available or command_hint else "blocked"
+        word_backend["message"] = (
+            "minimaxdocx Word backend is configured. officecli remains the validation/render backend."
+            if word_backend["status"] == "available"
+            else "minimaxdocx is selected but not installed/configured."
+        )
+    elif selected_word_backend != "officecli":
+        word_backend["message"] = f"Unsupported OFFICE_WORD_BACKEND: {selected_word_backend}"
+    base = {
         **report,
         "integration_root": str((root / "integrations" / "officecli").resolve()),
         "engine_script": str(engine_script.resolve()),
         "validator_script": str(validator_script.resolve()),
+        "word_backend": word_backend,
+        "ppt_backend": "officecli",
+        "excel_backend": "officecli",
+        "officecli_status": report.get("status", "missing"),
     }
+    if word_backend["status"] != "available":
+        base["message"] = word_backend["message"]
+        base["status"] = "blocked"
+    return base
 
 
 def _find_video_tool(name: str) -> str:
@@ -376,24 +417,9 @@ def detect_video_backend() -> dict[str, Any]:
 
 
 def _image_env_status(root: Path) -> tuple[bool, str]:
-    env_path = root / ".env"
-    if not env_path.is_file():
-        return False, ".env is missing"
-    values: dict[str, str] = {}
-    try:
-        for raw_line in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            delimiter = "=" if "=" in line else ":" if ":" in line else None
-            if delimiter is None:
-                continue
-            key, value = line.split(delimiter, 1)
-            values[key.strip()] = value.strip().strip('"').strip("'")
-    except OSError as exc:
-        return False, f"Unable to read .env: {exc}"
-    missing = [key for key in ("BASEURL", "APIKEY") if not values.get(key)]
-    return (not missing, "configured" if not missing else "Missing " + ", ".join(missing))
+    report = env_report(root)
+    image = report["image"]
+    return (bool(image["configured"]), "configured" if image["configured"] else "Missing " + ", ".join(image["missing"]))
 
 
 def _image_action_report(action: str, root: Path) -> dict[str, Any]:
@@ -427,9 +453,10 @@ def _image_action_report(action: str, root: Path) -> dict[str, Any]:
         return report
     if action == "ai":
         configured, detail = _image_env_status(root)
+        report["env"] = env_report(root)
         report["env_configured"] = configured
         report["status"] = "available" if configured else "blocked"
-        report["missing"] = [] if configured else ["BASEURL", "APIKEY"]
+        report["missing"] = [] if configured else report["env"]["image"]["missing"]
         report["message"] = detail
     elif action == "capture":
         playwright_available = importlib.util.find_spec("playwright") is not None
@@ -582,10 +609,17 @@ def validate_capabilities(workflow: dict[str, Any]) -> None:
                 )
     if any(step.get("module") == "office" for step in workflow.get("steps", [])):
         office = (workflow.get("capabilities") or {}).get("office") or detect_office_backend()
-        if office.get("status") != "available":
+        office_steps = [step for step in workflow.get("steps", []) if step.get("module") == "office"]
+        word_required = any(step.get("format") == "word" for step in office_steps)
+        officecli_required = any(step.get("format") in {"ppt", "excel"} for step in office_steps)
+        backend_unavailable = (
+            (word_required and (office.get("word_backend") or {}).get("status") != "available")
+            or (officecli_required and office.get("officecli_status", office.get("status")) != "available")
+        )
+        if backend_unavailable:
             raise AutoFlowError(
-                "Office workflow requires the officecli binary. "
-                "Install officecli (https://d.officecli.ai) or add it to PATH before PLAN_STOP approval; "
+                "Office workflow requires the selected backend. "
+                "Install officecli or the configured Word backend before PLAN_STOP approval; "
                 "AutoFlow will not silently substitute another backend."
             )
 
