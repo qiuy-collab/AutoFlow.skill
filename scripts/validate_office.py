@@ -151,6 +151,22 @@ def relationship_errors(archive: zipfile.ZipFile) -> list[str]:
     return errors
 
 
+def style_display_names(archive: zipfile.ZipFile) -> dict[str, str]:
+    """Resolve internal style IDs to their display names for backend-portable checks."""
+    try:
+        root = ET.fromstring(archive.read("word/styles.xml"))
+    except (KeyError, ET.ParseError):
+        return {}
+    names: dict[str, str] = {}
+    for style in root.findall(f"{W}style"):
+        style_id = style.get(f"{W}styleId", "")
+        if not style_id:
+            continue
+        name_node = style.find(f"{W}name")
+        names[style_id] = (name_node.get(f"{W}val", "") if name_node is not None else "") or style_id
+    return names
+
+
 def _open_archive(path: Path, suffix: str) -> zipfile.ZipFile:
     if not path.is_file() or path.suffix.lower() != suffix:
         raise ValidationFailure(f"Not an existing {suffix} file: {path}")
@@ -171,6 +187,7 @@ def inspect_docx(path: Path) -> dict:
             if missing:
                 raise ValidationFailure("DOCX is missing required parts: " + ", ".join(sorted(missing)))
             root = ET.fromstring(archive.read("word/document.xml"))
+            style_names = style_display_names(archive)
             paragraphs = list(root.iter(f"{W}p"))
             records = []
             for paragraph in paragraphs:
@@ -178,7 +195,7 @@ def inspect_docx(path: Path) -> dict:
                 records.append(
                     {
                         "text": paragraph_text(paragraph),
-                        "style": paragraph_style(paragraph),
+                        "style": style_names.get(paragraph_style(paragraph), paragraph_style(paragraph)),
                         "drawing_count": drawing_count,
                     }
                 )
