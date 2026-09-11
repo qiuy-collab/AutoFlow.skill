@@ -21,11 +21,13 @@ submodule before acting:
 
 ## Backend
 
-All Office work runs through the `officecli` binary (single dependency, no Office
-installation required). AutoFlow drives it via `scripts/office_engine.py` and validates
-outputs with `scripts/validate_office.py`; it does not silently call another backend.
-If `officecli` is missing, report a blocked capability and stop. Read
-`workflow.json.capabilities.office` for the detected exe/version.
+`OFFICE_WORD_BACKEND` selects Word authoring: `officecli`, `minimaxdocx`, or
+`minimax-docx`. `excel` and `ppt` remain on `officecli`. AutoFlow always uses
+`officecli` through `scripts/office_engine.py` and `scripts/validate_office.py`
+for common validation and rendering, regardless of the Word authoring backend.
+If the selected backend is missing, report a blocked capability and stop; never
+silently substitute another backend. Read `workflow.json.capabilities.office`
+for the selected backend and runtime status.
 
 The official operating manual is `integrations/officecli/SKILL.md` (checked-in
 package copy) — read it before working; the sections below only distill the

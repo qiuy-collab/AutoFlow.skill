@@ -38,8 +38,8 @@ AutoFlow 提供 direct 与 managed 两种模式，覆盖 task、image、office�
 
 1. 克隆仓库或下载其完整内容；根据你正在运行的客户端约定，确定该客户端的 Skill 安装目录（例如 ~/.newmax/skills/、~/.claude/skills/ 或该客户端文档规定的位置），将完整 autoflow Skill 目录安装进去。不要假设或硬编码 Codex 专属路径。
 2. 确认安装后的目录包含 SKILL.md、references/、modules/、scripts/、integrations/、requirements.txt，且所有相对引用仍从 Skill 根目录可达。
-3. 在 Skill 根目录先阅读 references/init.md。检查 Python、pip、Git、Node；安装 requirements.txt 的 Python 依赖。按需安装 Playwright 与 chromium、Mermaid CLI、D2、officecli 和 ffmpeg，然后重新执行相应检查。
-4. 在 Skill 根目录运行：python scripts/autoflow.py capabilities --json。逐项汇报 available、missing 或 incomplete，以及缺失项的下一步安装命令。
+3. 在 Skill 根目录先阅读 references/init.md。检查 Python、pip、Git、Node；安装 requirements.txt 的 Python 依赖。按需安装 Playwright 与 chromium、Mermaid CLI、D2、officecli 和 ffmpeg；若选择 OFFICE_WORD_BACKEND=minimaxdocx 或 minimax-docx，按该包说明安装并配置 MINIMAX_DOCX_ROOT 或 MINIMAX_DOCX_COMMAND。
+4. 在 Skill 根目录运行：python scripts/autoflow.py env-check --json 和 python scripts/autoflow.py capabilities --json。逐项汇报 available、missing 或 incomplete，不得输出 APIKEY。
 5. 不要替用户创建、猜测或写入 .env 中的 BASEURL、APIKEY、VALIDATOR_* 等凭据。凭据缺失时，说明 AI 生图和提示词质检被阻塞，并等待用户自行配置后再继续。
 ```
 
@@ -77,6 +77,7 @@ flowchart LR
 | 集成 | 用途 |
 | --- | --- |
 | `officecli` | Office 文档的结构化编辑、OpenXML 校验和 HTML 渲染。 |
+| `minimaxdocx` / `minimax-docx` | 可选的复杂 Word 报告/论文创建与填充后端；由 `OFFICE_WORD_BACKEND` 选择，仍由 `officecli` 校验和渲染。 |
 | `impeccable` | 前端设计语言与离线质量检测适配。 |
 | `nature-figure` | 具有数据来源和质量记录的出版级图表模板。 |
 

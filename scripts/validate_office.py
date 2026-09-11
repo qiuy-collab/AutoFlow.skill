@@ -28,6 +28,7 @@ PLACEHOLDER_PATTERNS = (
     re.compile(r"\{\{[^{}]+\}\}"),
     re.compile(r"\[(?:TODO|TBD)\]", re.IGNORECASE),
     re.compile(r"(?:请在此处填写|此处替换|示例内容|样例内容|占位符)"),
+    re.compile(r"Update field to see table of contents", re.IGNORECASE),
 )
 FORMAT_INSTRUCTION_PATTERNS = (
     re.compile(r"(?:字号要求|字体要求|行距要求|格式要求|页边距要求)"),
@@ -183,10 +184,12 @@ def inspect_docx(path: Path) -> dict:
                 )
             full_text = "\n".join(item["text"] for item in records if item["text"])
             instructions = " ".join(node.text or "" for node in root.iter(f"{W}instrText"))
+            has_toc_field = "TOC" in instructions.upper()
             return {
                 "paragraphs": records,
                 "full_text": full_text,
-                "has_toc": "TOC" in instructions.upper() or any(item["text"] == "目录" for item in records),
+                "has_toc": has_toc_field or any(item["text"] == "目录" for item in records),
+                "has_toc_field": has_toc_field,
                 "tables": table_shapes(root),
                 "sections": section_settings(root),
                 "headers": sorted(name for name in names if re.fullmatch(r"word/header\d+\.xml", name)),
@@ -317,6 +320,18 @@ def validate(
         checks.append(check("no_template_instructions_in_body", not instruction_hits, f"matched={instruction_hits or 'none'}"))
         voice_hits = [pattern.pattern for pattern in AGENT_VOICE_PATTERNS if pattern.search(full_text)]
         checks.append(check("no_agent_voice", not voice_hits, f"matched={voice_hits or 'none'}"))
+        paragraphs = document_info["paragraphs"]
+        nonempty = [item for item in paragraphs if item["text"]]
+        if plan.get("require_title", False):
+            title = nonempty[0] if nonempty else {"text": "", "style": ""}
+            title_ok = bool(title["text"]) and title["style"].lower().startswith("title")
+            checks.append(check("title_style_present", title_ok, f"first_style={title['style'] or 'none'}"))
+        minimum_headings = int(plan.get("minimum_heading_count", 0) or 0)
+        if minimum_headings:
+            heading_count = sum(1 for item in paragraphs if item["style"].lower().startswith("heading"))
+            checks.append(check("heading_styles_present", heading_count >= minimum_headings, f"headings={heading_count}, required={minimum_headings}"))
+        if plan.get("require_toc", False):
+            checks.append(check("toc_field_present", document_info.get("has_toc_field", False), "TOC field present" if document_info.get("has_toc_field", False) else "TOC field missing"))
     else:
         texts = (
             document_info["slide_texts"] if format_name == "ppt" else document_info["cell_texts"]
@@ -431,6 +446,7 @@ def validate(
             "captions": len(captions),
             "tables": len(document_info["tables"]),
             "has_toc": document_info["has_toc"],
+            "has_toc_field": document_info.get("has_toc_field", False),
         }
     elif format_name == "ppt":
         declared = int(document_info["slide_count_declared"])

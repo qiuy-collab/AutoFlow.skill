@@ -148,6 +148,35 @@ class OfficeValidationTests(unittest.TestCase):
             failed = {item["name"] for item in report["checks"] if item["status"] == "failed"}
             self.assertIn("no_template_instructions_in_body", failed)
 
+    def test_complex_word_plan_requires_title_heading_and_toc_field(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            template = root / "template.docx"
+            document = root / "result.docx"
+            body = (
+                '<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>实验报告</w:t></w:r></w:p>'
+                '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>1 项目概述</w:t></w:r></w:p>'
+                '<w:p><w:r><w:fldChar w:fldCharType="begin"/><w:instrText> TOC \\"1-3\\" </w:instrText><w:fldChar w:fldCharType="end"/></w:r></w:p>'
+            )
+            write_docx(template, body)
+            write_docx(document, body)
+            plan = self.strict_plan()
+            plan.update(
+                {
+                    "minimum_image_count": 0,
+                    "require_caption_pairing": False,
+                    "require_title": True,
+                    "minimum_heading_count": 1,
+                    "require_toc": True,
+                }
+            )
+            result, report = self.run_validator(root, document, template, plan)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            checks = {item["name"]: item for item in report["checks"]}
+            self.assertEqual(checks["title_style_present"]["status"], "passed")
+            self.assertEqual(checks["heading_styles_present"]["status"], "passed")
+            self.assertEqual(checks["toc_field_present"]["status"], "passed")
+
 
 if __name__ == "__main__":
     unittest.main()

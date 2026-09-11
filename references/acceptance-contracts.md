@@ -43,6 +43,13 @@ Register both `office.document` and `office.validation`. The core rejects an
 office step if the report is failed, incomplete, stale, or refers to a different
 file hash.
 
+For complex Word reports and theses, the plan should also set
+`require_title=true`, `minimum_heading_count` to the expected heading count,
+and `require_toc=true`. `minimaxdocx`/`minimax-docx` may author the document;
+`officecli` remains the common validator and renderer. A plain-text line named
+目录 or a stale `Update field to see table of contents` message is not a valid
+TOC.
+
 ## Video report
 
 Run `video_process.py analyze` after recording, creating, or processing a video. Its output uses `autoflow/video-validation/1.0` and records duration, dimensions, codec, SHA-256, sampled frames, and checks. Do not accept a video with zero duration, unknown dimensions, unknown codec, or failed requested frame sampling.
