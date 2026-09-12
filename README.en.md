@@ -13,8 +13,6 @@ A general-purpose task engine for Agents.
 
 </div>
 
-AutoFlow is a general-purpose task engine that runs inside an Agent. Give it a request — say, a lab report assignment — and it gathers sources, builds the project, generates charts, writes the report, and packages the delivery.
-
 ## Quick Start
 
 Copy this line and send it to your Agent:
