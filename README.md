@@ -4,7 +4,7 @@
 
 # AutoFlow
 
-面向可验证交付的 Agent Skill：小任务可直接执行，关联任务以可续跑 DAG 管理。
+一条提示词，从课程作业到可交付的实验报告。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/qiuy-collab/AutoFlow.skill/actions/workflows/ci.yml/badge.svg)](https://github.com/qiuy-collab/AutoFlow.skill/actions)
@@ -13,7 +13,7 @@
 
 </div>
 
-AutoFlow 提供 direct 与 managed 两种模式，覆盖 task、image、office、video 和 package。managed 模式在 PLAN、SOURCE、VISUAL、DELIVERY 四类 STOP 门停下等待用户决策，计划、状态、审批和产物哈希均落盘，可检查也可续跑。
+AutoFlow 为大学生实验报告而生：把作业要求发给 Agent，它会自动检索资料、搭建项目、生成图表、撰写报告并打包交付。这套流程后来被抽象成通用的可验证交付引擎——实验报告、毕业论文、项目演示都能用它完成，关键节点停下来等你确认，每一步产物可检查、可续跑。
 
 ## Quick Start
 

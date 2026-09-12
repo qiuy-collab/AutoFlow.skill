@@ -4,7 +4,7 @@
 
 # AutoFlow
 
-A verifiable Agent Skill for delivery work: direct execution for small tasks and resumable DAGs for connected work.
+One prompt, from course assignment to a deliverable lab report.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/qiuy-collab/AutoFlow.skill/actions/workflows/ci.yml/badge.svg)](https://github.com/qiuy-collab/AutoFlow.skill/actions)
@@ -13,7 +13,7 @@ A verifiable Agent Skill for delivery work: direct execution for small tasks and
 
 </div>
 
-AutoFlow provides direct and managed modes across task, image, office, video, and package work. Managed runs pause at PLAN, SOURCE, VISUAL, and DELIVERY STOP gates for user decisions; plans, state, approvals, and artifact hashes are persisted so a run can be inspected and resumed.
+AutoFlow was built for university lab reports: send your assignment to an Agent and it retrieves sources, builds the project, generates charts, writes the report, and packages the delivery. That workflow has since grown into a general verifiable delivery engine — lab reports, theses, and project demos all run through it, pausing at key checkpoints for your confirmation so every artifact stays inspectable and resumable.
 
 ## Quick Start
 
