@@ -35,7 +35,7 @@ All assets are generated from one demo project: a Spring Boot + MySQL campus act
 
 | Before filling | After filling |
 | --- | --- |
-| <img src="display/word/render/before-01.png" alt="Report template before filling" width="360"> | <img src="display/word/render/filled-en-1.png" alt="Completed report page" width="360"> |
+| <img src="display/word/render/template-en-1.png" alt="Report template before filling" width="360"> | <img src="display/word/render/filled-en-1.png" alt="Completed report page" width="360"> |
 
 ## Image Module
 
@@ -51,9 +51,9 @@ python scripts/capture_frontend_screenshots.py --config <capture-plan.json> --ou
 
 | | | |
 |:---:|:---:|:---:|
-| ![dashboard](display/images/capture/01-dashboard.png) | ![calendar](display/images/capture/02-activity-calendar.png) | ![registration](display/images/capture/03-registration.png) |
+| <img src="display/images/capture/01-dashboard.png" width="280" alt="dashboard"> | <img src="display/images/capture/02-activity-calendar.png" width="280" alt="calendar"> | <img src="display/images/capture/03-registration.png" width="280" alt="registration"> |
 | dashboard | activity-calendar | registration |
-| ![operations](display/images/capture/04-operations.png) | | |
+| <img src="display/images/capture/04-operations.png" width="280" alt="operations"> | | |
 | operations | | |
 
 ### ai — AI-generated screenshots
@@ -66,11 +66,11 @@ python scripts/generate_images.py --config <prompt-config.json>
 
 | | | |
 |:---:|:---:|:---:|
-| ![maven-terminal](display/images/ai/01-java-maven-terminal.png) | ![vscode](display/images/ai/02-registration-controller-vscode.png) | ![graphical-abstract](display/images/ai/03-campuspulse-graphical-abstract.png) |
+| <img src="display/images/ai/01-java-maven-terminal.png" width="280" alt="maven-terminal"> | <img src="display/images/ai/02-registration-controller-vscode.png" width="280" alt="vscode"> | <img src="display/images/ai/03-campuspulse-graphical-abstract.png" width="280" alt="graphical-abstract"> |
 | Maven build | VS Code source | Graphical abstract |
-| ![sql-query](display/images/ai/04-linux-sql-query.png) | ![network-ss](display/images/ai/05-linux-network-ss.png) | ![git-commit](display/images/ai/06-git-commit-terminal.png) |
+| <img src="display/images/ai/04-linux-sql-query.png" width="280" alt="sql-query"> | <img src="display/images/ai/05-linux-network-ss.png" width="280" alt="network-ss"> | <img src="display/images/ai/06-git-commit-terminal.png" width="280" alt="git-commit"> |
 | SQL query | Network verification | Git commit |
-| ![debug-breakpoint](display/images/ai/07-vscode-debug-breakpoint.png) | ![devtools](display/images/ai/08-browser-devtools-network.png) | ![maven-test](display/images/ai/09-terminal-maven-test.png) |
+| <img src="display/images/ai/07-vscode-debug-breakpoint.png" width="280" alt="debug-breakpoint"> | <img src="display/images/ai/08-browser-devtools-network.png" width="280" alt="devtools"> | <img src="display/images/ai/09-terminal-maven-test.png" width="280" alt="maven-test"> |
 | VS Code debugging | DevTools network panel | Maven test |
 
 ### diagram — Deterministic diagrams
@@ -83,11 +83,11 @@ python scripts/generate_diagram_assets.py --config <diagram-plan.json> --output-
 
 | | | |
 |:---:|:---:|:---:|
-| ![architecture](display/images/diagram/campus-activity-architecture.png) | ![er](display/images/diagram/campus-activity-er.png) | ![flow](display/images/diagram/campus-registration-flow.png) |
+| <img src="display/images/diagram/campus-activity-architecture.png" width="280" alt="architecture"> | <img src="display/images/diagram/campus-activity-er.png" width="280" alt="er"> | <img src="display/images/diagram/campus-registration-flow.png" width="280" alt="flow"> |
 | Architecture | ER diagram | Business flow |
-| ![class](display/images/diagram/campus-activity-class.png) | ![sequence](display/images/diagram/campus-registration-sequence.png) | ![usecase](display/images/diagram/campus-system-usecase.png) |
+| <img src="display/images/diagram/campus-activity-class.png" width="280" alt="class"> | <img src="display/images/diagram/campus-registration-sequence.png" width="280" alt="sequence"> | <img src="display/images/diagram/campus-system-usecase.png" width="280" alt="usecase"> |
 | Class diagram | Sequence diagram | Use case diagram |
-| ![topology](display/images/diagram/campus-network-topology.png) | | |
+| <img src="display/images/diagram/campus-network-topology.png" width="280" alt="topology"> | | |
 | Deployment topology | | |
 
 ### chart — Data charts
@@ -100,9 +100,9 @@ python integrations/nature-figure/scripts/plot_templates.py <template> ...
 
 | | | |
 |:---:|:---:|:---:|
-| ![metric-matrix](display/images/chart/activity-metric-matrix.png) | ![capacity](display/images/chart/capacity-vs-registration.png) | ![volcano](display/images/chart/activity-volcano.png) |
+| <img src="display/images/chart/activity-metric-matrix.png" width="280" alt="metric-matrix"> | <img src="display/images/chart/capacity-vs-registration.png" width="280" alt="capacity"> | <img src="display/images/chart/activity-volcano.png" width="280" alt="volcano"> |
 | Metric matrix | Capacity comparison | Volcano plot |
-| ![roc](display/images/chart/checkin-model-roc.png) | ![dotplot](display/images/chart/activity-category-dotplot.png) | ![marginal](display/images/chart/registration-marginal.png) |
+| <img src="display/images/chart/checkin-model-roc.png" width="280" alt="roc"> | <img src="display/images/chart/activity-category-dotplot.png" width="280" alt="dotplot"> | <img src="display/images/chart/registration-marginal.png" width="280" alt="marginal"> |
 | ROC curve | Category dotplot | Marginal distribution |
 
 ## Office Module
@@ -118,9 +118,7 @@ python scripts/validate_office.py <file>.docx
 
 | Page 1 | Page 2 |
 |:---:|:---:|
-| ![filled-en-1](display/word/render/filled-en-1.png) | ![filled-en-2](display/word/render/filled-en-2.png) |
-| Page 3 | |
-| ![filled-en-3](display/word/render/filled-en-3.png) | |
+| <img src="display/word/render/filled-en-1.png" width="280" alt="filled-en-1"> | <img src="display/word/render/filled-en-2.png" width="280" alt="filled-en-2"> |
 
 ### Word from scratch
 
@@ -128,9 +126,9 @@ Creates a graduation thesis from scratch with table of contents, body, figures, 
 
 | Page 1 | Page 2 |
 |:---:|:---:|
-| ![thesis-en-1](display/document-from-scratch/render/thesis-en-1.png) | ![thesis-en-2](display/document-from-scratch/render/thesis-en-2.png) |
+| <img src="display/document-from-scratch/render/thesis-en-1.png" width="280" alt="thesis-en-1"> | <img src="display/document-from-scratch/render/thesis-en-2.png" width="280" alt="thesis-en-2"> |
 | Page 3 | Page 4 |
-| ![thesis-en-3](display/document-from-scratch/render/thesis-en-3.png) | ![thesis-en-4](display/document-from-scratch/render/thesis-en-4.png) |
+| <img src="display/document-from-scratch/render/thesis-en-3.png" width="280" alt="thesis-en-3"> | <img src="display/document-from-scratch/render/thesis-en-4.png" width="280" alt="thesis-en-4"> |
 
 ### Excel creation
 
@@ -140,7 +138,7 @@ Creates styled spreadsheets with formulas via officecli.
 python scripts/office_engine.py --action create --format excel ...
 ```
 
-![Registration statistics spreadsheet](display/excel/render/sheet-1.png)
+<img src="display/excel/render/sheet-1.png" width="280" alt="Registration statistics spreadsheet">
 
 ## Pipeline Overview
 
