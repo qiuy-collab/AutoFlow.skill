@@ -441,7 +441,7 @@ def build_plantuml_use_case(diagram: dict) -> str:
     associations = require_list(diagram, "associations", context)
     actor_alias = {}
     case_alias = {}
-    lines = ["@startuml", "skinparam backgroundColor transparent", "left to right direction"]
+    lines = ["@startuml", "skinparam backgroundColor white", "left to right direction"]
     if diagram.get("title"):
         lines.append(f"title {plain_text(diagram['title'])}")
     for actor in actors:
@@ -475,7 +475,7 @@ def build_plantuml_class(diagram: dict) -> str:
     classes = require_list(diagram, "classes", context)
     relations = require_list(diagram, "relations", context)
     alias_map = {}
-    lines = ["@startuml", "skinparam backgroundColor transparent"]
+    lines = ["@startuml", "skinparam backgroundColor white", "skinparam monochrome true"]
     if diagram.get("title"):
         lines.append(f"title {plain_text(diagram['title'])}")
     for item in classes:
@@ -484,7 +484,7 @@ def build_plantuml_class(diagram: dict) -> str:
         alias_map[item["name"]] = alias
         class_type = item.get("type", "class")
         lines.append(f'{class_type} "{escape_label(item["name"])}" as {alias} {{')
-        for field in item.get("fields", []):
+        for field in item.get("fields", []) + item.get("attributes", []):
             lines.append(f"  {field}")
         for method in item.get("methods", []):
             lines.append(f"  {method}")
@@ -512,7 +512,7 @@ def build_plantuml_sequence(diagram: dict) -> str:
     participants = require_list(diagram, "participants", context)
     messages = require_list(diagram, "messages", context)
     alias_map = {}
-    lines = ["@startuml", "skinparam backgroundColor transparent"]
+    lines = ["@startuml", "skinparam backgroundColor white"]
     if diagram.get("title"):
         lines.append(f"title {plain_text(diagram['title'])}")
     for participant in participants:
@@ -534,7 +534,7 @@ def build_plantuml_sequence(diagram: dict) -> str:
 def build_plantuml_activity(diagram: dict) -> str:
     context = f"diagram '{diagram.get('name', '<unnamed>')}' ({diagram.get('kind')})"
     actions = require_list(diagram, "actions", context)
-    lines = ["@startuml", "skinparam backgroundColor transparent"]
+    lines = ["@startuml", "skinparam backgroundColor white"]
     if diagram.get("title"):
         lines.append(f"title {plain_text(diagram['title'])}")
     lines.append("start")
@@ -550,7 +550,7 @@ def build_plantuml_state(diagram: dict) -> str:
     states = require_list(diagram, "states", context)
     transitions = require_list(diagram, "transitions", context)
     alias_map = {}
-    lines = ["@startuml", "skinparam backgroundColor transparent"]
+    lines = ["@startuml", "skinparam backgroundColor white"]
     if diagram.get("title"):
         lines.append(f"title {plain_text(diagram['title'])}")
     for state in states:
@@ -578,7 +578,7 @@ def build_plantuml_component(diagram: dict) -> str:
     components = require_list(diagram, "components", context)
     dependencies = require_list(diagram, "dependencies", context)
     alias_map = {}
-    lines = ["@startuml", "skinparam backgroundColor transparent"]
+    lines = ["@startuml", "skinparam backgroundColor white"]
     if diagram.get("title"):
         lines.append(f"title {plain_text(diagram['title'])}")
     for component in components:
@@ -606,7 +606,7 @@ def build_plantuml_deployment(diagram: dict) -> str:
     nodes = require_list(diagram, "nodes", context)
     connections = require_list(diagram, "connections", context)
     alias_map = {}
-    lines = ["@startuml", "skinparam backgroundColor transparent"]
+    lines = ["@startuml", "skinparam backgroundColor white"]
     if diagram.get("title"):
         lines.append(f"title {plain_text(diagram['title'])}")
     for node in nodes:

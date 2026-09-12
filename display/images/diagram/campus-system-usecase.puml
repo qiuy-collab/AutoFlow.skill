@@ -1,5 +1,5 @@
 @startuml
-skinparam backgroundColor transparent
+skinparam backgroundColor white
 left to right direction
 title CampusPulse Use Case Diagram
 actor "Student" as Student

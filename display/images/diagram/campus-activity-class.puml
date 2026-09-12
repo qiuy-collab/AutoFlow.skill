@@ -1,21 +1,37 @@
 @startuml
-skinparam backgroundColor transparent
+skinparam backgroundColor white
+skinparam monochrome true
 title CampusPulse Class Diagram
 class "User" as User {
+  -id: Long
+  -username: String
+  -email: String
+  -role: UserRole
   +login()
   +logout()
   +updateProfile()
 }
 class "Student" as Student {
+  -studentId: String
+  -major: String
+  -grade: Integer
   +registerActivity()
   +cancelRegistration()
   +viewSchedule()
 }
 class "Activity" as Activity {
+  -id: Long
+  -title: String
+  -capacity: Integer
+  -startTime: LocalDateTime
+  -location: String
   +isFull()
   +getRemainingSlots()
 }
 class "Registration" as Registration {
+  -id: Long
+  -registeredAt: LocalDateTime
+  -status: RegistrationStatus
   +confirm()
   +checkIn()
 }

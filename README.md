@@ -35,7 +35,7 @@ AutoFlow 提供 direct 与 managed 两种模式，覆盖 task、image、office�
 
 | 填写前 | 填写后 |
 | --- | --- |
-| <img src="display/word/render/before-01.png" alt="填写前的实验报告模板" width="360"> | <img src="display/word/render/filled-01.png" alt="填写后的实验报告页面" width="360"> |
+| <img src="display/word/render/before-01.png" alt="填写前的实验报告模板" width="360"> | <img src="display/word/render/filled-en-1.png" alt="填写后的实验报告页面" width="360"> |
 
 ## Image 模块
 
@@ -109,49 +109,28 @@ python integrations/nature-figure/scripts/plot_templates.py <template> ...
 
 ### Word 模板填写
 
-读取实验报告模板，使用真实项目证据逐节填写，经 officecli 校验后逐页渲染。
+Reading the report template, filling each section with real project evidence, validating via officecli, and rendering page by page.
 
 ```bash
 python scripts/office_engine.py --action fill --format word ...
 python scripts/validate_office.py <file>.docx
 ```
 
-| 页 1 | 页 2 |
+| Page 1 | Page 2 |
 |:---:|:---:|
-| ![filled-01](display/word/render/filled-01.png) | ![filled-02](display/word/render/filled-02.png) |
-| 页 3 | 页 4 |
-| ![filled-03](display/word/render/filled-03.png) | ![filled-04](display/word/render/filled-04.png) |
-| 页 5 | 页 6 |
-| ![filled-05](display/word/render/filled-05.png) | ![filled-06](display/word/render/filled-06.png) |
-| 页 7 | |
-| ![filled-07](display/word/render/filled-07.png) | |
+| ![filled-en-1](display/word/render/filled-en-1.png) | ![filled-en-2](display/word/render/filled-en-2.png) |
+| Page 3 | |
+| ![filled-en-3](display/word/render/filled-en-3.png) | |
 
 ### Word 从零创建
 
-从零构建毕业设计论文，包含目录、正文、图表和参考文献，officecli 逐页渲染复查。
+Creating a graduation thesis from scratch with abstract, chapters, and results, validated page by page via officecli.
 
-| 页 1 | 页 2 |
+| Page 1 | Page 2 |
 |:---:|:---:|
-| ![paper-01](display/document-from-scratch/render/paper-01.png) | ![paper-02](display/document-from-scratch/render/paper-02.png) |
-| 页 3 | 页 4 |
-| ![paper-03](display/document-from-scratch/render/paper-03.png) | ![paper-04](display/document-from-scratch/render/paper-04.png) |
-| 页 5 | 页 6 |
-| ![paper-05](display/document-from-scratch/render/paper-05.png) | ![paper-06](display/document-from-scratch/render/paper-06.png) |
-| 页 7 | 页 8 |
-| ![paper-07](display/document-from-scratch/render/paper-07.png) | ![paper-08](display/document-from-scratch/render/paper-08.png) |
-
-### PPT 创建
-
-通过 officecli 创建演示文稿，包含标题页、架构页和数据页。
-
-```bash
-python scripts/office_engine.py --action create --format ppt ...
-```
-
-| | | |
-|:---:|:---:|:---:|
-| ![slide-1](display/ppt/render/slide-1.png) | ![slide-2](display/ppt/render/slide-2.png) | ![slide-3](display/ppt/render/slide-3.png) |
-| 标题页 | 架构页 | 数据页 |
+| ![thesis-en-1](display/document-from-scratch/render/thesis-en-1.png) | ![thesis-en-2](display/document-from-scratch/render/thesis-en-2.png) |
+| Page 3 | Page 4 |
+| ![thesis-en-3](display/document-from-scratch/render/thesis-en-3.png) | ![thesis-en-4](display/document-from-scratch/render/thesis-en-4.png) |
 
 ### Excel 创建
 

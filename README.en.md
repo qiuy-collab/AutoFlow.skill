@@ -35,7 +35,7 @@ All assets are generated from one demo project: a Spring Boot + MySQL campus act
 
 | Before filling | After filling |
 | --- | --- |
-| <img src="display/word/render/before-01.png" alt="Report template before filling" width="360"> | <img src="display/word/render/filled-01.png" alt="Completed report page" width="360"> |
+| <img src="display/word/render/before-01.png" alt="Report template before filling" width="360"> | <img src="display/word/render/filled-en-1.png" alt="Completed report page" width="360"> |
 
 ## Image Module
 
@@ -118,13 +118,9 @@ python scripts/validate_office.py <file>.docx
 
 | Page 1 | Page 2 |
 |:---:|:---:|
-| ![filled-01](display/word/render/filled-01.png) | ![filled-02](display/word/render/filled-02.png) |
-| Page 3 | Page 4 |
-| ![filled-03](display/word/render/filled-03.png) | ![filled-04](display/word/render/filled-04.png) |
-| Page 5 | Page 6 |
-| ![filled-05](display/word/render/filled-05.png) | ![filled-06](display/word/render/filled-06.png) |
-| Page 7 | |
-| ![filled-07](display/word/render/filled-07.png) | |
+| ![filled-en-1](display/word/render/filled-en-1.png) | ![filled-en-2](display/word/render/filled-en-2.png) |
+| Page 3 | |
+| ![filled-en-3](display/word/render/filled-en-3.png) | |
 
 ### Word from scratch
 
@@ -132,26 +128,9 @@ Creates a graduation thesis from scratch with table of contents, body, figures, 
 
 | Page 1 | Page 2 |
 |:---:|:---:|
-| ![paper-01](display/document-from-scratch/render/paper-01.png) | ![paper-02](display/document-from-scratch/render/paper-02.png) |
+| ![thesis-en-1](display/document-from-scratch/render/thesis-en-1.png) | ![thesis-en-2](display/document-from-scratch/render/thesis-en-2.png) |
 | Page 3 | Page 4 |
-| ![paper-03](display/document-from-scratch/render/paper-03.png) | ![paper-04](display/document-from-scratch/render/paper-04.png) |
-| Page 5 | Page 6 |
-| ![paper-05](display/document-from-scratch/render/paper-05.png) | ![paper-06](display/document-from-scratch/render/paper-06.png) |
-| Page 7 | Page 8 |
-| ![paper-07](display/document-from-scratch/render/paper-07.png) | ![paper-08](display/document-from-scratch/render/paper-08.png) |
-
-### PPT creation
-
-Creates presentations via officecli with title, architecture, and data slides.
-
-```bash
-python scripts/office_engine.py --action create --format ppt ...
-```
-
-| | | |
-|:---:|:---:|:---:|
-| ![slide-1](display/ppt/render/slide-1.png) | ![slide-2](display/ppt/render/slide-2.png) | ![slide-3](display/ppt/render/slide-3.png) |
-| Title | Architecture | Data |
+| ![thesis-en-3](display/document-from-scratch/render/thesis-en-3.png) | ![thesis-en-4](display/document-from-scratch/render/thesis-en-4.png) |
 
 ### Excel creation
 
