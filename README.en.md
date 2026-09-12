@@ -1,6 +1,8 @@
 <div align="center">
 
-# AutoFlow.skill
+<img src="display/logo/autoflow-logo.png" alt="AutoFlow Logo" width="180">
+
+# AutoFlow
 
 A verifiable Agent Skill for delivery work: direct execution for small tasks and resumable DAGs for connected work.
 
@@ -15,16 +17,10 @@ AutoFlow provides direct and managed modes across task, image, office, video, an
 
 ## Quick Start
 
-Copy the entire block below and send it to your Agent to install and initialize from GitHub:
+Copy this line and send it to your Agent:
 
 ```text
-Please obtain and install the AutoFlow Skill from https://github.com/qiuy-collab/AutoFlow.skill.
-
-1. Clone the repository or download its full contents; based on your client's conventions, determine the Skill installation directory (e.g. ~/.newmax/skills/, ~/.claude/skills/, or the location specified in your client's docs) and install the complete autoflow Skill directory there. Do not assume or hardcode a Codex-specific path.
-2. Confirm the installed directory contains SKILL.md, references/, modules/, scripts/, integrations/, and requirements.txt, and that all relative references are reachable from the Skill root.
-3. At the Skill root, read references/init.md first. Check Python, pip, Git, Node; install Python dependencies from requirements.txt. Install Playwright + chromium, Mermaid CLI, D2, officecli, .NET, and ffmpeg as needed. Complex Word reports/theses default to integrations/minimax-docx; the Agent may also choose officecli per task.
-4. At the Skill root, run: python scripts/autoflow.py env-check --json and python scripts/autoflow.py capabilities --json. Report each as available, missing, or incomplete. Do not output APIKEY values.
-5. Do not create, guess, or write .env credentials (BASEURL, APIKEY, VALIDATOR_*) on behalf of the user. If credentials are missing, state that AI image generation and prompt validation are blocked and wait for the user to configure them.
+Install the AutoFlow Skill from https://github.com/qiuy-collab/AutoFlow.skill locally, read references/init.md to set up the environment, then run env-check to confirm availability.
 ```
 
 After installation, task scope determines the execution mode: single-module, no-dependency deliveries go direct; deliveries involving source selection, dependencies, documents, packaging, or recoverable state go managed.
@@ -56,7 +52,7 @@ python scripts/capture_frontend_screenshots.py --config <capture-plan.json> --ou
 | <img src="display/images/capture/04-operations.png" width="280" alt="operations"> | | |
 | operations | | |
 
-### ai — AI-generated screenshots
+### AI image generation
 
 Covers terminal commands, IDE development, Linux operations, and nature-figure scientific graphics.
 
@@ -73,7 +69,7 @@ python scripts/generate_images.py --config <prompt-config.json>
 | <img src="display/images/ai/07-vscode-debug-breakpoint.png" width="280" alt="debug-breakpoint"> | <img src="display/images/ai/08-browser-devtools-network.png" width="280" alt="devtools"> | <img src="display/images/ai/09-terminal-maven-test.png" width="280" alt="maven-test"> |
 | VS Code debugging | DevTools network panel | Maven test |
 
-### diagram — Deterministic diagrams
+### Diagrams
 
 DSL-based rendering producing architecture, ER, flowchart, class, sequence, use case, and network topology diagrams.
 
@@ -129,16 +125,6 @@ Creates a graduation thesis from scratch with table of contents, body, figures, 
 | <img src="display/document-from-scratch/render/thesis-en-1.png" width="280" alt="thesis-en-1"> | <img src="display/document-from-scratch/render/thesis-en-2.png" width="280" alt="thesis-en-2"> |
 | Page 3 | Page 4 |
 | <img src="display/document-from-scratch/render/thesis-en-3.png" width="280" alt="thesis-en-3"> | <img src="display/document-from-scratch/render/thesis-en-4.png" width="280" alt="thesis-en-4"> |
-
-### Excel creation
-
-Creates styled spreadsheets with formulas via officecli.
-
-```bash
-python scripts/office_engine.py --action create --format excel ...
-```
-
-<img src="display/excel/render/sheet-1.png" width="280" alt="Registration statistics spreadsheet">
 
 ## Pipeline Overview
 
