@@ -4,7 +4,7 @@
 
 # AutoFlow
 
-面向 Agent 的通用任务引擎：输入需求，交付结果。
+面向 Agent 的通用任务引擎。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/qiuy-collab/AutoFlow.skill/actions/workflows/ci.yml/badge.svg)](https://github.com/qiuy-collab/AutoFlow.skill/actions)
@@ -13,7 +13,7 @@
 
 </div>
 
-AutoFlow 是一个跑在 Agent 里的通用任务引擎。你给它一个需求——比如一份实验报告要求——它会自动查资料、搭项目、做图表、写报告，直到打包交付。区别在于它不是黑盒：关键节点会停下来等你确认，每个产物都有记录，中途断了还能续跑。
+AutoFlow 是一个跑在 Agent 里的通用任务引擎。你给它一个需求——比如一份实验报告要求——它会自动查资料、搭项目、做图表、写报告，直到打包交付。
 
 ## Quick Start
 

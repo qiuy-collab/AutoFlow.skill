@@ -4,7 +4,7 @@
 
 # AutoFlow
 
-A general-purpose task engine for Agents: give it a request, get a delivery.
+A general-purpose task engine for Agents.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/qiuy-collab/AutoFlow.skill/actions/workflows/ci.yml/badge.svg)](https://github.com/qiuy-collab/AutoFlow.skill/actions)
@@ -13,7 +13,7 @@ A general-purpose task engine for Agents: give it a request, get a delivery.
 
 </div>
 
-AutoFlow is a general-purpose task engine that runs inside an Agent. Give it a request — say, a lab report assignment — and it gathers sources, builds the project, generates charts, writes the report, and packages the delivery. It is not a black box: it pauses at key checkpoints for your confirmation, records every artifact, and can resume after an interruption.
+AutoFlow is a general-purpose task engine that runs inside an Agent. Give it a request — say, a lab report assignment — and it gathers sources, builds the project, generates charts, writes the report, and packages the delivery.
 
 ## Quick Start
 
