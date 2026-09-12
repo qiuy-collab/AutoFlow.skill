@@ -1,0 +1,36 @@
+{
+  "generated": [
+    {
+      "name": "campus-activity-class",
+      "kind": "class_diagram",
+      "renderer": "plantuml",
+      "source": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-activity-class.puml",
+      "svg": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-activity-class.svg",
+      "png": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-activity-class.png"
+    },
+    {
+      "name": "campus-registration-sequence",
+      "kind": "sequence_diagram",
+      "renderer": "plantuml",
+      "source": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-registration-sequence.puml",
+      "svg": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-registration-sequence.svg",
+      "png": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-registration-sequence.png"
+    },
+    {
+      "name": "campus-system-usecase",
+      "kind": "use_case_diagram",
+      "renderer": "plantuml",
+      "source": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-system-usecase.puml",
+      "svg": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-system-usecase.svg",
+      "png": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-system-usecase.png"
+    },
+    {
+      "name": "campus-network-topology",
+      "kind": "network_topology",
+      "renderer": "d2",
+      "source": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-network-topology.d2",
+      "svg": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-network-topology.svg",
+      "png": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\diagram\\campus-network-topology.png"
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+{
+  "task_name": "campuspulse_display",
+  "total_count": 6,
+  "resolution": "2048x1152",
+  "output_dir": "display/images/ai",
+  "max_workers": 2,
+  "max_retries": 3,
+  "retry_delay": 2,
+  "timeout": 180,
+  "global_prompt": "统一生成一组真实开发工作场景截图。所有图片保持同一台 Ubuntu 22.04 桌面环境、同一终端主题（GNOME Terminal 深色主题，等宽字体 Monospace 11）、同一窗口风格和同一桌面壁纸。画面风格接近真实开发者在工作过程中直接截取的屏幕截图，不出现海报式排版、讲解式拼图、悬浮说明框、箭头注释或任何会暴露图像是AI生成的标记。允许出现的文字只应来自真实终端、系统标题栏、IDE 界面和程序本身。",
+  "global_constraints": {
+    "asset_type": "screenshot",
+    "environment": "Ubuntu 22.04 Desktop",
+    "ui_language": "English",
+    "theme": "dark",
+    "style": "realistic desktop screenshot",
+    "forbidden_style": ["poster", "diagram", "annotation", "callout"]
+  },
+  "scene_anchor": {
+    "id": "01",
+    "hostname": "dev-campuspulse",
+    "username": "dev",
+    "ip_prefix": "10.0.2",
+    "path_prefix": "/home/dev/projects/campuspulse",
+    "terminal": "bash"
+  },
+  "image_policy": {
+    "schema_version": "2.0",
+    "default_asset_type": "screenshot",
+    "default_mode": "screenshot_strict",
+    "fail_on_prompt_risk": true,
+    "allow_negative_forbidden_terms": true,
+    "probe_retries": 3,
+    "probe_timeout": 180,
+    "batch_timeout": 180,
+    "skip_existing_files": true,
+    "screenshot_forbidden_terms": [
+      "流程图", "架构图", "讲解板", "说明面板",
+      "悬浮标注", "箭头标注", "海报", "AI生成", "示意图",
+      "poster", "callout", "annotation", "flowchart", "diagram"
+    ],
+    "diagram_forbidden_terms": [
+      "海报", "讲解板", "说明面板",
+      "悬浮标注", "箭头标注", "AI生成",
+      "poster", "callout", "annotation"
+    ],
+    "ui_density": "low_information_density",
+    "crop_browser_chrome": true,
+    "forbid_localhost_or_dev_url": false,
+    "quality_constraints": {
+      "consistency": true,
+      "pixel_sharpness": true,
+      "no_blur_or_mosaic": true,
+      "time_consistency": true
+    },
+    "required_image_fields": [
+      "name", "asset_type", "mode", "resolution", "consistency_group", "prompt"
+    ],
+    "required_global_fields": [
+      "global_prompt", "global_constraints", "scene_anchor", "image_policy", "images"
+    ]
+  },
+  "images": [
+    {
+      "name": "04-linux-sql-query",
+      "asset_type": "screenshot",
+      "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "campuspulse_dev",
+      "prompt": "Ubuntu 22.04 GNOME Terminal 深色主题截图。终端中已连接 MySQL 数据库 campuspulse，执行 SELECT a.title, COUNT(r.id) AS registrations FROM activities a LEFT JOIN registrations r ON a.id = r.activity_id GROUP BY a.id ORDER BY registrations DESC; 后展示查询结果表格，包含活动名称和报名人数列，数据与校园活动系统一致（志愿服务、运动会、学术讲座、社团招新）。随后出现新的 mysql> 提示符。窗口标题栏显示 dev@dev-campuspulse: ~。"
+    },
+    {
+      "name": "05-linux-network-ss",
+      "asset_type": "screenshot",
+      "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "campuspulse_dev",
+      "prompt": "Ubuntu 22.04 GNOME Terminal 深色主题截图。终端中依次执行 ss -tlnp 和 curl -s http://localhost:8080/actuator/health 两行命令。ss 输出显示 8080 端口由 Java 进程监听，curl 输出返回 {\"status\":\"UP\"}。终端内容自然真实，像开发者验证服务是否正常运行的截图，不包含讲解文字。窗口标题栏与前面图片一致。"
+    },
+    {
+      "name": "06-git-commit-terminal",
+      "asset_type": "screenshot",
+      "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "campuspulse_dev",
+      "prompt": "Ubuntu 22.04 GNOME Terminal 深色主题截图。终端中执行 git status 和 git add . && git commit -m \"feat: add registration capacity check\" 后展示 Git 提交成功输出，包括分支名 main、修改文件列表和提交哈希。终端背景、字体和窗口风格与前几张完全一致，像日常开发中的 Git 操作截图。"
+    },
+    {
+      "name": "07-vscode-debug-breakpoint",
+      "asset_type": "screenshot",
+      "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "campuspulse_dev",
+      "prompt": "Ubuntu 22.04 VS Code 窗口截图，打开 CampusPulse 项目的 RegistrationController.java 文件。编辑器在第 47 行设置了红色断点，左侧调试面板显示 Variables 区域中的 activityId、capacity、currentCount 变量值。底部 Debug Console 显示 Spring Boot 断点命中信息。VS Code 深色主题，文件树显示 src/main/java/com/campuspulse/controller 目录结构，标签栏有多个打开的 Java 文件。"
+    },
+    {
+      "name": "08-browser-devtools-network",
+      "asset_type": "screenshot",
+      "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "campuspulse_dev",
+      "prompt": "Ubuntu 22.04 Firefox 浏览器窗口截图，打开了 Firefox DevTools 的 Network 标签页。页面 URL 为 http://localhost:8080/api/activities，Network 面板显示多个 API 请求：GET /api/activities 返回 200，GET /api/activities/1/registrations 返回 200，POST /api/registrations 返回 201 Created。每个请求显示状态码、类型 fetch/xhr、大小和时间。页面主体是 CampusPulse 活动列表的 JSON 响应。开发者工具为深色主题。"
+    },
+    {
+      "name": "09-terminal-maven-test",
+      "asset_type": "screenshot",
+      "mode": "screenshot_strict",
+      "resolution": "2048x1152",
+      "consistency_group": "campuspulse_dev",
+      "prompt": "Ubuntu 22.04 GNOME Terminal 深色主题截图。终端中执行 mvn test 后显示 Maven 测试完整输出：Running com.campuspulse.RegistrationServiceTest，Tests run: 12, Failures: 0, Errors: 0, Skipped: 0，最后显示 BUILD SUCCESS 和总耗时。终端输出自然真实，包含 Maven 下载进度条和编译信息。窗口风格与前几张一致。"
+    }
+  ]
+}

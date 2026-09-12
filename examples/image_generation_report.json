@@ -1,0 +1,66 @@
+{
+  "config_path": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\examples\\prompt_config.display.json",
+  "output_dir": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\ai",
+  "total_results": 6,
+  "success_count": 6,
+  "failed_count": 0,
+  "skipped_count": 0,
+  "failed_image_names": [],
+  "skipped_image_names": [],
+  "results": [
+    {
+      "success": true,
+      "name": "04-linux-sql-query",
+      "file": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\ai\\04-linux-sql-query.png",
+      "error": null,
+      "skipped": false,
+      "method": "txt2img",
+      "fixup_type": null
+    },
+    {
+      "success": true,
+      "name": "05-linux-network-ss",
+      "file": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\ai\\05-linux-network-ss.png",
+      "error": null,
+      "skipped": false,
+      "method": "txt2img",
+      "fixup_type": null
+    },
+    {
+      "success": true,
+      "name": "06-git-commit-terminal",
+      "file": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\ai\\06-git-commit-terminal.png",
+      "error": null,
+      "skipped": false,
+      "method": "txt2img",
+      "fixup_type": null
+    },
+    {
+      "success": true,
+      "name": "07-vscode-debug-breakpoint",
+      "file": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\ai\\07-vscode-debug-breakpoint.png",
+      "error": null,
+      "skipped": false,
+      "method": "txt2img",
+      "fixup_type": null
+    },
+    {
+      "success": true,
+      "name": "08-browser-devtools-network",
+      "file": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\ai\\08-browser-devtools-network.png",
+      "error": null,
+      "skipped": false,
+      "method": "txt2img",
+      "fixup_type": null
+    },
+    {
+      "success": true,
+      "name": "09-terminal-maven-test",
+      "file": "C:\\Users\\ASUS\\.codex\\skills\\autoflow\\display\\images\\ai\\09-terminal-maven-test.png",
+      "error": null,
+      "skipped": false,
+      "method": "txt2img",
+      "fixup_type": null
+    }
+  ]
+}

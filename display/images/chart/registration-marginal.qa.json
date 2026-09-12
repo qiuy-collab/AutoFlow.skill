@@ -1,0 +1,34 @@
+{
+  "template": "marginal",
+  "backend": "python",
+  "demo": true,
+  "input": "<explicit-demo-data>",
+  "output_prefix": "registration-marginal",
+  "rows_input": 660,
+  "rows_plotted": 660,
+  "excluded_rows": 0,
+  "excluded_entities": 0,
+  "mapping": {
+    "x": "x",
+    "y": "y",
+    "group": "group"
+  },
+  "parameters": {
+    "group_order": [
+      "Control",
+      "Treatment A",
+      "Treatment B"
+    ],
+    "group_counts": {
+      "Control": 220,
+      "Treatment A": 220,
+      "Treatment B": 220
+    },
+    "histogram_bins": 24,
+    "rasterized_marks": false
+  },
+  "notes": [
+    "All supplied observations are used unless excluded through explicit --drop-incomplete.",
+    "The QA record stores input basenames rather than private absolute paths."
+  ]
+}

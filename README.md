@@ -13,25 +13,9 @@
 
 AutoFlow 提供 direct 与 managed 两种模式，覆盖 task、image、office、video 和 package。managed 模式在 PLAN、SOURCE、VISUAL、DELIVERY 四类 STOP 门停下等待用户决策，计划、状态、审批和产物哈希均落盘，可检查也可续跑。
 
-## 效果展示
-
-同一演示项目为「基于 Spring Boot + MySQL 的校园活动报名管理系统」。左侧是填写前模板，右侧是使用真实页面、数据模型和测试结果填写后的报告。
-
-| 填写前 | 填写后 |
-| --- | --- |
-| <img src="display/word/render/before-01.png" alt="填写前的实验报告模板" width="360"> | <img src="display/word/render/filled-05.png" alt="填写后的实验报告页面" width="360"> |
-
-![真实运行的活动日历](display/images/capture/02-activity-calendar.png)
-
-![系统架构图](display/images/diagram/campus-activity-architecture.png)
-
-![报名、容量与签到指标图](display/images/chart/activity-metric-matrix.png)
-
-更多浏览器截图、AI 生成的项目相关电脑界面、逐页 Word 渲染和从零论文见 [display/README.md](display/README.md)。
-
 ## Quick Start
 
-复制下面整段发给你的 Agent。它会根据自身客户端识别 Skill 安装目录，而不假设特定 Agent 品牌或本机路径。
+复制下面整段发给你的 Agent，它会自动从 GitHub 安装并初始化：
 
 ```text
 请从 https://github.com/qiuy-collab/AutoFlow.skill 获取并安装 AutoFlow Skill。
@@ -44,6 +28,140 @@ AutoFlow 提供 direct 与 managed 两种模式，覆盖 task、image、office�
 ```
 
 安装完成后，任务规模决定执行模式：单模块、无依赖的小交付走 direct；涉及来源选择、相互依赖、文档、打包或可恢复状态的交付走 managed。
+
+## 效果总览
+
+以下全部由同一个演示项目「基于 Spring Boot + MySQL 的校园活动报名管理系统」生成。
+
+| 填写前 | 填写后 |
+| --- | --- |
+| <img src="display/word/render/before-01.png" alt="填写前的实验报告模板" width="360"> | <img src="display/word/render/filled-01.png" alt="填写后的实验报告页面" width="360"> |
+
+## Image 模块
+
+Image 模块覆盖四种子类，以下展示全部能力。
+
+### capture 真实浏览器截图
+
+通过 Playwright 对本地运行的 Web 应用进行真实捕获。
+
+```bash
+python scripts/capture_frontend_screenshots.py --config <capture-plan.json> --output-dir <dir>
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![dashboard](display/images/capture/01-dashboard.png) | ![calendar](display/images/capture/02-activity-calendar.png) | ![registration](display/images/capture/03-registration.png) |
+| dashboard | activity-calendar | registration |
+| ![operations](display/images/capture/04-operations.png) | | |
+| operations | | |
+
+### ai AI 生成截图
+
+覆盖终端命令、IDE 开发、Linux 运维和 nature-figure 科研图形摘要四类场景。
+
+```bash
+python scripts/generate_images.py --config <prompt-config.json>
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![maven-terminal](display/images/ai/01-java-maven-terminal.png) | ![vscode](display/images/ai/02-registration-controller-vscode.png) | ![graphical-abstract](display/images/ai/03-campuspulse-graphical-abstract.png) |
+| Maven 构建 | VS Code 源码 | 图形摘要 |
+| ![sql-query](display/images/ai/04-linux-sql-query.png) | ![network-ss](display/images/ai/05-linux-network-ss.png) | ![git-commit](display/images/ai/06-git-commit-terminal.png) |
+| SQL 查询 | 网络验证 | Git 提交 |
+| ![debug-breakpoint](display/images/ai/07-vscode-debug-breakpoint.png) | ![devtools](display/images/ai/08-browser-devtools-network.png) | ![maven-test](display/images/ai/09-terminal-maven-test.png) |
+| VS Code 调试 | DevTools 网络面板 | Maven 测试 |
+
+### diagram 确定性图表
+
+基于 DSL 渲染，输出架构图、ER 图、流程图、类图、时序图、用例图和网络拓扑图。
+
+```bash
+python scripts/generate_diagram_assets.py --config <diagram-plan.json> --output-dir <dir>
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![architecture](display/images/diagram/campus-activity-architecture.png) | ![er](display/images/diagram/campus-activity-er.png) | ![flow](display/images/diagram/campus-registration-flow.png) |
+| 系统架构 | ER 关系 | 业务流程 |
+| ![class](display/images/diagram/campus-activity-class.png) | ![sequence](display/images/diagram/campus-registration-sequence.png) | ![usecase](display/images/diagram/campus-system-usecase.png) |
+| 类图 | 时序图 | 用例图 |
+| ![topology](display/images/diagram/campus-network-topology.png) | | |
+| 部署拓扑 | | |
+
+### chart 数据图表
+
+基于 nature-figure 出版级图表模板，支持火山图、ROC 曲线、点图、边缘分布图等。
+
+```bash
+python integrations/nature-figure/scripts/plot_templates.py <template> ...
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![metric-matrix](display/images/chart/activity-metric-matrix.png) | ![capacity](display/images/chart/capacity-vs-registration.png) | ![volcano](display/images/chart/activity-volcano.png) |
+| 指标矩阵 | 容量对比 | 火山图 |
+| ![roc](display/images/chart/checkin-model-roc.png) | ![dotplot](display/images/chart/activity-category-dotplot.png) | ![marginal](display/images/chart/registration-marginal.png) |
+| ROC 曲线 | 类别点图 | 边缘分布 |
+
+## Office 模块
+
+### Word 模板填写
+
+读取实验报告模板，使用真实项目证据逐节填写，经 officecli 校验后逐页渲染。
+
+```bash
+python scripts/office_engine.py --action fill --format word ...
+python scripts/validate_office.py <file>.docx
+```
+
+| 页 1 | 页 2 |
+|:---:|:---:|
+| ![filled-01](display/word/render/filled-01.png) | ![filled-02](display/word/render/filled-02.png) |
+| 页 3 | 页 4 |
+| ![filled-03](display/word/render/filled-03.png) | ![filled-04](display/word/render/filled-04.png) |
+| 页 5 | 页 6 |
+| ![filled-05](display/word/render/filled-05.png) | ![filled-06](display/word/render/filled-06.png) |
+| 页 7 | |
+| ![filled-07](display/word/render/filled-07.png) | |
+
+### Word 从零创建
+
+从零构建毕业设计论文，包含目录、正文、图表和参考文献，officecli 逐页渲染复查。
+
+| 页 1 | 页 2 |
+|:---:|:---:|
+| ![paper-01](display/document-from-scratch/render/paper-01.png) | ![paper-02](display/document-from-scratch/render/paper-02.png) |
+| 页 3 | 页 4 |
+| ![paper-03](display/document-from-scratch/render/paper-03.png) | ![paper-04](display/document-from-scratch/render/paper-04.png) |
+| 页 5 | 页 6 |
+| ![paper-05](display/document-from-scratch/render/paper-05.png) | ![paper-06](display/document-from-scratch/render/paper-06.png) |
+| 页 7 | 页 8 |
+| ![paper-07](display/document-from-scratch/render/paper-07.png) | ![paper-08](display/document-from-scratch/render/paper-08.png) |
+
+### PPT 创建
+
+通过 officecli 创建演示文稿，包含标题页、架构页和数据页。
+
+```bash
+python scripts/office_engine.py --action create --format ppt ...
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![slide-1](display/ppt/render/slide-1.png) | ![slide-2](display/ppt/render/slide-2.png) | ![slide-3](display/ppt/render/slide-3.png) |
+| 标题页 | 架构页 | 数据页 |
+
+### Excel 创建
+
+通过 officecli 创建带样式和公式的电子表格。
+
+```bash
+python scripts/office_engine.py --action create --format excel ...
+```
+
+![Excel 报名统计表](display/excel/render/sheet-1.png)
 
 ## 链路总览
 
@@ -62,7 +180,7 @@ flowchart LR
     K --> L[DELIVERY STOP]
 ```
 
-## 五个模块
+## 五个模块速查
 
 | 模块 | 用途 |
 | --- | --- |
@@ -72,14 +190,20 @@ flowchart LR
 | `video` | 既有视频分析、录制、生成和处理。 |
 | `package` | 依据需求组装干净的 `submit/` 交付目录与可验证清单。 |
 
-## 集成包
+## 插件
 
-| 集成 | 用途 |
+AutoFlow 默认内置以下四个插件，用户可自行添加更多：
+
+| 插件 | 用途 |
 | --- | --- |
 | `officecli` | Office 文档的结构化编辑、OpenXML 校验和 HTML 渲染。 |
-| `minimaxdocx` / `minimax-docx` | 复杂 Word 报告/论文创建与填充后端；由 Agent 按任务选择，仍由 `officecli` 校验和渲染。 |
+| `minimax-docx` | 复杂 Word 报告/论文创建与填充后端；由 Agent 按任务选择，仍由 `officecli` 校验和渲染。 |
 | `impeccable` | 前端设计语言与离线质量检测适配。 |
 | `nature-figure` | 具有数据来源和质量记录的出版级图表模板。 |
+
+## 赞助商
+
+[sshzyu.com](https://sshzyu.com) 提供 AI 生图功能 API。
 
 ## 常见问题
 

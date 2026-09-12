@@ -1,0 +1,49 @@
+{
+  "template": "dotplot",
+  "backend": "python",
+  "demo": true,
+  "input": "<explicit-demo-data>",
+  "output_prefix": "activity-category-dotplot",
+  "rows_input": 48,
+  "rows_plotted": 48,
+  "excluded_rows": 0,
+  "excluded_entities": 0,
+  "mapping": {
+    "row_category": "cell_type",
+    "column_category": "gene",
+    "dot_size": "pct_exp",
+    "dot_color": "avg_exp_scaled"
+  },
+  "parameters": {
+    "row_order": [
+      "VCT",
+      "EVT",
+      "SCT",
+      "FB",
+      "T",
+      "dNK"
+    ],
+    "column_order": [
+      "TP63",
+      "HLA-G",
+      "ERVW-1",
+      "VIM",
+      "ACTA2",
+      "CD3D",
+      "GNLY",
+      "NKG7"
+    ],
+    "size_range": [
+      1.0,
+      75.57704070748176
+    ],
+    "color_range": [
+      0.0,
+      1.0
+    ]
+  },
+  "notes": [
+    "All supplied observations are used unless excluded through explicit --drop-incomplete.",
+    "The QA record stores input basenames rather than private absolute paths."
+  ]
+}

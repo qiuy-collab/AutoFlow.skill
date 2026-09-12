@@ -1,0 +1,25 @@
+@startuml
+skinparam backgroundColor transparent
+title CampusPulse Class Diagram
+class "User" as User {
+  +login()
+  +logout()
+  +updateProfile()
+}
+class "Student" as Student {
+  +registerActivity()
+  +cancelRegistration()
+  +viewSchedule()
+}
+class "Activity" as Activity {
+  +isFull()
+  +getRemainingSlots()
+}
+class "Registration" as Registration {
+  +confirm()
+  +checkIn()
+}
+User <|-- Student
+Student "1" --> "0..*" Registration : creates
+Activity "1" --> "0..*" Registration : has
+@enduml

@@ -1,0 +1,108 @@
+{
+  "enabled": true,
+  "generator": "dsl_renderers",
+  "diagrams": [
+    {
+      "name": "campus-activity-class",
+      "kind": "class_diagram",
+      "title": "CampusPulse Class Diagram",
+      "classes": [
+        {
+          "name": "User",
+          "attributes": ["-id: Long", "-username: String", "-email: String", "-role: UserRole"],
+          "methods": ["+login()", "+logout()", "+updateProfile()"]
+        },
+        {
+          "name": "Student",
+          "attributes": ["-studentId: String", "-major: String", "-grade: Integer"],
+          "methods": ["+registerActivity()", "+cancelRegistration()", "+viewSchedule()"]
+        },
+        {
+          "name": "Activity",
+          "attributes": ["-id: Long", "-title: String", "-capacity: Integer", "-startTime: LocalDateTime", "-location: String"],
+          "methods": ["+isFull()", "+getRemainingSlots()"]
+        },
+        {
+          "name": "Registration",
+          "attributes": ["-id: Long", "-registeredAt: LocalDateTime", "-status: RegistrationStatus"],
+          "methods": ["+confirm()", "+checkIn()"]
+        }
+      ],
+      "relations": [
+        { "from": "User", "to": "Student", "type": "<|--", "label": "" },
+        { "from": "Student", "to": "Registration", "type": "1 --> 0..*", "label": "creates" },
+        { "from": "Activity", "to": "Registration", "type": "1 --> 0..*", "label": "has" }
+      ]
+    },
+    {
+      "name": "campus-registration-sequence",
+      "kind": "sequence_diagram",
+      "title": "CampusPulse Registration Sequence",
+      "participants": [
+        { "name": "Student", "type": "actor" },
+        { "name": "Browser" },
+        { "name": "API Server" },
+        { "name": "RegistrationService" },
+        { "name": "Database", "type": "database" }
+      ],
+      "messages": [
+        { "from": "Student", "to": "Browser", "label": "click Register" },
+        { "from": "Browser", "to": "API Server", "label": "POST /api/registrations" },
+        { "from": "API Server", "to": "RegistrationService", "label": "register(activityId, studentId)" },
+        { "from": "RegistrationService", "to": "Database", "label": "checkCapacity()" },
+        { "from": "Database", "to": "RegistrationService", "label": "remaining: 3" },
+        { "from": "RegistrationService", "to": "Database", "label": "INSERT registration" },
+        { "from": "RegistrationService", "to": "API Server", "label": "RegistrationDTO" },
+        { "from": "API Server", "to": "Browser", "label": "201 Created" },
+        { "from": "Browser", "to": "Student", "label": "show success" }
+      ]
+    },
+    {
+      "name": "campus-system-usecase",
+      "kind": "use_case_diagram",
+      "title": "CampusPulse Use Case Diagram",
+      "actors": [
+        { "name": "Student" },
+        { "name": "Admin" },
+        { "name": "System" }
+      ],
+      "use_cases": [
+        { "name": "Browse Activities" },
+        { "name": "Register Activity" },
+        { "name": "Cancel Registration" },
+        { "name": "Check In" },
+        { "name": "Manage Activities" },
+        { "name": "View Reports" },
+        { "name": "Send Notifications" }
+      ],
+      "associations": [
+        { "from": "Student", "to": "Browse Activities" },
+        { "from": "Student", "to": "Register Activity" },
+        { "from": "Student", "to": "Cancel Registration" },
+        { "from": "Student", "to": "Check In" },
+        { "from": "Admin", "to": "Manage Activities" },
+        { "from": "Admin", "to": "View Reports" },
+        { "from": "Admin", "to": "Send Notifications" },
+        { "from": "System", "to": "Send Notifications" }
+      ]
+    },
+    {
+      "name": "campus-network-topology",
+      "kind": "network_topology",
+      "title": "CampusPulse Deployment Topology",
+      "nodes": [
+        { "id": "client", "label": "Student Browser", "shape": "cloud" },
+        { "id": "nginx", "label": "Nginx :80", "shape": "rectangle" },
+        { "id": "app", "label": "Spring Boot :8080", "shape": "rectangle" },
+        { "id": "mysql", "label": "MySQL :3306", "shape": "cylinder" },
+        { "id": "redis", "label": "Redis :6379", "shape": "cylinder" }
+      ],
+      "edges": [
+        { "from": "client", "to": "nginx", "label": "HTTP" },
+        { "from": "nginx", "to": "app", "label": "proxy_pass" },
+        { "from": "app", "to": "mysql", "label": "JDBC" },
+        { "from": "app", "to": "redis", "label": "session cache" }
+      ]
+    }
+  ]
+}

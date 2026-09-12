@@ -1,0 +1,18 @@
+@startuml
+skinparam backgroundColor transparent
+title CampusPulse Registration Sequence
+actor "Student" as Student
+participant "Browser" as Browser
+participant "API Server" as API_Server
+participant "RegistrationService" as RegistrationService
+database "Database" as Database
+Student -> Browser : click Register
+Browser -> API_Server : POST /api/registrations
+API_Server -> RegistrationService : register(activityId, studentId)
+RegistrationService -> Database : checkCapacity()
+Database -> RegistrationService : remaining: 3
+RegistrationService -> Database : INSERT registration
+RegistrationService -> API_Server : RegistrationDTO
+API_Server -> Browser : 201 Created
+Browser -> Student : show success
+@enduml

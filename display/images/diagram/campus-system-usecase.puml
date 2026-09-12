@@ -1,0 +1,23 @@
+@startuml
+skinparam backgroundColor transparent
+left to right direction
+title CampusPulse Use Case Diagram
+actor "Student" as Student
+actor "Admin" as Admin
+actor "System" as System
+usecase "Browse Activities" as Browse_Activities
+usecase "Register Activity" as Register_Activity
+usecase "Cancel Registration" as Cancel_Registration
+usecase "Check In" as Check_In
+usecase "Manage Activities" as Manage_Activities
+usecase "View Reports" as View_Reports
+usecase "Send Notifications" as Send_Notifications
+Student --> Browse_Activities
+Student --> Register_Activity
+Student --> Cancel_Registration
+Student --> Check_In
+Admin --> Manage_Activities
+Admin --> View_Reports
+Admin --> Send_Notifications
+System --> Send_Notifications
+@enduml

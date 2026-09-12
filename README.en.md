@@ -13,85 +13,209 @@ A verifiable Agent Skill for delivery work: direct execution for small tasks and
 
 AutoFlow provides direct and managed modes across task, image, office, video, and package work. Managed runs pause at PLAN, SOURCE, VISUAL, and DELIVERY STOP gates for user decisions; plans, state, approvals, and artifact hashes are persisted so a run can be inspected and resumed.
 
+## Quick Start
+
+Copy the entire block below and send it to your Agent to install and initialize from GitHub:
+
+```text
+Please obtain and install the AutoFlow Skill from https://github.com/qiuy-collab/AutoFlow.skill.
+
+1. Clone the repository or download its full contents; based on your client's conventions, determine the Skill installation directory (e.g. ~/.newmax/skills/, ~/.claude/skills/, or the location specified in your client's docs) and install the complete autoflow Skill directory there. Do not assume or hardcode a Codex-specific path.
+2. Confirm the installed directory contains SKILL.md, references/, modules/, scripts/, integrations/, and requirements.txt, and that all relative references are reachable from the Skill root.
+3. At the Skill root, read references/init.md first. Check Python, pip, Git, Node; install Python dependencies from requirements.txt. Install Playwright + chromium, Mermaid CLI, D2, officecli, .NET, and ffmpeg as needed. Complex Word reports/theses default to integrations/minimax-docx; the Agent may also choose officecli per task.
+4. At the Skill root, run: python scripts/autoflow.py env-check --json and python scripts/autoflow.py capabilities --json. Report each as available, missing, or incomplete. Do not output APIKEY values.
+5. Do not create, guess, or write .env credentials (BASEURL, APIKEY, VALIDATOR_*) on behalf of the user. If credentials are missing, state that AI image generation and prompt validation are blocked and wait for the user to configure them.
+```
+
+After installation, task scope determines the execution mode: single-module, no-dependency deliveries go direct; deliveries involving source selection, dependencies, documents, packaging, or recoverable state go managed.
+
 ## Showcase
 
-All assets use one runnable demo: a Spring Boot + MySQL campus activity registration system. The left side is the original report template; the right side is the completed report grounded in real pages, the data model, and test results.
+All assets are generated from one demo project: a Spring Boot + MySQL campus activity registration system.
 
 | Before filling | After filling |
 | --- | --- |
-| <img src="display/word/render/before-01.png" alt="Blank experiment report template" width="360"> | <img src="display/word/render/filled-05.png" alt="Completed experiment report" width="360"> |
+| <img src="display/word/render/before-01.png" alt="Report template before filling" width="360"> | <img src="display/word/render/filled-01.png" alt="Completed report page" width="360"> |
 
-![Running activity calendar](display/images/capture/02-activity-calendar.png)
+## Image Module
 
-![System architecture](display/images/diagram/campus-activity-architecture.png)
+The Image module covers four subcategories, all shown below.
 
-![Registration, capacity, and attendance metrics](display/images/chart/activity-metric-matrix.png)
+### capture — Real browser screenshots
 
-See [display/README.md](display/README.md) for the complete browser evidence, project-specific AI-generated computer views, Word page renders, and the from-scratch thesis.
+Captures real pages from a locally running web application via Playwright.
 
-## Quick Start
-
-Copy the complete prompt below into your Agent. It identifies the correct Skill directory for its own client rather than assuming a particular product or local path.
-
-```text
-Install the AutoFlow Skill from https://github.com/qiuy-collab/AutoFlow.skill.
-
-1. Clone or download the complete repository. Determine the Skill installation directory required by the client you are running (for example ~/.newmax/skills/, ~/.claude/skills/, or the location in that client's documentation), then install the complete autoflow Skill directory there. Do not assume or hard-code a Codex-only path.
-2. Verify that the installed directory contains SKILL.md, references/, modules/, scripts/, integrations/, and requirements.txt, and that all relative references resolve from the Skill root.
-3. From the Skill root, read references/init.md first. Check Python, pip, Git, and Node; install Python dependencies from requirements.txt. As needed, install Playwright plus chromium, Mermaid CLI, D2, officecli, .NET, and ffmpeg. Complex Word reports/theses default to integrations/minimax-docx; the Agent may choose officecli when the task is simple.
-4. From the Skill root run: python scripts/autoflow.py env-check --json and python scripts/autoflow.py capabilities --json. Report each capability as available, missing, or incomplete without printing APIKEY.
-5. Never create, guess, or write user credentials in .env, including BASEURL, APIKEY, or VALIDATOR_* values. If they are absent, report AI image generation and prompt validation as blocked and wait for the user to configure them.
+```bash
+python scripts/capture_frontend_screenshots.py --config <capture-plan.json> --output-dir <dir>
 ```
 
-After installation, choose direct mode for a clear, low-risk, single-module deliverable without dependencies. Use managed mode when source selection, dependencies, documents, packaging, or resumable state are required.
+| | | |
+|:---:|:---:|:---:|
+| ![dashboard](display/images/capture/01-dashboard.png) | ![calendar](display/images/capture/02-activity-calendar.png) | ![registration](display/images/capture/03-registration.png) |
+| dashboard | activity-calendar | registration |
+| ![operations](display/images/capture/04-operations.png) | | |
+| operations | | |
 
-## Flow
+### ai — AI-generated screenshots
+
+Covers terminal commands, IDE development, Linux operations, and nature-figure scientific graphics.
+
+```bash
+python scripts/generate_images.py --config <prompt-config.json>
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![maven-terminal](display/images/ai/01-java-maven-terminal.png) | ![vscode](display/images/ai/02-registration-controller-vscode.png) | ![graphical-abstract](display/images/ai/03-campuspulse-graphical-abstract.png) |
+| Maven build | VS Code source | Graphical abstract |
+| ![sql-query](display/images/ai/04-linux-sql-query.png) | ![network-ss](display/images/ai/05-linux-network-ss.png) | ![git-commit](display/images/ai/06-git-commit-terminal.png) |
+| SQL query | Network verification | Git commit |
+| ![debug-breakpoint](display/images/ai/07-vscode-debug-breakpoint.png) | ![devtools](display/images/ai/08-browser-devtools-network.png) | ![maven-test](display/images/ai/09-terminal-maven-test.png) |
+| VS Code debugging | DevTools network panel | Maven test |
+
+### diagram — Deterministic diagrams
+
+DSL-based rendering producing architecture, ER, flowchart, class, sequence, use case, and network topology diagrams.
+
+```bash
+python scripts/generate_diagram_assets.py --config <diagram-plan.json> --output-dir <dir>
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![architecture](display/images/diagram/campus-activity-architecture.png) | ![er](display/images/diagram/campus-activity-er.png) | ![flow](display/images/diagram/campus-registration-flow.png) |
+| Architecture | ER diagram | Business flow |
+| ![class](display/images/diagram/campus-activity-class.png) | ![sequence](display/images/diagram/campus-registration-sequence.png) | ![usecase](display/images/diagram/campus-system-usecase.png) |
+| Class diagram | Sequence diagram | Use case diagram |
+| ![topology](display/images/diagram/campus-network-topology.png) | | |
+| Deployment topology | | |
+
+### chart — Data charts
+
+Publication-grade chart templates via nature-figure: volcano plots, ROC curves, dotplots, marginal distributions, and more.
+
+```bash
+python integrations/nature-figure/scripts/plot_templates.py <template> ...
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![metric-matrix](display/images/chart/activity-metric-matrix.png) | ![capacity](display/images/chart/capacity-vs-registration.png) | ![volcano](display/images/chart/activity-volcano.png) |
+| Metric matrix | Capacity comparison | Volcano plot |
+| ![roc](display/images/chart/checkin-model-roc.png) | ![dotplot](display/images/chart/activity-category-dotplot.png) | ![marginal](display/images/chart/registration-marginal.png) |
+| ROC curve | Category dotplot | Marginal distribution |
+
+## Office Module
+
+### Word template filling
+
+Reads a report template, fills it with real project evidence, validates via officecli, and renders page by page.
+
+```bash
+python scripts/office_engine.py --action fill --format word ...
+python scripts/validate_office.py <file>.docx
+```
+
+| Page 1 | Page 2 |
+|:---:|:---:|
+| ![filled-01](display/word/render/filled-01.png) | ![filled-02](display/word/render/filled-02.png) |
+| Page 3 | Page 4 |
+| ![filled-03](display/word/render/filled-03.png) | ![filled-04](display/word/render/filled-04.png) |
+| Page 5 | Page 6 |
+| ![filled-05](display/word/render/filled-05.png) | ![filled-06](display/word/render/filled-06.png) |
+| Page 7 | |
+| ![filled-07](display/word/render/filled-07.png) | |
+
+### Word from scratch
+
+Creates a graduation thesis from scratch with table of contents, body, figures, and references, validated page by page via officecli.
+
+| Page 1 | Page 2 |
+|:---:|:---:|
+| ![paper-01](display/document-from-scratch/render/paper-01.png) | ![paper-02](display/document-from-scratch/render/paper-02.png) |
+| Page 3 | Page 4 |
+| ![paper-03](display/document-from-scratch/render/paper-03.png) | ![paper-04](display/document-from-scratch/render/paper-04.png) |
+| Page 5 | Page 6 |
+| ![paper-05](display/document-from-scratch/render/paper-05.png) | ![paper-06](display/document-from-scratch/render/paper-06.png) |
+| Page 7 | Page 8 |
+| ![paper-07](display/document-from-scratch/render/paper-07.png) | ![paper-08](display/document-from-scratch/render/paper-08.png) |
+
+### PPT creation
+
+Creates presentations via officecli with title, architecture, and data slides.
+
+```bash
+python scripts/office_engine.py --action create --format ppt ...
+```
+
+| | | |
+|:---:|:---:|:---:|
+| ![slide-1](display/ppt/render/slide-1.png) | ![slide-2](display/ppt/render/slide-2.png) | ![slide-3](display/ppt/render/slide-3.png) |
+| Title | Architecture | Data |
+
+### Excel creation
+
+Creates styled spreadsheets with formulas via officecli.
+
+```bash
+python scripts/office_engine.py --action create --format excel ...
+```
+
+![Registration statistics spreadsheet](display/excel/render/sheet-1.png)
+
+## Pipeline Overview
 
 ```mermaid
 flowchart LR
     R[User request] --> Q{Single module, low risk, no dependencies?}
-    Q -->|Yes| D[direct: initialize workspace and submit/]
-    D --> DA[execute and validate the minimum delivery]
-    Q -->|No| M[managed: initialize DAG]
+    Q -->|Yes| D[direct: init workspace and submit/]
+    D --> DA[Execute and verify minimal delivery]
+    Q -->|No| M[managed: init DAG]
     M --> P[PLAN STOP]
     P --> T[task / GitHub source]
     T --> S[SOURCE STOP]
     S --> I[image / office / video]
     I --> V[VISUAL STOP]
-    V --> K[package and validation]
+    V --> K[package and acceptance]
     K --> L[DELIVERY STOP]
 ```
 
-## Modules
+## Five Modules
 
 | Module | Purpose |
 | --- | --- |
-| `task` | GitHub-first research, project builds, computation, and runnable evidence. |
-| `image` | Real capture, AI-generated computer screenshots, deterministic diagrams, and charts from real data. |
-| `office` | Word, PowerPoint, and Excel creation, fill, rendered review, and plan-aware validation. |
-| `video` | Existing-video analysis, recording, creation, and processing. |
-| `package` | Clean `submit/` delivery assembly and a verifiable manifest. |
+| `task` | GitHub-first retrieval, project building, computation, and runnable evidence. |
+| `image` | Real capture, AI-generated desktop screenshots, deterministic diagrams, and data-grounded charts. |
+| `office` | Word, PPT, and Excel creation, filling, rendering review, and plan-level validation. |
+| `video` | Video analysis, recording, generation, and processing. |
+| `package` | Assemble a clean `submit/` delivery folder with a verifiable manifest. |
 
-## Integrated Packages
+## Plugins
 
-| Package | Purpose |
+AutoFlow ships with the following four plugins by default; users can add more:
+
+| Plugin | Purpose |
 | --- | --- |
-| `officecli` | Structured Office edits, OpenXML validation, and HTML rendering. |
-| `minimaxdocx` / `minimax-docx` | Complex Word report/thesis authoring backend selected by the Agent; `officecli` still validates and renders. |
-| `impeccable` | Frontend design language and offline quality checks. |
-| `nature-figure` | Publication-quality chart templates with provenance and QA records. |
+| `officecli` | Structured Office editing, OpenXML validation, and HTML rendering. |
+| `minimax-docx` | Complex Word report/thesis creation and fill backend; selected per task by the Agent, always validated and rendered via `officecli`. |
+| `impeccable` | Frontend design language and offline quality-check adapter. |
+| `nature-figure` | Publication-grade chart templates with data provenance and QA records. |
 
-## Troubleshooting
+## Sponsor
 
-- A capability is missing: install the dependency from [environment initialization](references/init.md), then re-run the capability check.
-- An AI route is blocked: only the user may configure `.env` values such as `BASEURL`, `APIKEY`, and optional `VALIDATOR_*`; do not fabricate images.
-- Browser capture fails: make the local app reachable, install `playwright`, then run `python -m playwright install chromium`.
-- Mermaid or D2 is unavailable: install its CLI and confirm recognition with `autoflow.py capabilities --json`.
-- Office validation fails: run `officecli validate` and `officecli view <file> issues --json`, then rerun `office_engine.py` and `validate_office.py`.
-- A workflow refuses completion: verify every declared artifact path and hash; use `autoflow.py revise` before changing a registered artifact.
-- `submit/` is rejected: remove build output, caches, editor metadata, secrets, and AutoFlow run metadata; keep only final deliverables.
+[sshzyu.com](https://sshzyu.com) provides the AI image generation API.
 
-## Test
+## FAQ
+
+- `capabilities` shows missing: install the required dependencies per [Environment Setup](references/init.md), then re-check.
+- AI routing is blocked: only the user configures `.env` with `BASEURL`, `APIKEY`, and optional `VALIDATOR_*`; never fabricate images.
+- Browser capture fails: confirm the local app is reachable, install `playwright`, then run `python -m playwright install chromium`.
+- Mermaid or D2 unavailable: install the corresponding CLI and confirm the renderer via `autoflow.py capabilities --json`.
+- Office validation fails: use `officecli validate` and `officecli view <file> issues --json` to locate the problem, then run `office_engine.py` and `validate_office.py`.
+- Workflow refuses to complete a node: verify each declared artifact's absolute path and hash; run `autoflow.py revise` before modifying registered artifacts.
+- `submit/` rejected: remove build output, caches, editor metadata, secrets, and AutoFlow run metadata; keep only final deliverables.
+
+## Tests
 
 ```bash
 python -m unittest discover -s tests
