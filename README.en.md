@@ -4,7 +4,7 @@
 
 # AutoFlow
 
-One prompt, from course assignment to a deliverable lab report.
+A general-purpose task engine for Agents: give it a request, get a delivery.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/qiuy-collab/AutoFlow.skill/actions/workflows/ci.yml/badge.svg)](https://github.com/qiuy-collab/AutoFlow.skill/actions)
@@ -13,7 +13,7 @@ One prompt, from course assignment to a deliverable lab report.
 
 </div>
 
-AutoFlow was built for university lab reports: send your assignment to an Agent and it retrieves sources, builds the project, generates charts, writes the report, and packages the delivery. That workflow has since grown into a general verifiable delivery engine — lab reports, theses, and project demos all run through it, pausing at key checkpoints for your confirmation so every artifact stays inspectable and resumable.
+AutoFlow is a general-purpose task engine that runs inside an Agent. Give it a request — say, a lab report assignment — and it gathers sources, builds the project, generates charts, writes the report, and packages the delivery. It is not a black box: it pauses at key checkpoints for your confirmation, records every artifact, and can resume after an interruption.
 
 ## Quick Start
 

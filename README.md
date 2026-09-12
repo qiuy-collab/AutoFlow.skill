@@ -4,7 +4,7 @@
 
 # AutoFlow
 
-一条提示词，从课程作业到可交付的实验报告。
+面向 Agent 的通用任务引擎：输入需求，交付结果。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/qiuy-collab/AutoFlow.skill/actions/workflows/ci.yml/badge.svg)](https://github.com/qiuy-collab/AutoFlow.skill/actions)
@@ -13,7 +13,7 @@
 
 </div>
 
-AutoFlow 为大学生实验报告而生：把作业要求发给 Agent，它会自动检索资料、搭建项目、生成图表、撰写报告并打包交付。这套流程后来被抽象成通用的可验证交付引擎——实验报告、毕业论文、项目演示都能用它完成，关键节点停下来等你确认，每一步产物可检查、可续跑。
+AutoFlow 是一个跑在 Agent 里的通用任务引擎。你给它一个需求——比如一份实验报告要求——它会自动查资料、搭项目、做图表、写报告，直到打包交付。区别在于它不是黑盒：关键节点会停下来等你确认，每个产物都有记录，中途断了还能续跑。
 
 ## Quick Start
 
