@@ -18,7 +18,9 @@
 复制下面一段发给你的 Agent：
 
 ```text
-从 https://github.com/qiuy-collab/AutoFlow.skill 安装 AutoFlow Skill 到本地，阅读 references/init.md 初始化环境，然后运行 env-check 确认可用。
+从 https://github.com/qiuy-collab/AutoFlow.skill 克隆仓库，把完整的 autoflow Skill 目录安装到本地所有 Agent 的 skills 库中（如 ~/.claude/skills/、~/.codex/skills/ 等）。
+
+安装后阅读 references/init.md 初始化环境，然后运行 env-check 确认可用。
 ```
 
 安装完成后，任务规模决定执行模式：单模块、无依赖的小交付走 direct；涉及来源选择、相互依赖、文档、打包或可恢复状态的交付走 managed。

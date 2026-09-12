@@ -18,7 +18,9 @@ A general-purpose task engine for Agents.
 Copy this line and send it to your Agent:
 
 ```text
-Install the AutoFlow Skill from https://github.com/qiuy-collab/AutoFlow.skill locally, read references/init.md to set up the environment, then run env-check to confirm availability.
+Clone https://github.com/qiuy-collab/AutoFlow.skill and install the complete autoflow Skill directory into every local Agent's skills library (e.g. ~/.claude/skills/, ~/.codex/skills/).
+
+After installation, read references/init.md to set up the environment, then run env-check to confirm availability.
 ```
 
 After installation, task scope determines the execution mode: single-module, no-dependency deliveries go direct; deliveries involving source selection, dependencies, documents, packaging, or recoverable state go managed.
