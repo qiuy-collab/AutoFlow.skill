@@ -3,782 +3,761 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AutoFlow.skill — 让 Agent 编排完整交付工作流</title>
-  <meta name="description" content="AutoFlow.skill：组合 task、image、Word、PPT、video 和 package，以可验证的 DAG 和四类 STOP 完成复杂交付。" />
+  <title>AutoFlow.skill — 复杂交付，一张验收单</title>
+  <meta name="description" content="AutoFlow 把 Word、PPT、视频、图表和提交包编排成可验证的 Agent 工作流：每个产物落盘，每道 STOP 由你确认，交付像验收单一样签收。" />
+  <link rel="icon" type="image/png" href="assets/logo.png" />
   <style>
     :root {
-      --bg-primary: #09090b;
-      --bg-secondary: #111113;
-      --bg-card: #18181b;
-      --border-color: rgba(63, 63, 70, 0.5);
-      --text-primary: #fafafa;
-      --text-secondary: #a1a1aa;
-      --text-muted: #71717a;
-      --accent-purple: #8b5cf6;
-      --accent-blue: #3b82f6;
-      --accent-cyan: #06b6d4;
-      --accent-emerald: #10b981;
-      --accent-amber: #f59e0b;
-      --gradient-brand: linear-gradient(135deg, #8b5cf6, #06b6d4);
-      --gradient-hero: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 50%, #06b6d4 100%);
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 24px;
-      --radius-full: 9999px;
-      --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.15);
-      --nav-height: 64px;
+      --desk: oklch(0.945 0.01 265);
+      --paper: oklch(0.985 0.003 95);
+      --ink: oklch(0.27 0.03 265);
+      --ink-2: oklch(0.44 0.025 265);
+      --ink-3: oklch(0.5 0.02 265);
+      --rule: oklch(0.89 0.015 270);
+      --rule-strong: oklch(0.76 0.02 270);
+      --indigo: oklch(0.5 0.19 281);
+      --indigo-deep: oklch(0.41 0.17 281);
+      --indigo-soft: oklch(0.94 0.03 281);
+      --teal: oklch(0.5 0.1 195);
+      --seal: oklch(0.55 0.17 28);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Menlo", monospace;
     }
+
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); }
+
+    html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-      color: var(--text-primary);
-      background: var(--bg-primary);
-      line-height: 1.6;
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      line-height: 1.7;
+      color: var(--ink);
+      background: var(--desk);
       -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-    }
-    a { color: inherit; text-decoration: none; }
-
-    /* Background effects */
-    .bg-grid {
-      position: fixed; inset: 0; z-index: 0;
-      background-image:
-        linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
-      background-size: 60px 60px;
-      pointer-events: none;
-    }
-    .bg-orb {
-      position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0;
-    }
-    .bg-orb--purple { width: 600px; height: 600px; top: -200px; right: -100px; background: rgba(139, 92, 246, 0.12); }
-    .bg-orb--blue { width: 500px; height: 500px; bottom: 20%; left: -150px; background: rgba(59, 130, 246, 0.08); }
-    .bg-orb--cyan { width: 400px; height: 400px; top: 50%; right: 10%; background: rgba(6, 182, 212, 0.06); }
-
-    .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
-    section { padding: 100px 0; position: relative; z-index: 1; }
-
-    .text-gradient {
-      background: var(--gradient-hero);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      text-rendering: optimizeLegibility;
     }
 
-    .section-label {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 16px; border-radius: var(--radius-full);
-      border: 1px solid var(--border-color);
-      background: rgba(139, 92, 246, 0.08);
-      color: var(--accent-purple);
-      font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
-      margin-bottom: 20px;
+    ::selection { background: var(--indigo); color: #fff; }
+    a { color: inherit; }
+    img { display: block; max-width: 100%; }
+    code { font-family: var(--font-mono); font-variant-ligatures: none; }
+    :focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+
+    .skip {
+      position: absolute; left: -999px; top: 8px; z-index: 10;
+      padding: 10px 16px; background: var(--paper); border: 1px solid var(--ink);
+      font-weight: 600; text-decoration: none;
     }
-    .section-title {
-      font-size: clamp(32px, 5vw, 52px); font-weight: 800;
-      letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px;
-    }
-    .section-desc {
-      font-size: 18px; color: var(--text-secondary); max-width: 640px; line-height: 1.7;
+    .skip:focus-visible { left: 8px; }
+
+    .wrap {
+      width: 100%;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 clamp(16px, 3vw, 28px);
     }
 
-    /* NAV */
-    .nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      height: var(--nav-height);
-      display: flex; align-items: center;
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      background: rgba(9, 9, 11, 0.8);
-      border-bottom: 1px solid var(--border-color);
-    }
-    .nav .container { display: flex; align-items: center; justify-content: space-between; height: 100%; }
-    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
-    .nav-logo-icon {
-      width: 32px; height: 32px; border-radius: var(--radius-sm);
-      background: var(--gradient-brand);
-      display: flex; align-items: center; justify-content: center; font-size: 16px;
-    }
-    .nav-links { display: flex; align-items: center; gap: 4px; list-style: none; }
-    .nav-links a {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 16px; border-radius: var(--radius-md);
-      color: var(--text-secondary); font-size: 14px; font-weight: 500;
-      transition: all 0.2s ease;
-    }
-    .nav-links a:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
-    .nav-links a.active { color: var(--text-primary); background: rgba(139, 92, 246, 0.12); }
-    .nav-cta {
-      display: inline-flex !important; align-items: center; gap: 6px;
-      padding: 8px 18px !important; border-radius: var(--radius-full) !important;
-      background: var(--gradient-brand) !important; color: #fff !important;
-      font-weight: 600 !important; font-size: 14px !important;
-      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
-      transition: all 0.3s ease;
-    }
-    .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(139, 92, 246, 0.4); }
-    .nav-mobile-toggle {
-      display: none; background: none; border: none;
-      color: var(--text-primary); font-size: 24px; cursor: pointer; padding: 8px;
-    }
-
-    /* HERO */
-    .hero { padding: 160px 0 100px; text-align: center; position: relative; z-index: 1; }
-    .hero-badge {
+    .masthead { padding: 20px 0 18px; }
+    .masthead .wrap { display: flex; align-items: center; gap: 18px; }
+    .brand {
       display: inline-flex; align-items: center; gap: 10px;
-      padding: 8px 20px; border-radius: var(--radius-full);
-      border: 1px solid var(--border-color);
-      background: rgba(139, 92, 246, 0.06);
-      color: var(--text-secondary); font-size: 14px; font-weight: 500;
-      margin-bottom: 32px;
-      animation: fadeInUp 0.6s ease forwards;
+      font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em;
+      text-decoration: none;
     }
-    .hero-badge-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--accent-emerald);
-      animation: pulseDot 2s ease infinite;
+    .brand img { width: 30px; height: 30px; }
+    .mast-nav { display: flex; gap: 4px; margin-left: auto; }
+    .mast-nav a {
+      padding: 8px 12px; font-size: 0.875rem; text-decoration: none;
+      color: var(--ink-2); border-radius: 3px;
+    }
+    .mast-nav a:hover { color: var(--ink); background: var(--paper); }
+    .mast-serial {
+      font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em;
+      color: var(--ink-3);
+      padding: 6px 10px; border: 1px solid var(--rule-strong); background: var(--paper);
+      white-space: nowrap;
+    }
+    .mast-gh {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 14px; font-size: 0.875rem; font-weight: 600; text-decoration: none;
+      background: var(--ink); color: var(--paper);
+    }
+    .mast-gh:hover { background: var(--indigo-deep); }
+    .mast-gh svg { width: 15px; height: 15px; fill: currentColor; }
+    @media (max-width: 860px) {
+      .mast-nav, .mast-serial { display: none; }
+    }
+
+    .sheet {
+      position: relative;
+      background: var(--paper);
+      border: 1px solid var(--rule-strong);
+      margin-bottom: clamp(20px, 3.5vw, 36px);
+    }
+    .sheet::after {
+      content: "";
+      position: absolute;
+      inset: 7px -5px -5px 7px;
+      background: var(--paper);
+      border: 1px solid var(--rule);
+      z-index: -1;
+      transform: rotate(0.4deg);
+    }
+
+    .form-head {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      border-bottom: 3px double var(--rule-strong);
+    }
+    .form-head .cell {
+      padding: clamp(14px, 2.5vw, 22px) clamp(16px, 3vw, 28px);
+      border-right: 1px solid var(--rule);
+    }
+    .form-head .cell:last-child { border-right: none; }
+    .cell-label {
+      display: block; font-family: var(--font-mono);
+      font-size: 0.7rem; letter-spacing: 0.1em; color: var(--ink-3);
+      margin-bottom: 3px;
+    }
+    .cell-value { font-size: 0.95rem; font-weight: 600; }
+    @media (max-width: 640px) {
+      .form-head { grid-template-columns: 1fr 1fr; }
+      .form-head .cell:nth-child(2n) { border-right: none; }
+      .form-head .cell:nth-child(1), .form-head .cell:nth-child(2) {
+        border-bottom: 1px solid var(--rule);
+      }
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: clamp(24px, 4vw, 56px);
+      align-items: start;
+      padding: clamp(30px, 5vw, 56px) clamp(20px, 4.5vw, 52px) clamp(30px, 5vw, 52px);
+    }
+    .hero-kicker {
+      font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.14em;
+      color: var(--indigo-deep); margin-bottom: 18px;
     }
     .hero h1 {
-      font-size: clamp(48px, 8vw, 88px); font-weight: 900;
-      letter-spacing: -0.04em; line-height: 1.0;
-      margin-bottom: 24px;
-      animation: fadeInUp 0.6s ease 0.1s forwards; opacity: 0;
+      font-size: clamp(2.3rem, 5.4vw, 3.9rem);
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      text-wrap: balance;
+      margin-bottom: 20px;
     }
-    .hero-subtitle {
-      font-size: clamp(18px, 2.5vw, 24px);
-      color: var(--text-secondary); max-width: 680px;
-      margin: 0 auto 40px; line-height: 1.6;
-      animation: fadeInUp 0.6s ease 0.2s forwards; opacity: 0;
+    .hero-sub {
+      font-size: 1.08rem; color: var(--ink-2);
+      max-width: 56ch;
+      margin-bottom: 30px;
     }
-    .hero-actions {
-      display: flex; align-items: center; justify-content: center;
-      gap: 16px; flex-wrap: wrap; margin-bottom: 56px;
-      animation: fadeInUp 0.6s ease 0.3s forwards; opacity: 0;
-    }
+    .hero-sub strong { color: var(--ink); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 34px; }
+
     .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      gap: 8px; padding: 14px 28px; border-radius: var(--radius-lg);
-      font-size: 15px; font-weight: 600; cursor: pointer; border: none;
-      transition: all 0.25s ease; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 22px; min-height: 44px;
+      font-size: 0.95rem; font-weight: 600; text-decoration: none;
+      border: 1px solid transparent; cursor: pointer;
     }
-    .btn-primary {
-      background: var(--gradient-brand); color: #fff;
-      box-shadow: 0 4px 24px rgba(139, 92, 246, 0.35);
-    }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(139, 92, 246, 0.45); }
-    .btn-secondary {
-      background: rgba(255,255,255,0.06); color: var(--text-primary);
-      border: 1px solid var(--border-color);
-    }
-    .btn-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(139,92,246,0.4); }
+    .btn-primary { background: var(--indigo); color: #fff; }
+    .btn-primary:hover { background: var(--indigo-deep); }
+    .btn-ghost { background: transparent; color: var(--ink); border-color: var(--rule-strong); }
+    .btn-ghost:hover { border-color: var(--ink); }
+    .btn svg { width: 16px; height: 16px; fill: currentColor; }
 
-    /* Clone box */
-    .clone-box { max-width: 720px; margin: 0 auto; animation: fadeInUp 0.6s ease 0.4s forwards; opacity: 0; }
-    .clone-box-label {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 20px; background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border-color); border-bottom: none;
-      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-      font-size: 13px; color: var(--text-muted); font-weight: 500;
+    .clone-field {
+      display: flex; align-items: stretch;
+      border: 1px solid var(--rule-strong);
+      max-width: 560px;
     }
-    .clone-box-code {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 20px 24px; background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-      font-family: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
-      font-size: 15px; color: var(--accent-cyan); gap: 16px;
+    .clone-field .cmd {
+      flex: 1; padding: 12px 16px;
+      font-family: var(--font-mono); font-size: 0.85rem;
+      color: var(--ink); overflow-x: auto; white-space: nowrap;
     }
-    .clone-box-code code { flex: 1; word-break: break-all; line-height: 1.6; }
-    .clone-box-code .copy-btn {
-      flex-shrink: 0; padding: 8px 16px; border-radius: var(--radius-sm);
-      background: rgba(139, 92, 246, 0.15);
-      border: 1px solid rgba(139, 92, 246, 0.3);
-      color: var(--accent-purple); font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: all 0.2s ease; font-family: inherit;
+    .copy-btn {
+      flex-shrink: 0; padding: 0 18px; min-height: 44px;
+      font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.06em;
+      background: var(--indigo-soft); color: var(--indigo-deep);
+      border: none; border-left: 1px solid var(--rule-strong);
+      cursor: pointer;
     }
-    .clone-box-code .copy-btn:hover { background: rgba(139, 92, 246, 0.25); }
-    .clone-box-code .copy-btn.copied {
-      background: rgba(16, 185, 129, 0.15);
-      border-color: rgba(16, 185, 129, 0.3); color: var(--accent-emerald);
-    }
+    .copy-btn:hover { background: var(--indigo); color: #fff; }
 
-    /* Stats */
-    .stats {
-      display: flex; align-items: center; justify-content: center;
-      gap: 48px; padding: 48px 0; margin-top: 64px;
-      animation: fadeInUp 0.6s ease 0.5s forwards; opacity: 0;
+    .stamp-wrap {
+      width: clamp(150px, 17vw, 205px);
+      transform: rotate(-8deg);
+      margin-top: 4px;
+      color: var(--seal);
+      mix-blend-mode: multiply;
+      opacity: 0.92;
     }
-    .stat { text-align: center; }
-    .stat-value {
-      font-size: 36px; font-weight: 800; letter-spacing: -0.03em;
-      background: var(--gradient-brand);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    .stamp-svg { width: 100%; height: auto; }
+    .stamp-arc-text {
+      font-family: var(--font-mono); font-size: 13.5px; letter-spacing: 3.5px;
+      fill: currentColor; font-weight: 600;
     }
-    .stat-label { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
-    .stat-divider { width: 1px; height: 48px; background: var(--border-color); }
-
-    /* FEATURES */
-    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 56px; }
-    .feature-card {
-      padding: 32px; border-radius: var(--radius-xl);
-      border: 1px solid var(--border-color);
-      background: rgba(24, 24, 27, 0.6);
-      backdrop-filter: blur(10px);
-      transition: all 0.3s ease; position: relative; overflow: hidden;
+    .stamp-main { font-size: 40px; font-weight: 800; letter-spacing: 6px; fill: currentColor; }
+    .stamp-star { font-size: 15px; fill: currentColor; }
+    .stamp-latin {
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 4px;
+      fill: currentColor;
     }
-    .feature-card::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-      background: var(--gradient-brand); opacity: 0; transition: opacity 0.3s ease;
+    .stamp-serial {
+      font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 1.5px;
+      fill: currentColor;
     }
-    .feature-card:hover {
-      border-color: rgba(139, 92, 246, 0.3);
-      background: rgba(24, 24, 27, 0.8);
-      transform: translateY(-4px); box-shadow: var(--shadow-glow);
-    }
-    .feature-card:hover::before { opacity: 1; }
-    .feature-icon {
-      width: 48px; height: 48px; border-radius: var(--radius-md);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; margin-bottom: 20px;
-    }
-    .fi-purple { background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.2); }
-    .fi-blue { background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.2); }
-    .fi-cyan { background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.2); }
-    .fi-emerald { background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.2); }
-    .fi-amber { background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.2); }
-    .fi-rose { background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.2); }
-    .feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.01em; }
-    .feature-card p { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
-
-    .feature-card--wide {
-      grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr;
-      gap: 32px; align-items: center;
-    }
-    .feature-card--wide .feature-visual {
-      border-radius: var(--radius-lg); background: var(--bg-secondary);
-      border: 1px solid var(--border-color); overflow: hidden;
-    }
-    .feature-card--wide .feature-visual pre {
-      padding: 20px; font-family: "SF Mono", "JetBrains Mono", Consolas, monospace;
-      font-size: 13px; line-height: 1.7; color: var(--text-secondary); overflow-x: auto;
-    }
-    .fkw { color: var(--accent-purple); }
-    .fst { color: var(--accent-emerald); }
-    .fcm { color: var(--text-muted); font-style: italic; }
-    .fcmd { color: var(--accent-cyan); }
-
-    /* WORKFLOW */
-    .workflow-steps { display: flex; gap: 0; margin-top: 56px; position: relative; }
-    .workflow-steps::before {
-      content: ''; position: absolute; top: 36px; left: 36px; right: 36px;
-      height: 2px;
-      background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue), var(--accent-cyan), var(--accent-emerald), var(--accent-amber), var(--accent-purple));
-      border-radius: 2px; z-index: 0;
-    }
-    .workflow-step { flex: 1; text-align: center; position: relative; z-index: 1; }
-    .workflow-step-num {
-      width: 72px; height: 72px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 20px; font-size: 28px; font-weight: 800;
-      border: 2px solid var(--border-color); background: var(--bg-primary);
-      transition: all 0.3s ease;
-    }
-    .workflow-step:nth-child(1) .workflow-step-num { color: var(--accent-purple); border-color: rgba(139,92,246,0.3); }
-    .workflow-step:nth-child(2) .workflow-step-num { color: var(--accent-blue); border-color: rgba(59,130,246,0.3); }
-    .workflow-step:nth-child(3) .workflow-step-num { color: var(--accent-cyan); border-color: rgba(6,182,212,0.3); }
-    .workflow-step:nth-child(4) .workflow-step-num { color: var(--accent-emerald); border-color: rgba(16,185,129,0.3); }
-    .workflow-step:nth-child(5) .workflow-step-num { color: var(--accent-amber); border-color: rgba(245,158,11,0.3); }
-    .workflow-step:nth-child(6) .workflow-step-num { color: var(--accent-purple); border-color: rgba(139,92,246,0.3); }
-    .workflow-step:hover .workflow-step-num { transform: scale(1.1); }
-    .workflow-step h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-    .workflow-step p { font-size: 13px; color: var(--text-muted); line-height: 1.5; padding: 0 8px; }
-
-    /* SHOWCASE */
-    .showcase-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 56px; }
-    .showcase-item {
-      border-radius: var(--radius-xl); border: 1px solid var(--border-color);
-      background: var(--bg-secondary); overflow: hidden;
-      transition: all 0.3s ease;
-    }
-    .showcase-item:hover {
-      border-color: rgba(139, 92, 246, 0.3);
-      box-shadow: var(--shadow-glow); transform: translateY(-4px);
-    }
-    .showcase-item img { width: 100%; display: block; aspect-ratio: 16/10; object-fit: cover; background: var(--bg-primary); }
-    .showcase-caption {
-      padding: 20px 24px; font-size: 14px; color: var(--text-secondary);
-      display: flex; align-items: center; gap: 12px;
-    }
-    .showcase-caption .sc-emoji { font-size: 24px; }
-    .showcase-caption strong { color: var(--text-primary); display: block; margin-bottom: 2px; }
-    .showcase-caption span { font-size: 13px; color: var(--text-muted); }
-
-    /* DOMAINS */
-    .domains-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 56px; }
-    .domain-chip {
-      padding: 24px 20px; border-radius: var(--radius-lg);
-      border: 1px solid var(--border-color);
-      background: rgba(24, 24, 27, 0.4); text-align: center;
-      transition: all 0.25s ease;
-    }
-    .domain-chip:hover {
-      border-color: rgba(139, 92, 246, 0.3);
-      background: rgba(139, 92, 246, 0.06); transform: translateY(-2px);
-    }
-    .domain-chip .domain-emoji { font-size: 28px; margin-bottom: 12px; display: block; }
-    .domain-chip h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
-    .domain-chip p { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
-
-    /* CTA */
-    .cta-section { text-align: center; padding: 100px 0 120px; }
-    .cta-box {
-      padding: 64px 48px; border-radius: var(--radius-xl);
-      border: 1px solid var(--border-color);
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(6, 182, 212, 0.04));
-      position: relative; overflow: hidden;
-    }
-    .cta-box::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-      background: var(--gradient-brand);
-    }
-    .cta-box h2 {
-      font-size: clamp(28px, 4vw, 44px); font-weight: 800;
-      letter-spacing: -0.03em; margin-bottom: 16px;
-    }
-    .cta-box p {
-      font-size: 18px; color: var(--text-secondary);
-      margin-bottom: 36px; max-width: 560px; margin-left: auto; margin-right: auto;
-    }
-    .cta-actions { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
-
-    /* FOOTER */
-    .footer {
-      padding: 40px 0; border-top: 1px solid var(--border-color);
-      text-align: center; color: var(--text-muted); font-size: 14px;
-      position: relative; z-index: 1;
-    }
-    .footer a { color: var(--text-secondary); transition: color 0.2s ease; }
-    .footer a:hover { color: var(--accent-purple); }
-    .footer-links {
-      display: flex; align-items: center; justify-content: center;
-      gap: 24px; margin-bottom: 16px;
-    }
-
-    /* ANIMATIONS */
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(24px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes pulseDot {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    .reveal {
-      opacity: 0; transform: translateY(32px);
-      transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-
-    /* RESPONSIVE */
-    @media (max-width: 1024px) {
-      .features-grid { grid-template-columns: repeat(2, 1fr); }
-      .feature-card--wide { grid-column: span 2; }
-      .domains-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-    @media (max-width: 768px) {
-      section { padding: 64px 0; }
-      .nav-links { display: none; }
-      .nav-mobile-toggle { display: block; }
-      .nav-links.open {
-        display: flex; flex-direction: column;
-        position: absolute; top: var(--nav-height); left: 0; right: 0;
-        background: rgba(9, 9, 11, 0.95); backdrop-filter: blur(20px);
-        border-bottom: 1px solid var(--border-color); padding: 16px 24px; gap: 4px;
+    @media (max-width: 760px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .stamp-wrap {
+        order: -1; justify-self: end; align-self: start;
+        width: 128px; margin: -10px 0 -6px;
       }
-      .nav-links.open a { padding: 12px 16px; width: 100%; }
-      .hero { padding: 120px 0 64px; }
-      .hero h1 { font-size: clamp(36px, 10vw, 56px); }
-      .features-grid { grid-template-columns: 1fr; }
-      .feature-card--wide { grid-column: span 1; grid-template-columns: 1fr; }
-      .domains-grid { grid-template-columns: repeat(2, 1fr); }
-      .showcase-grid { grid-template-columns: 1fr; }
-      .workflow-steps { flex-direction: column; gap: 24px; }
-      .workflow-steps::before { top: 0; bottom: 0; left: 35px; right: auto; width: 2px; height: auto; }
-      .workflow-step { text-align: left; display: flex; align-items: center; gap: 20px; }
-      .workflow-step-num { width: 56px; height: 56px; min-width: 56px; font-size: 22px; margin: 0; }
-      .stats { gap: 24px; flex-wrap: wrap; }
-      .stat-divider { display: none; }
-      .cta-box { padding: 40px 24px; }
     }
-    @media (max-width: 480px) {
-      .domains-grid { grid-template-columns: 1fr; }
-      .clone-box-code { flex-direction: column; align-items: stretch; }
-      .clone-box-code .copy-btn { width: 100%; text-align: center; }
+    @media (prefers-reduced-motion: no-preference) {
+      @keyframes stamp-in {
+        from { transform: rotate(-13deg) scale(1.22); opacity: 0; }
+        60% { opacity: 0.95; }
+        to { transform: rotate(-8deg) scale(1); opacity: 0.92; }
+      }
+      .stamp-wrap { animation: stamp-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+    }
+
+    .sheet-pad { padding: clamp(26px, 4.5vw, 52px); }
+    .sec-head { margin-bottom: clamp(24px, 4vw, 40px); }
+    .sec-head h2 {
+      font-size: clamp(1.5rem, 3vw, 2.1rem);
+      font-weight: 800; letter-spacing: -0.015em; line-height: 1.2;
+      text-wrap: balance;
+      margin-bottom: 10px;
+    }
+    .sec-head p { color: var(--ink-2); max-width: 62ch; }
+    .sec-note {
+      margin-top: 22px; padding-top: 14px;
+      border-top: 1px solid var(--rule);
+      font-size: 0.88rem; color: var(--ink-3);
+    }
+    .sec-note strong { color: var(--ink-2); }
+
+    .ledger { width: 100%; border-collapse: collapse; border-top: 1px solid var(--rule-strong); }
+    .ledger th {
+      text-align: left; padding: 10px 14px;
+      font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.1em; color: var(--ink-3);
+      border-bottom: 1px solid var(--rule-strong);
+    }
+    .ledger td {
+      padding: 13px 14px; border-bottom: 1px solid var(--rule);
+      vertical-align: top; font-size: 0.92rem;
+    }
+    .ledger tr:last-child td { border-bottom: 1px solid var(--rule-strong); }
+    .ledger .m-id {
+      font-family: var(--font-mono); font-size: 0.8rem; color: var(--indigo-deep);
+      white-space: nowrap;
+    }
+    .ledger .m-name { font-weight: 700; white-space: nowrap; }
+    .ledger .m-check { color: var(--ink-2); }
+    .ledger .tag {
+      display: inline-block; font-family: var(--font-mono); font-size: 0.72rem;
+      padding: 1px 7px; margin-right: 6px;
+      background: var(--indigo-soft); color: var(--indigo-deep);
+    }
+    @media (max-width: 700px) {
+      .ledger thead { display: none; }
+      .ledger, .ledger tbody, .ledger tr, .ledger td { display: block; }
+      .ledger tr { padding: 14px 0; border-bottom: 1px solid var(--rule); }
+      .ledger tr:last-child { border-bottom: 1px solid var(--rule-strong); }
+      .ledger td { padding: 2px 14px; border-bottom: none; }
+      .ledger td::before {
+        content: attr(data-label);
+        display: block; font-family: var(--font-mono); font-size: 0.68rem;
+        letter-spacing: 0.1em; color: var(--ink-3);
+      }
+    }
+
+    .stops { list-style: none; border-top: 1px solid var(--rule-strong); }
+    .stops li {
+      display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px;
+      padding: 16px 6px; border-bottom: 1px solid var(--rule);
+    }
+    .stops li:last-child { border-bottom: 1px solid var(--rule-strong); }
+    .stop-box {
+      width: 20px; height: 20px; margin-top: 4px;
+      border: 1.5px solid var(--rule-strong); background: var(--paper);
+      display: grid; place-items: center;
+      color: var(--teal); font-weight: 800; font-size: 14px; line-height: 1;
+    }
+    .stops h3 {
+      font-size: 1rem; font-weight: 700; margin-bottom: 2px;
+    }
+    .stops h3 code {
+      font-size: 0.82rem; color: var(--indigo-deep); letter-spacing: 0.04em;
+      margin-right: 8px;
+    }
+    .stops p { font-size: 0.92rem; color: var(--ink-2); }
+
+    .exhibits {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: clamp(16px, 2.5vw, 24px);
+    }
+    .exhibit { min-width: 0; }
+    .ex-caption {
+      display: flex; align-items: baseline; gap: 10px;
+      padding-bottom: 8px; margin-bottom: 10px;
+      border-bottom: 1px solid var(--rule);
+      font-size: 0.86rem; color: var(--ink-2);
+    }
+    .ex-no {
+      font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em;
+      color: var(--indigo-deep); white-space: nowrap;
+    }
+    .ex-frame {
+      display: block;
+      border: 1px solid var(--rule-strong);
+      background: #fff;
+      overflow: hidden;
+      text-decoration: none;
+    }
+    .ex-frame img { width: 100%; height: 100%; object-fit: cover; }
+    .e-a { grid-column: span 7; }
+    .e-b { grid-column: span 5; }
+    .e-c { grid-column: span 7; }
+    .e-d { grid-column: span 5; }
+    .e-e { grid-column: span 7; }
+    .e-f { grid-column: span 5; }
+    .e-g, .e-h, .e-i { grid-column: span 4; }
+    .e-a .ex-frame { aspect-ratio: 1.414; }
+    .e-b .ex-frame { aspect-ratio: 1.01; }
+    .e-c .ex-frame { aspect-ratio: 2.46; }
+    .e-d .ex-frame { aspect-ratio: 1.76; }
+    .e-e .ex-frame { aspect-ratio: 2.367; }
+    .e-f .ex-frame { aspect-ratio: 1.69; }
+    .e-g .ex-frame, .e-h .ex-frame, .e-i .ex-frame { aspect-ratio: 1.5; }
+    .ex-pair {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: stretch;
+      gap: 10px;
+      padding: 10px;
+    }
+    .ex-pair img { object-position: top; }
+    .ex-pair .pair-arrow {
+      align-self: center;
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
+      color: var(--ink-3);
+      padding: 0 2px;
+    }
+    @media (max-width: 760px) {
+      .exhibit { grid-column: span 12 !important; }
+    }
+
+    .start-row { margin-bottom: 26px; }
+    .start-row:last-child { margin-bottom: 0; }
+    .start-label {
+      display: block; font-family: var(--font-mono); font-size: 0.72rem;
+      letter-spacing: 0.1em; color: var(--ink-3); margin-bottom: 8px;
+    }
+    .start-row .clone-field { max-width: 100%; }
+    .start-row .cmd { white-space: normal; line-height: 1.6; }
+
+    .sig-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: clamp(20px, 4vw, 44px);
+      margin-bottom: 26px;
+    }
+    .sig-label {
+      display: block; font-family: var(--font-mono); font-size: 0.7rem;
+      letter-spacing: 0.1em; color: var(--ink-3); margin-bottom: 26px;
+    }
+    .sig-line {
+      display: block; border-bottom: 1px solid var(--ink); height: 1px;
+      margin-bottom: 8px;
+    }
+    .sig-value { font-size: 0.88rem; color: var(--ink-2); }
+    .sig-value a { color: var(--indigo-deep); }
+    .sig-value a:hover { color: var(--indigo); }
+    .colophon {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px;
+      border-top: 3px double var(--rule-strong); padding-top: 18px;
+      font-size: 0.82rem; color: var(--ink-3);
+    }
+    .colophon a { color: var(--ink-2); }
+    .colophon a:hover { color: var(--indigo-deep); }
+    @media (max-width: 640px) {
+      .sig-grid { grid-template-columns: 1fr; gap: 18px; }
+      .sig-label { margin-bottom: 18px; }
+    }
+
+    .hero h1 em { font-style: normal; color: var(--seal); }
+    .copy-btn.copied { background: var(--teal); color: #fff; }
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+    }
+
+    /* 一张单据内的分区双线 + 分区节奏 */
+    .sheet-sec {
+      border-top: 3px double var(--rule-strong);
+      margin-top: clamp(26px, 4.5vw, 48px);
+      padding-top: clamp(26px, 4.5vw, 48px);
+    }
+    .copy-btn { min-width: 100px; }
+    @media (max-width: 640px) {
+      .form-head .cell:last-child { grid-column: 1 / -1; border-bottom: none; }
+    }
+
+    /* package 清单凭证卡（e-i） */
+    .check-card {
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 18px 22px;
+      background: var(--paper);
+    }
+    .check-list { list-style: none; font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-2); }
+    .check-list li {
+      display: flex; align-items: baseline; gap: 10px;
+      padding: 7px 0; border-bottom: 1px dashed var(--rule);
+    }
+    .check-list li:last-child { border-bottom: none; }
+    .check-list .ck { color: var(--teal); font-weight: 700; flex-shrink: 0; }
+    .check-list .fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .check-note {
+      margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--rule);
+      font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.08em;
+      color: var(--ink-3);
     }
   </style>
 </head>
 <body>
-  <div class="bg-grid"></div>
-  <div class="bg-orb bg-orb--purple"></div>
-  <div class="bg-orb bg-orb--blue"></div>
-  <div class="bg-orb bg-orb--cyan"></div>
+  <a class="skip" href="#main">跳到正文</a>
 
-  <!-- NAV -->
-  <nav class="nav">
-    <div class="container">
-      <a href="#" class="nav-logo">
-        <span class="nav-logo-icon">&#128219;</span>
-        AutoFlow
+  <header class="masthead">
+    <div class="wrap">
+      <a class="brand" href="./">
+        <img src="assets/logo.png" alt="AutoFlow 标志" width="30" height="30" />
+        AutoFlow.skill
       </a>
-      <ul class="nav-links" id="navLinks">
-        <li><a href="#features" class="active">功能</a></li>
-        <li><a href="#workflow">工作流</a></li>
-        <li><a href="#showcase">效果</a></li>
-        <li><a href="#domains">领域</a></li>
-        <li>
-          <a href="https://github.com/qiuy-collab/AutoFlow.skill" target="_blank" rel="noopener">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            GitHub
-          </a>
-        </li>
-        <li>
-          <a href="https://github.com/qiuy-collab/AutoFlow.skill/releases" target="_blank" rel="noopener" class="nav-cta">
-            &#8595; 下载
-          </a>
-        </li>
-      </ul>
-      <button class="nav-mobile-toggle" id="navToggle" aria-label="菜单">&#9776;</button>
-    </div>
-  </nav>
-
-  <!-- HERO -->
-  <header class="hero">
-    <div class="container">
-      <div class="hero-badge">
-        <span class="hero-badge-dot"></span>
-        MIT 开源 &middot; 免费使用 &middot; Agent 驱动
-      </div>
-      <h1>
-        把复杂交付拆成流程，<br /><span class="text-gradient">让 Agent 真正协作。</span>
-      </h1>
-      <p class="hero-subtitle">
-        Task、图片、Word、PPT、视频和提交包按需组合——<br />
-        每个步骤有依赖，每个关键选择有 STOP，每项需求都映射真实证据与验证记录。
-      </p>
-
-      <div class="hero-actions">
-        <a href="https://github.com/qiuy-collab/AutoFlow.skill" class="btn btn-primary">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-          查看源码
-        </a>
-        <a href="#workflow" class="btn btn-secondary">&#9881; 工作流</a>
-      </div>
-
-      <div class="clone-box">
-        <div class="clone-box-label">
-          <span>克隆 &amp; 初始化</span>
-          <span>bash</span>
-        </div>
-        <div class="clone-box-code">
-          <code>git clone https://github.com/qiuy-collab/AutoFlow.skill</code>
-          <button class="copy-btn" onclick="copyCommand(this)">复制</button>
-        </div>
-      </div>
-
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-value">6</div>
-          <div class="stat-label">可组合模块</div>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <div class="stat-value">DAG</div>
-          <div class="stat-label">依赖驱动执行</div>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <div class="stat-value">4</div>
-          <div class="stat-label">人工 STOP</div>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <div class="stat-value">MIT</div>
-          <div class="stat-label">开源协议</div>
-        </div>
-      </div>
+      <nav class="mast-nav" aria-label="页内导航">
+        <a href="#modules">模块台账</a>
+        <a href="#stops">STOP 门</a>
+        <a href="#evidence">交付凭证</a>
+        <a href="#start">开始使用</a>
+      </nav>
+      <span class="mast-serial">NO. AF-2026-0913</span>
+      <a class="mast-gh" href="https://github.com/qiuy-collab/AutoFlow.skill" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
     </div>
   </header>
 
-  <!-- FEATURES -->
-  <section id="features" style="background: rgba(17,17,19,0.5);">
-    <div class="container">
-      <div class="reveal">
-        <span class="section-label">&#10022; 核心能力</span>
-        <h2 class="section-title">一个入口，组合六个能力模块</h2>
-        <p class="section-desc">Agent 根据需求生成 workflow DAG，再调用对应 Skill 或工具；核心脚本负责状态、依赖、STOP 和产物校验。</p>
+  <main id="main" class="wrap">
+    <article class="sheet">
+      <header class="form-head">
+        <div class="cell">
+          <span class="cell-label">PROJECT / 项目</span>
+          <span class="cell-value">AutoFlow.skill — Agent 通用任务引擎</span>
+        </div>
+        <div class="cell">
+          <span class="cell-label">REGISTER / 版式</span>
+          <span class="cell-value">brand · 设计即产品</span>
+        </div>
+        <div class="cell">
+          <span class="cell-label">ISSUED / 签发</span>
+          <span class="cell-value">2026-09 · 中文站</span>
+        </div>
+      </header>
+
+      <div class="hero-grid">
+        <section class="hero" aria-labelledby="hero-title">
+          <p class="hero-kicker">AGENT TASK ENGINE · 五模块 × 四道 STOP 门</p>
+          <h1 id="hero-title">复杂交付，<em>一张验收单</em>。</h1>
+          <p class="hero-sub">AutoFlow 跑在你的 Agent 里，把 <strong>Word 文档、真实截图、图表、视频和提交包</strong>编排成可验证的工作流：每个产物落盘可查，关键节点停下来等你确认，交付像验收单一样签收。</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="https://github.com/qiuy-collab/AutoFlow.skill" target="_blank" rel="noopener">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+              到 GitHub 安装
+            </a>
+            <a class="btn btn-ghost" href="#evidence">先看交付凭证 ↓</a>
+          </div>
+          <div class="clone-field">
+            <code class="cmd" id="cmd-clone">git clone https://github.com/qiuy-collab/AutoFlow.skill.git</code>
+            <button class="copy-btn" type="button" data-copy="cmd-clone">复制</button>
+          </div>
+        </section>
+
+        <aside class="stamp-wrap" aria-hidden="true">
+          <svg class="stamp-svg" viewBox="0 0 200 200">
+            <defs>
+              <path id="stamp-arc-top" d="M 14,100 A 86,86 0 0 1 186,100" fill="none" />
+              <path id="stamp-arc-btm" d="M 186,100 A 86,86 0 0 1 14,100" fill="none" />
+            </defs>
+            <circle cx="100" cy="100" r="95" fill="none" stroke="currentColor" stroke-width="3.5" />
+            <circle cx="100" cy="100" r="78" fill="none" stroke="currentColor" stroke-width="1.2" />
+            <text class="stamp-arc-text"><textPath href="#stamp-arc-top" startOffset="50%" text-anchor="middle">AUTOFLOW · VERIFIED</textPath></text>
+            <text class="stamp-arc-text"><textPath href="#stamp-arc-btm" startOffset="50%" text-anchor="middle">DELIVERY ACCEPTED</textPath></text>
+            <text class="stamp-latin" x="100" y="56" text-anchor="middle">★ QC ★</text>
+            <text class="stamp-main" x="100" y="102" text-anchor="middle">验收</text>
+            <text class="stamp-main" x="100" y="144" text-anchor="middle">合格</text>
+            <text class="stamp-star" x="40" y="128" text-anchor="middle">★</text>
+            <text class="stamp-star" x="160" y="128" text-anchor="middle">★</text>
+            <text class="stamp-serial" x="100" y="166" text-anchor="middle">NO. AF-0913</text>
+          </svg>
+        </aside>
       </div>
+      <section class="sheet-sec" id="modules" aria-labelledby="modules-title">
+        <div class="sec-head">
+          <h2 id="modules-title">模块台账</h2>
+          <p>五个模块覆盖一次交付的全部产物。单模块、无依赖的小交付走 <strong>direct</strong> 直出；多产物交付走 <strong>managed</strong>，任务编成 DAG，状态落盘、中断可续跑。</p>
+        </div>
+        <table class="ledger">
+          <thead>
+            <tr>
+              <th scope="col">编号</th>
+              <th scope="col">模块</th>
+              <th scope="col">交付物</th>
+              <th scope="col">核对要点</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="m-id" data-label="编号">M-01</td>
+              <td class="m-name" data-label="模块">task</td>
+              <td data-label="交付物">GitHub-first 检索、项目构建与可运行性证据</td>
+              <td class="m-check" data-label="核对要点">构建可复跑，证据落盘</td>
+            </tr>
+            <tr>
+              <td class="m-id" data-label="编号">M-02</td>
+              <td class="m-name" data-label="模块">image</td>
+              <td data-label="交付物">真实浏览器捕获、AI 生成电脑截图、确定性图与基于真实数据的图表</td>
+              <td class="m-check" data-label="核对要点">每图带来源标注</td>
+            </tr>
+            <tr>
+              <td class="m-id" data-label="编号">M-03</td>
+              <td class="m-name" data-label="模块">office</td>
+              <td data-label="交付物">Word、PPT、Excel 的创建、填充、渲染审查与计划级校验</td>
+              <td class="m-check" data-label="核对要点">officecli 逐页校验</td>
+            </tr>
+            <tr>
+              <td class="m-id" data-label="编号">M-04</td>
+              <td class="m-name" data-label="模块">video</td>
+              <td data-label="交付物">既有视频分析、录制、生成与处理</td>
+              <td class="m-check" data-label="核对要点">帧级核对后入库</td>
+            </tr>
+            <tr>
+              <td class="m-id" data-label="编号">M-05</td>
+              <td class="m-name" data-label="模块">package</td>
+              <td data-label="交付物">组装干净的 <code>submit/</code> 交付目录与可验证清单</td>
+              <td class="m-check" data-label="核对要点">杂物清零，逐项打勾</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="sec-note">内置四个插件按任务选用：<strong>officecli</strong> 结构化校验与渲染 · <strong>minimax-docx</strong> 复杂 Word 后端 · <strong>nature-figure</strong> 出版级图表 · <strong>impeccable</strong> 前端设计质量。</p>
+      </section>
 
-      <div class="features-grid">
-        <div class="feature-card reveal">
-          <div class="feature-icon fi-purple">&#128221;</div>
-          <h3>Task</h3>
-          <p>调研、GitHub 源码候选、项目改造、计算和真实执行，为下游提供可信基础。</p>
+      <section class="sheet-sec" id="stops" aria-labelledby="stops-title">
+        <div class="sec-head">
+          <h2 id="stops-title">四道 STOP 门</h2>
+          <p>不夸大自动化。关键节点 Agent 停下来，把方案和产物摆上台面，<strong>由你确认后才继续</strong>——这是与黑盒自动化的根本区别。</p>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon fi-blue">&#128247;</div>
-          <h3>Image</h3>
-          <p>组合真实截图、AI 资产、DSL 图示和数据图表，并在采用前执行视觉 STOP。</p>
+        <ol class="stops">
+          <li>
+            <span class="stop-box" aria-hidden="true">1</span>
+            <div>
+              <h3><code>PLAN</code>开工前 · 计划确认</h3>
+              <p>Agent 给出执行模式、任务拆解与目录结构，你点头才动手。</p>
+            </div>
+          </li>
+          <li>
+            <span class="stop-box" aria-hidden="true">2</span>
+            <div>
+              <h3><code>SOURCE</code>素材来源 · 入单确认</h3>
+              <p>截图、生图、图表与文档素材的来源逐项登记，AI 生成一律照实标注。</p>
+            </div>
+          </li>
+          <li>
+            <span class="stop-box" aria-hidden="true">3</span>
+            <div>
+              <h3><code>VISUAL</code>视觉产物 · 逐张过目</h3>
+              <p>图像与文档渲染页逐张过目，不合格当场重做，合格才算过门。</p>
+            </div>
+          </li>
+          <li>
+            <span class="stop-box" aria-hidden="true">4</span>
+            <div>
+              <h3><code>DELIVERY</code>交付签收 · 清单核对</h3>
+              <p><code>submit/</code> 目录与可验证清单逐项核对，全部通过才交付，像验收单一样签收。</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+      <section class="sheet-sec" id="evidence" aria-labelledby="evidence-title">
+        <div class="sec-head">
+          <h2 id="evidence-title">交付凭证</h2>
+          <p>以下全部出自同一个演示项目——「校园活动报名管理系统」（Spring Boot + MySQL）。真实截图与 AI 生成示意图<strong>分别标注</strong>，来源可查。</p>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon fi-cyan">&#128202;</div>
-          <h3>Word + PPT</h3>
-          <p>填写或创建 Word，并通过 PPT 能力生成演示稿；Word 同时校验模板、TOC、题注、口吻、渲染结果与文档哈希。</p>
+        <div class="exhibits">
+          <figure class="exhibit e-a">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT A</span>Word 模板 → 填写后 · office 模块</figcaption>
+            <div class="ex-frame">
+              <div class="ex-pair">
+                <img src="assets/evidence-word-template.png" alt="填写前的实验报告 Word 模板渲染页" loading="lazy" />
+                <span class="pair-arrow" aria-hidden="true">→</span>
+                <img src="assets/evidence-word-filled.png" alt="填写后的实验报告渲染页" loading="lazy" />
+              </div>
+            </div>
+          </figure>
+          <figure class="exhibit e-b">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT B</span>真实截图 · 运营端</figcaption>
+            <a class="ex-frame" href="assets/evidence-capture-operations.png" target="_blank" rel="noopener">
+              <img src="assets/evidence-capture-operations.png" alt="Playwright 真实捕获的运营端页面" loading="lazy" />
+            </a>
+          </figure>
+          <figure class="exhibit e-c">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT C</span>真实截图 · 报名页</figcaption>
+            <a class="ex-frame" href="assets/evidence-capture-registration.png" target="_blank" rel="noopener">
+              <img src="assets/evidence-capture-registration.png" alt="Playwright 真实捕获的报名页" loading="lazy" />
+            </a>
+          </figure>
+          <figure class="exhibit e-d">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT D</span>AI 生成示意图 · Maven 构建</figcaption>
+            <a class="ex-frame" href="assets/evidence-terminal-maven.png" target="_blank" rel="noopener">
+              <img src="assets/evidence-terminal-maven.png" alt="AI 生成的 Maven 构建终端示意图（非真实截图）" loading="lazy" />
+            </a>
+          </figure>
+          <figure class="exhibit e-e">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT E</span>真实截图 · 控制台</figcaption>
+            <a class="ex-frame" href="assets/evidence-capture-dashboard.png" target="_blank" rel="noopener">
+              <img src="assets/evidence-capture-dashboard.png" alt="Playwright 真实捕获的 dashboard 页面" loading="lazy" />
+            </a>
+          </figure>
+          <figure class="exhibit e-f">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT F</span>出版级图表 · 指标矩阵</figcaption>
+            <a class="ex-frame" href="assets/evidence-chart-metric.png" target="_blank" rel="noopener">
+              <img src="assets/evidence-chart-metric.png" alt="nature-figure 模板渲染的指标矩阵图表" loading="lazy" />
+            </a>
+          </figure>
+          <figure class="exhibit e-g">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT G</span>DSL 渲染 · 架构图</figcaption>
+            <a class="ex-frame" href="assets/evidence-diagram-architecture.png" target="_blank" rel="noopener">
+              <img src="assets/evidence-diagram-architecture.png" alt="基于 DSL 渲染的系统架构图" loading="lazy" />
+            </a>
+          </figure>
+          <figure class="exhibit e-h">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT H</span>AI 生成示意图 · SQL 查询</figcaption>
+            <a class="ex-frame" href="assets/evidence-terminal-sql.png" target="_blank" rel="noopener">
+              <img src="assets/evidence-terminal-sql.png" alt="AI 生成的 SQL 查询终端示意图（非真实截图）" loading="lazy" />
+            </a>
+          </figure>
+          <figure class="exhibit e-i">
+            <figcaption class="ex-caption"><span class="ex-no">EXHIBIT I</span>package · 提交包清单</figcaption>
+            <div class="ex-frame check-card">
+              <ul class="check-list">
+                <li><span class="ck" aria-hidden="true">✓</span><span class="fn">submit/README.md</span></li>
+                <li><span class="ck" aria-hidden="true">✓</span><span class="fn">submit/docs/report.docx</span></li>
+                <li><span class="ck" aria-hidden="true">✓</span><span class="fn">submit/src/ — 构建可复跑</span></li>
+                <li><span class="ck" aria-hidden="true">✓</span><span class="fn">submit/assets/ — 凭证图</span></li>
+                <li><span class="ck" aria-hidden="true">✗</span><span class="fn">缓存 / 密钥 / 构建产物已移除</span></li>
+              </ul>
+              <p class="check-note">CHECKED 12/12 · HASH LOGGED</p>
+            </div>
+          </figure>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon fi-emerald">&#128230;</div>
-          <h3>Package</h3>
-          <p>只整理需求声明的代码、数据、媒体和文档，生成可检查目录、压缩包与清单。</p>
+      </section>
+      <section class="sheet-sec" id="start" aria-labelledby="start-title">
+        <div class="sec-head">
+          <h2 id="start-title">开始使用</h2>
+          <p>把下面任一段交给你的 Agent（Claude Code、Codex 等均可），装完跑 <code>env-check</code> 确认可用。</p>
         </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon fi-amber">&#127909;</div>
-          <h3>Video</h3>
-          <p>支持视频分析、真实录屏、创建和处理，并记录时长、编码与抽帧验证结果。</p>
-        </div>
-        <div class="feature-card reveal">
-          <div class="feature-icon fi-rose">&#9881;</div>
-          <h3>可恢复状态</h3>
-          <p>workflow、run state 和 artifact manifest 都落盘，另一位 Agent 可以继续而不猜进度。</p>
-        </div>
+        <div class="start-row">
+          <span class="start-label">STEP 1 · 复制这段话发给 Agent</span>
+          <div class="clone-field">
+            <code class="cmd" id="cmd-prompt">从 https://github.com/qiuy-collab/AutoFlow.skill 克隆仓库，把完整的 autoflow Skill 目录安装到本地所有 Agent 的 skills 库中（如 ~/.claude/skills/、~/.codex/skills/ 等）。
 
-        <div class="feature-card feature-card--wide reveal">
+安装后阅读 references/init.md 初始化环境，然后运行 env-check 确认可用。</code>
+            <button class="copy-btn" type="button" data-copy="cmd-prompt">复制</button>
+          </div>
+        </div>
+        <div class="start-row">
+          <span class="start-label">STEP 2 · 或自己克隆仓库</span>
+          <div class="clone-field">
+            <code class="cmd" id="cmd-clone2">git clone https://github.com/qiuy-collab/AutoFlow.skill.git</code>
+            <button class="copy-btn" type="button" data-copy="cmd-clone2">复制</button>
+          </div>
+        </div>
+        <p class="sec-note">任务规模决定模式：单模块、无依赖的小交付走 <strong>direct</strong>；涉及来源选择、多产物依赖、文档或打包的交付走 <strong>managed</strong>（带全部 STOP 门）。</p>
+      </section>
+
+      <footer class="sheet-sec" aria-label="签收">
+        <div class="sig-grid">
           <div>
-            <div class="feature-icon fi-purple">&#9889;</div>
-            <h3>Agent 编排，脚本守门</h3>
-            <p>Agent 负责理解需求和调用模块，Python 只做确定性的 DAG、状态、审批和产物检查，兼顾灵活性与可审计性。</p>
+            <span class="sig-label">DELIVERED BY / 交付方</span>
+            <span class="sig-line"></span>
+            <span class="sig-value">AutoFlow.skill — Agent 通用任务引擎</span>
           </div>
-          <div class="feature-visual">
-            <pre><span class="fcm"># 只需发送这段话给 Agent</span>
-<span class="fkw">请读取并初始化这个 skill：</span>
-
-<span class="fst">https://github.com/qiuy-collab/AutoFlow.skill</span>
-
-<span class="fcm"># Agent 编排：</span>
-<span class="fcmd">1.</span> <span class="fkw">选择 recipe / 生成 DAG</span>
-<span class="fcmd">2.</span> <span class="fkw">PLAN_STOP 确认范围</span>
-<span class="fcmd">3.</span> <span class="fkw">按依赖执行模块</span>
-<span class="fcmd">4.</span> <span class="fkw">处理 SOURCE / VISUAL STOP</span>
-<span class="fcmd">5.</span> <span class="fkw">登记并校验 artifacts</span>
-<span class="fcmd">6.</span> <span class="fkw">DELIVERY_STOP 签收</span></pre>
+          <div>
+            <span class="sig-label">INSPECTED BY / 验收方</span>
+            <span class="sig-line"></span>
+            <span class="sig-value">屏幕前的你 —— 每道 STOP 由你确认</span>
+          </div>
+          <div>
+            <span class="sig-label">DATE / 日期</span>
+            <span class="sig-line"></span>
+            <span class="sig-value">2026-09 · 凭证随演示项目持续更新</span>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- WORKFLOW -->
-  <section id="workflow">
-    <div class="container">
-      <div class="reveal" style="text-align: center;">
-        <span class="section-label">&#9881; 工作流</span>
-        <h2 class="section-title">六段推进任意交付工作流</h2>
-        <p class="section-desc" style="margin: 0 auto;">先确认方向，再处理源码、执行任务、审查视觉、装配产物和签收交付。</p>
-      </div>
-
-      <div class="workflow-steps reveal">
-        <div class="workflow-step">
-          <div class="workflow-step-num">1</div>
-          <div><h4>计划 STOP</h4><p>确认 DAG、范围与产物</p></div>
-        </div>
-        <div class="workflow-step">
-          <div class="workflow-step-num">2</div>
-          <div><h4>源码 STOP</h4><p>GitHub 候选由用户选择</p></div>
-        </div>
-        <div class="workflow-step">
-          <div class="workflow-step-num">3</div>
-          <div><h4>Task 执行</h4><p>调研、构建、计算或实操</p></div>
-        </div>
-        <div class="workflow-step">
-          <div class="workflow-step-num">4</div>
-          <div><h4>视觉 STOP</h4><p>审查图片、图表和 PPT</p></div>
-        </div>
-        <div class="workflow-step">
-          <div class="workflow-step-num">5</div>
-          <div><h4>产物装配</h4><p>生成 Word、PPT、视频与包</p></div>
-        </div>
-        <div class="workflow-step">
-          <div class="workflow-step-num">6</div>
-          <div><h4>交付 STOP</h4><p>逐项核对需求、证据和产物后签收</p></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- SHOWCASE -->
-  <section id="showcase" style="background: rgba(17,17,19,0.5);">
-    <div class="container">
-      <div class="reveal">
-        <span class="section-label">&#127912; 运行效果</span>
-        <h2 class="section-title">看看生成的报告长什么样</h2>
-        <p class="section-desc">以下是一个《大数据处理技术》课程大作业的完整示例：作业要求 &rarr; 报告 + 代码 + 数据 + 图表 &rarr; 交付文件。</p>
-      </div>
-
-      <div class="showcase-grid reveal">
-        <div class="showcase-item">
-          <img src="效果图/生成的文档截图.png" alt="生成的 Word 报告截图" loading="lazy" />
-          <div class="showcase-caption">
-            <span class="sc-emoji">&#128196;</span>
-            <div><strong>生成的 Word 报告</strong><span>保留模板结构，自动填入内容、图表和截图</span></div>
-          </div>
-        </div>
-        <div class="showcase-item">
-          <img src="效果图/交付文件.png" alt="交付文件目录" loading="lazy" />
-          <div class="showcase-caption">
-            <span class="sc-emoji">&#128193;</span>
-            <div><strong>最终交付文件夹</strong><span>报告、代码、数据、图表一站式整理完毕</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- DOMAINS -->
-  <section id="domains">
-    <div class="container">
-      <div class="reveal" style="text-align: center;">
-        <span class="section-label">&#127759; 已验证领域</span>
-        <h2 class="section-title">覆盖多种课程场景</h2>
-        <p class="section-desc" style="margin: 0 auto;">AutoFlow 可以显式调用，也会在明显需要多个相互依赖产物时自动触发。</p>
-      </div>
-
-      <div class="domains-grid reveal">
-        <div class="domain-chip">
-          <span class="domain-emoji">&#128200;</span>
-          <h4>数据分析实验</h4>
-          <p>数据生成、清洗、分析、可视化</p>
-        </div>
-        <div class="domain-chip">
-          <span class="domain-emoji">&#128098;</span>
-          <h4>Linux / 操作系统</h4>
-          <p>命令步骤、终端截图、实验说明</p>
-        </div>
-        <div class="domain-chip">
-          <span class="domain-emoji">&#128187;</span>
-          <h4>Python / Java / Web</h4>
-          <p>代码、运行结果、课程设计</p>
-        </div>
-        <div class="domain-chip">
-          <span class="domain-emoji">&#128451;</span>
-          <h4>数据库设计</h4>
-          <p>ER 图、流程图、表结构设计</p>
-        </div>
-        <div class="domain-chip">
-          <span class="domain-emoji">&#127970;</span>
-          <h4>管理系统课设</h4>
-          <p>模块设计、系统说明、运行效果</p>
-        </div>
-        <div class="domain-chip">
-          <span class="domain-emoji">&#127897;</span>
-          <h4>答辩 PPT</h4>
-          <p>按汇报逻辑整理演示稿</p>
-        </div>
-        <div class="domain-chip">
-          <span class="domain-emoji">&#127909;</span>
-          <h4>实操视频</h4>
-          <p>录制操作过程，整理提交材料</p>
-        </div>
-        <div class="domain-chip">
-          <span class="domain-emoji">&#128203;</span>
-          <h4>Word 模板填写</h4>
-          <p>保留模板结构，插图排版</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA -->
-  <section class="cta-section">
-    <div class="container">
-      <div class="cta-box reveal">
-        <h2>准备好试试了吗？</h2>
-        <p>克隆仓库，让 Agent 为你的下一项复杂交付生成可验证工作流。</p>
-        <div class="cta-actions">
-          <a href="https://github.com/qiuy-collab/AutoFlow.skill" class="btn btn-primary">
-            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            前往 GitHub
-          </a>
-          <a href="#workflow" class="btn btn-secondary">查看工作流</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-links">
-        <a href="#features">功能</a>
-        <a href="#workflow">工作流</a>
-        <a href="#showcase">效果</a>
-        <a href="#domains">领域</a>
-        <a href="https://github.com/qiuy-collab/AutoFlow.skill" target="_blank">GitHub</a>
-      </div>
-      <p>AutoFlow.skill &middot; MIT License &middot; 由 <a href="https://github.com/qiuy-collab" target="_blank">qiuy-collab</a> 维护</p>
-    </div>
-  </footer>
+        <p class="colophon">
+          <span>AutoFlow.skill</span>
+          <a href="https://github.com/qiuy-collab/AutoFlow.skill" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/qiuy-collab/AutoFlow.skill/blob/main/README.md" target="_blank" rel="noopener">README</a>
+          <span>MIT License © qiuy-collab</span>
+          <span>凭证出自演示项目「校园活动报名管理系统」</span>
+          <span>AI 生成示意图已照实标注</span>
+        </p>
+      </footer>
+    </article>
+  </main>
 
   <script>
-    function copyCommand(btn) {
-      var code = btn.parentElement.querySelector('code').textContent;
-      navigator.clipboard.writeText(code).then(function() {
-        btn.textContent = '已复制 ✓';
-        btn.classList.add('copied');
-        setTimeout(function() {
-          btn.textContent = '复制';
-          btn.classList.remove('copied');
-        }, 2000);
-      });
-    }
-
-    var navToggle = document.getElementById('navToggle');
-    var navLinks = document.getElementById('navLinks');
-    navToggle.addEventListener('click', function() {
-      navLinks.classList.toggle('open');
-      navToggle.innerHTML = navLinks.classList.contains('open') ? '✕' : '☰';
-    });
-    navLinks.querySelectorAll('a').forEach(function(link) {
-      link.addEventListener('click', function() {
-        navLinks.classList.remove('open');
-        navToggle.innerHTML = '☰';
-      });
-    });
-
-    var reveals = document.querySelectorAll('.reveal');
-    var observer = new IntersectionObserver(function(entries) {
-      entries.forEach(function(entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
+    (function () {
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.copy-btn');
+        if (!btn) return;
+        var el = document.getElementById(btn.getAttribute('data-copy'));
+        if (!el) return;
+        var text = el.textContent.trim();
+        var done = function () {
+          btn.textContent = '已复制 ✓';
+          btn.classList.add('copied');
+          setTimeout(function () {
+            btn.textContent = '复制';
+            btn.classList.remove('copied');
+          }, 1800);
+        };
+        var fallback = function () {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); done(); } catch (err) {}
+          document.body.removeChild(ta);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, fallback);
+        } else {
+          fallback();
         }
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-    reveals.forEach(function(el) { observer.observe(el); });
-
-    var sections = document.querySelectorAll('section[id]');
-    var navItems = document.querySelectorAll('.nav-links a[href^="#"]');
-    window.addEventListener('scroll', function() {
-      var current = '';
-      sections.forEach(function(section) {
-        if (window.scrollY >= section.offsetTop - 120) {
-          current = section.getAttribute('id');
-        }
-      });
-      navItems.forEach(function(item) {
-        item.classList.remove('active');
-        if (item.getAttribute('href') === '#' + current) {
-          item.classList.add('active');
-        }
-      });
-    });
+    })();
   </script>
 </body>
 </html>
