@@ -27,3 +27,14 @@ integrations/minimax-docx/.setup.log
 .claude/
 # Local personal helper (hardcoded private bot token), not part of the Skill.
 /termshot-tg.sh
+# Regenerable render intermediates; display/README.md only documents the page PNGs.
+display/**/render/*.html
+display/**/render/*-full.png
+display/word/render/filled-zh-*.png
+display/word/render/filled-en-3.png
+display/ppt/
+display/word/filled-chinese.docx
+# Internal working notes; docs/ is published to Pages in full.
+docs/notes/
+# Local-only supplement config.
+examples/prompt_config.supplement.json
